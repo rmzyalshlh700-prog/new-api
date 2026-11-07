@@ -12,6 +12,13 @@ func seedFlowQuotaData(t *testing.T, quotaData QuotaData) {
 	require.NoError(t, DB.Create(&quotaData).Error)
 }
 
+func resetQuotaDataCache() {
+	CacheQuotaDataLock.Lock()
+	defer CacheQuotaDataLock.Unlock()
+	CacheQuotaData = make(map[string]*QuotaData)
+	quotaDataFlushGeneration++
+}
+
 func seedFlowLookupData(t *testing.T) {
 	t.Helper()
 	require.NoError(t, DB.Create(&Channel{Id: 1, Name: "east"}).Error)
@@ -23,6 +30,7 @@ func seedFlowLookupData(t *testing.T) {
 
 func TestGetFlowQuotaDataUsesQuotaDataRoleSpecificDimensions(t *testing.T) {
 	truncateTables(t)
+	resetQuotaDataCache()
 	seedFlowLookupData(t)
 
 	seedFlowQuotaData(t, QuotaData{
@@ -134,9 +142,7 @@ func TestGetFlowQuotaDataUsesQuotaDataRoleSpecificDimensions(t *testing.T) {
 
 func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	truncateTables(t)
-	CacheQuotaDataLock.Lock()
-	CacheQuotaData = make(map[string]*QuotaData)
-	CacheQuotaDataLock.Unlock()
+	resetQuotaDataCache()
 
 	LogQuotaData(QuotaDataLogParams{
 		UserID:    1,
@@ -190,4 +196,78 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	require.Equal(t, 60, rows[0].TokenUsed)
 	require.Equal(t, "default", rows[1].UseGroup)
 	require.Equal(t, 25, rows[1].Quota)
+}
+
+func TestQuotaDataReadsIncludePendingCacheRows(t *testing.T) {
+	truncateTables(t)
+	resetQuotaDataCache()
+
+	seedFlowQuotaData(t, QuotaData{
+		UserID:    1,
+		Username:  "alice",
+		NodeName:  "node-a",
+		TokenID:   11,
+		UseGroup:  "vip",
+		ModelName: "gpt-a",
+		ChannelID: 1,
+		CreatedAt: 3600,
+		Count:     2,
+		Quota:     100,
+		TokenUsed: 40,
+	})
+
+	// Never persisted: LogQuotaData only fills the in-memory cache, and its
+	// timestamp is truncated to the same hour as the seeded row.
+	LogQuotaData(QuotaDataLogParams{
+		UserID:    1,
+		Username:  "alice",
+		NodeName:  "node-a",
+		TokenID:   11,
+		UseGroup:  "vip",
+		ModelName: "gpt-a",
+		ChannelID: 1,
+		CreatedAt: 3700,
+		Quota:     50,
+		TokenUsed: 20,
+	})
+
+	all, err := GetAllQuotaDates(0, 7200, "")
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.Equal(t, 3, all[0].Count)
+	require.Equal(t, 150, all[0].Quota)
+	require.Equal(t, 60, all[0].TokenUsed)
+
+	byUser, err := GetQuotaDataGroupByUser(0, 7200)
+	require.NoError(t, err)
+	require.Len(t, byUser, 1)
+	require.Equal(t, "alice", byUser[0].Username)
+	require.Equal(t, 150, byUser[0].Quota)
+
+	self, err := GetQuotaDataByUserId(1, 0, 7200)
+	require.NoError(t, err)
+	require.Len(t, self, 1)
+	require.Equal(t, 150, self[0].Quota)
+
+	other, err := GetQuotaDataByUserId(2, 0, 7200)
+	require.NoError(t, err)
+	require.Empty(t, other)
+
+	flow, err := GetFlowQuotaData(0, 7200, "", 0, common.RoleRootUser)
+	require.NoError(t, err)
+	require.Len(t, flow, 1)
+	require.Equal(t, "alice", flow[0].Username)
+	require.Equal(t, "vip", flow[0].UseGroup)
+	require.Equal(t, 3, flow[0].Count)
+	require.Equal(t, 150, flow[0].Quota)
+	require.Equal(t, 60, flow[0].TokenUsed)
+
+	// Once the cache is flushed, the row is read from the database only once
+	// instead of being counted again as pending data.
+	SaveQuotaDataCache()
+	after, err := GetAllQuotaDates(0, 7200, "")
+	require.NoError(t, err)
+	require.Len(t, after, 1)
+	require.Equal(t, 3, after[0].Count)
+	require.Equal(t, 150, after[0].Quota)
 }

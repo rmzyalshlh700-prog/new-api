@@ -9,6 +9,7 @@ import { ActivityTrendPanel } from '../components/activity-trend-panel'
 import { FailedRequestsPanel } from '../components/failed-requests-panel'
 import { RevenuePanel } from '../components/revenue-panel'
 import { TopModelsPanel } from '../components/top-models-panel'
+import { LIVE_REFRESH_MS, LIVE_REFRESH_SECONDS } from '../lib/live-refresh'
 
 const models = [
   { model: 'model-a', tokens: 40, quota: 1, requests: 1 },
@@ -163,5 +164,10 @@ describe('admin overview panels', () => {
     expect(screen.getByText('bob')).toBeInTheDocument()
     expect(screen.getByText('upstream quota exceeded')).toBeInTheDocument()
     client.clear()
+  })
+
+  it('refreshes the control panel every five seconds', () => {
+    expect(LIVE_REFRESH_MS).toBe(5000)
+    expect(LIVE_REFRESH_SECONDS * 1000).toBe(LIVE_REFRESH_MS)
   })
 })

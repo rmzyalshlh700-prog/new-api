@@ -85,6 +85,7 @@ import {
   flowDisplayState,
   requireSuccessfulFlowRows,
 } from '../../lib/flow-selection'
+import { LIVE_REFRESH_MS } from '../../lib/live-refresh'
 import type {
   FlowLinkSelection,
   FlowMetric,
@@ -342,8 +343,8 @@ export function FlowCharts(props: FlowChartsProps) {
       requireServerSuccess(await getFlowQuotaDates(flowQueryParams, isAdmin)),
     select: (res) =>
       requireSuccessfulFlowRows(res, t('Please try again later.')),
-    refetchInterval: 3000,
-    staleTime: 2900,
+    refetchInterval: LIVE_REFRESH_MS,
+    staleTime: LIVE_REFRESH_MS - 100,
   })
 
   const maskSensitive = props.sensitiveVisible === false

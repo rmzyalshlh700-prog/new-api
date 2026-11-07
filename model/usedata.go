@@ -55,6 +55,12 @@ func UpdateQuotaData() {
 var CacheQuotaData = make(map[string]*QuotaData)
 var CacheQuotaDataLock = sync.Mutex{}
 
+// quotaDataFlushGeneration counts how many times the pending cache has been
+// written to the database. Read paths capture it before querying and compare it
+// afterwards, so a flush that overlaps a dashboard query can be detected and
+// retried instead of double-counting or dropping the affected rows.
+var quotaDataFlushGeneration uint64
+
 func logQuotaDataCache(quotaData *QuotaData) {
 	key := fmt.Sprintf("%d\x00%s\x00%s\x00%d\x00%s\x00%d\x00%d\x00%s",
 		quotaData.UserID,
@@ -129,6 +135,7 @@ func SaveQuotaDataCache() {
 		}
 	}
 	CacheQuotaData = make(map[string]*QuotaData)
+	quotaDataFlushGeneration++
 	common.SysLog(common.LogText("saved dashboard data, %d records", size))
 }
 
@@ -148,10 +155,86 @@ func increaseQuotaData(quotaData *QuotaData) {
 	}
 }
 
-func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+// pendingQuotaData copies the not-yet-flushed rows inside [startTime, endTime]
+// that satisfy match, together with the flush generation they were read at.
+func pendingQuotaData(startTime int64, endTime int64, match func(*QuotaData) bool) ([]*QuotaData, uint64) {
+	CacheQuotaDataLock.Lock()
+	defer CacheQuotaDataLock.Unlock()
+	pending := make([]*QuotaData, 0)
+	for _, quotaData := range CacheQuotaData {
+		if quotaData.CreatedAt < startTime || quotaData.CreatedAt > endTime {
+			continue
+		}
+		if match != nil && !match(quotaData) {
+			continue
+		}
+		snapshot := *quotaData
+		pending = append(pending, &snapshot)
+	}
+	return pending, quotaDataFlushGeneration
+}
+
+func quotaDataGeneration() uint64 {
+	CacheQuotaDataLock.Lock()
+	defer CacheQuotaDataLock.Unlock()
+	return quotaDataFlushGeneration
+}
+
+func quotaDataKeyByModelAndCreatedAt(quotaData *QuotaData) string {
+	return fmt.Sprintf("%s\x00%d", quotaData.ModelName, quotaData.CreatedAt)
+}
+
+func quotaDataKeyByUserModelAndCreatedAt(quotaData *QuotaData) string {
+	return fmt.Sprintf("%d\x00%s\x00%s\x00%d", quotaData.UserID, quotaData.Username, quotaData.ModelName, quotaData.CreatedAt)
+}
+
+func quotaDataKeyByUsernameAndCreatedAt(quotaData *QuotaData) string {
+	return fmt.Sprintf("%s\x00%d", quotaData.Username, quotaData.CreatedAt)
+}
+
+// mergePendingQuotaData folds pending rows into rows using the same grouping the
+// database query produced, so a dashboard reflects traffic not yet persisted.
+func mergePendingQuotaData(rows []*QuotaData, pending []*QuotaData, keyOf func(*QuotaData) string) []*QuotaData {
+	byKey := make(map[string]*QuotaData, len(rows))
+	for _, row := range rows {
+		byKey[keyOf(row)] = row
+	}
+	for _, pendingRow := range pending {
+		if existing, ok := byKey[keyOf(pendingRow)]; ok {
+			existing.Count += pendingRow.Count
+			existing.Quota += pendingRow.Quota
+			existing.TokenUsed += pendingRow.TokenUsed
+			existing.CacheReadTokens += pendingRow.CacheReadTokens
+			existing.CacheCreationTokens += pendingRow.CacheCreationTokens
+			continue
+		}
+		row := *pendingRow
+		rows = append(rows, &row)
+		byKey[keyOf(&row)] = &row
+	}
+	return rows
+}
+
+// readQuotaDataWithPending runs query and folds in pending cache rows. It retries
+// when a cache flush lands during the query, which keeps the merged result
+// consistent with what will eventually be persisted.
+func readQuotaDataWithPending(query func() ([]*QuotaData, error), startTime int64, endTime int64, match func(*QuotaData) bool, keyOf func(*QuotaData) string) ([]*QuotaData, error) {
+	for attempt := 0; ; attempt++ {
+		generation := quotaDataGeneration()
+		rows, err := query()
+		if err != nil {
+			return nil, err
+		}
+		pending, currentGeneration := pendingQuotaData(startTime, endTime, match)
+		if currentGeneration == generation || attempt >= 2 {
+			return mergePendingQuotaData(rows, pending, keyOf), nil
+		}
+	}
+}
+
+func queryQuotaDataByUsername(username string, startTime int64, endTime int64) ([]*QuotaData, error) {
 	var quotaDatas []*QuotaData
-	// 从quota_data表中查询数据
-	err = DB.Table("quota_data").
+	err := DB.Table("quota_data").
 		Select("user_id, username, model_name, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, sum(cache_read_tokens) as cache_read_tokens, sum(cache_creation_tokens) as cache_creation_tokens").
 		Where("username = ? and created_at >= ? and created_at <= ?", username, startTime, endTime).
 		Group("user_id, username, model_name, created_at").
@@ -159,10 +242,9 @@ func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (qu
 	return quotaDatas, err
 }
 
-func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+func queryQuotaDataByUserId(userId int, startTime int64, endTime int64) ([]*QuotaData, error) {
 	var quotaDatas []*QuotaData
-	// 从quota_data表中查询数据
-	err = DB.Table("quota_data").
+	err := DB.Table("quota_data").
 		Select("user_id, username, model_name, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, sum(cache_read_tokens) as cache_read_tokens, sum(cache_creation_tokens) as cache_creation_tokens").
 		Where("user_id = ? and created_at >= ? and created_at <= ?", userId, startTime, endTime).
 		Group("user_id, username, model_name, created_at").
@@ -170,9 +252,9 @@ func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData
 	return quotaDatas, err
 }
 
-func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+func queryQuotaDataGroupByUser(startTime int64, endTime int64) ([]*QuotaData, error) {
 	var quotaDatas []*QuotaData
-	err = DB.Table("quota_data").
+	err := DB.Table("quota_data").
 		Select("username, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, sum(cache_read_tokens) as cache_read_tokens, sum(cache_creation_tokens) as cache_creation_tokens").
 		Where("created_at >= ? and created_at <= ?", startTime, endTime).
 		Group("username, created_at").
@@ -180,14 +262,43 @@ func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*Quota
 	return quotaDatas, err
 }
 
+func queryAllQuotaDates(startTime int64, endTime int64) ([]*QuotaData, error) {
+	var quotaDatas []*QuotaData
+	err := DB.Table("quota_data").
+		Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, sum(cache_read_tokens) as cache_read_tokens, sum(cache_creation_tokens) as cache_creation_tokens, created_at").
+		Where("created_at >= ? and created_at <= ?", startTime, endTime).
+		Group("model_name, created_at").
+		Find(&quotaDatas).Error
+	return quotaDatas, err
+}
+
+func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return readQuotaDataWithPending(func() ([]*QuotaData, error) {
+		return queryQuotaDataByUsername(username, startTime, endTime)
+	}, startTime, endTime, func(qd *QuotaData) bool {
+		return qd.Username == username
+	}, quotaDataKeyByUserModelAndCreatedAt)
+}
+
+func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return readQuotaDataWithPending(func() ([]*QuotaData, error) {
+		return queryQuotaDataByUserId(userId, startTime, endTime)
+	}, startTime, endTime, func(qd *QuotaData) bool {
+		return qd.UserID == userId
+	}, quotaDataKeyByUserModelAndCreatedAt)
+}
+
+func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
+	return readQuotaDataWithPending(func() ([]*QuotaData, error) {
+		return queryQuotaDataGroupByUser(startTime, endTime)
+	}, startTime, endTime, nil, quotaDataKeyByUsernameAndCreatedAt)
+}
+
 func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaData []*QuotaData, err error) {
 	if username != "" {
 		return GetQuotaDataByUsername(username, startTime, endTime)
 	}
-	var quotaDatas []*QuotaData
-	// 从quota_data表中查询数据
-	// only select model_name, sum(count) as count, sum(quota) as quota, model_name, created_at from quota_data group by model_name, created_at;
-	//err = DB.Table("quota_data").Where("created_at >= ? and created_at <= ?", startTime, endTime).Find(&quotaDatas).Error
-	err = DB.Table("quota_data").Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, sum(cache_read_tokens) as cache_read_tokens, sum(cache_creation_tokens) as cache_creation_tokens, created_at").Where("created_at >= ? and created_at <= ?", startTime, endTime).Group("model_name, created_at").Find(&quotaDatas).Error
-	return quotaDatas, err
+	return readQuotaDataWithPending(func() ([]*QuotaData, error) {
+		return queryAllQuotaDates(startTime, endTime)
+	}, startTime, endTime, nil, quotaDataKeyByModelAndCreatedAt)
 }
