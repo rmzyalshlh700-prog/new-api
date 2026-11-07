@@ -103,3 +103,22 @@ export interface HourlyActivityPoint {
   label: string
   activeUsers: number
 }
+
+/**
+ * One bucket (hour or day) of usage within the selected window. Values stay
+ * exact integers in quota units / token counts.
+ */
+export interface BucketSeriesPoint {
+  label: string
+  quota: number
+  tokens: number
+  requests: number
+}
+
+/** One local day of usage for the activity heatmap. */
+export interface DailyActivityPoint {
+  day: string
+  tokens: number
+  requests: number
+  quota: number
+}

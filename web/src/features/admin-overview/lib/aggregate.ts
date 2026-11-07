@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import dayjs from '@/lib/dayjs'
 
 import type {
+  BucketSeriesPoint,
+  DailyActivityPoint,
   DailyRevenuePoint,
   HourlyActivityPoint,
   ModelUsage,
@@ -30,10 +32,17 @@ import type {
   TokenUsageSeries,
   UsageTotals,
 } from '../types'
+import type { RangeWindow } from './ranges'
 
 const UNKNOWN_MODEL = 'Unknown'
 const OTHER_SERIES_KEY = 'other'
 const HOURS_IN_DAY = 24
+
+function startOfLocalDay(date: Date): Date {
+  const start = new Date(date)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
 
 /**
  * Quota and token columns are integers on the backend. Truncating here keeps
@@ -141,10 +150,7 @@ export function buildMonthlyRevenue(
     if (timestamp === 0) continue
     const d = new Date(timestamp * 1000)
     for (const point of points) {
-      if (
-        d.getFullYear() === point.year &&
-        d.getMonth() === point.month
-      ) {
+      if (d.getFullYear() === point.year && d.getMonth() === point.month) {
         point.quota += toIntegerUnits(row.quota)
         break
       }
@@ -315,4 +321,112 @@ export function revenueYesterday(
   return revenueTrend.at(-2)
 }
 
+/**
+ * Build consecutive usage buckets covering the resolved window.
+ *
+ * Hour buckets are labelled `HH:00` when the window starts today and
+ * `MM-DD HH:00` when it spans days; day buckets use the `MM-DD` label the
+ * daily trend already prints. Every bucket between the window edges exists,
+ * even when no usage was recorded, so the series never implies missing data.
+ */
+export function buildBucketSeries(
+  rows: readonly OverviewQuotaRow[],
+  window: RangeWindow,
+  now: Date = new Date()
+): BucketSeriesPoint[] {
+  const points: BucketSeriesPoint[] = []
+  const byBucket = new Map<number | string, BucketSeriesPoint>()
 
+  if (window.bucket === 'hour') {
+    const nowSeconds = Math.floor(now.getTime() / 1000)
+    const firstHour = Math.floor(window.start / 3600)
+    const lastHour = Math.floor(Math.min(window.end, nowSeconds) / 3600)
+    const spansDays =
+      dayjs(firstHour * 3600 * 1000).format('YYYY-MM-DD') !==
+      dayjs(lastHour * 3600 * 1000).format('YYYY-MM-DD')
+    for (let hour = firstHour; hour <= lastHour; hour++) {
+      const label = spansDays
+        ? dayjs(hour * 3600 * 1000).format('MM-DD HH:00')
+        : `${String(new Date(hour * 3600 * 1000).getHours()).padStart(2, '0')}:00`
+      const point = { label, quota: 0, tokens: 0, requests: 0 }
+      points.push(point)
+      byBucket.set(hour, point)
+    }
+    for (const row of rows) {
+      const bucket = byBucket.get(
+        Math.floor(getTimestamp(row.created_at) / 3600)
+      )
+      if (!bucket) continue
+      bucket.quota += toIntegerUnits(row.quota)
+      bucket.tokens += toIntegerUnits(row.token_used)
+      bucket.requests += toIntegerUnits(row.count)
+    }
+    return points
+  }
+
+  // Day buckets follow the local calendar: the field starts at the local
+  // midnight covering the window's start and stops at today, so western and
+  // eastern timezones bucket the same rows into the same days.
+  const firstDay = new Date(window.start * 1000)
+  firstDay.setHours(0, 0, 0, 0)
+  const lastDay = startOfLocalDay(now)
+  for (
+    const cursor = firstDay;
+    cursor <= lastDay;
+    cursor.setDate(cursor.getDate() + 1)
+  ) {
+    const day = dayjs(cursor).format('YYYY-MM-DD')
+    const point = {
+      label: dayjs(cursor).format('MM-DD'),
+      quota: 0,
+      tokens: 0,
+      requests: 0,
+    }
+    points.push(point)
+    byBucket.set(day, point)
+  }
+  for (const row of rows) {
+    const timestamp = getTimestamp(row.created_at)
+    if (timestamp === 0) continue
+    const bucket = byBucket.get(dayjs(timestamp * 1000).format('YYYY-MM-DD'))
+    if (!bucket) continue
+    bucket.quota += toIntegerUnits(row.quota)
+    bucket.tokens += toIntegerUnits(row.token_used)
+    bucket.requests += toIntegerUnits(row.count)
+  }
+  return points
+}
+
+/**
+ * Build one entry per local day for the activity heatmap, oldest first.
+ * Days with no recorded usage are still present with zero totals so the
+ * grid can tell "measured zero" from "outside the window".
+ */
+export function buildDailyActivity(
+  rows: readonly OverviewQuotaRow[],
+  days: number,
+  now: Date = new Date()
+): DailyActivityPoint[] {
+  const start = startOfLocalDay(now)
+  start.setDate(start.getDate() - (days - 1))
+
+  const buckets = new Map<string, DailyActivityPoint>()
+  for (let offset = 0; offset < days; offset++) {
+    const date = new Date(start)
+    date.setDate(start.getDate() + offset)
+    const day = dayjs(date).format('YYYY-MM-DD')
+    buckets.set(day, { day, tokens: 0, requests: 0, quota: 0 })
+  }
+
+  for (const row of rows) {
+    const timestamp = getTimestamp(row.created_at)
+    if (timestamp === 0) continue
+    const bucket = buckets.get(dayjs(timestamp * 1000).format('YYYY-MM-DD'))
+    if (!bucket) continue
+    bucket.tokens += toIntegerUnits(row.token_used)
+    bucket.requests += toIntegerUnits(row.count)
+    bucket.quota += toIntegerUnits(row.quota)
+  }
+
+  return [...buckets.values()]
+}

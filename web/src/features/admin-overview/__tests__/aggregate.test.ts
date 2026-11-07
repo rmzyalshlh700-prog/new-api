@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildBucketSeries,
+  buildDailyActivity,
   buildDailyRevenue,
   buildHourlyActiveUsers,
   buildModelUsage,
@@ -27,6 +29,13 @@ import {
   sumUsage,
   sumUsageSince,
 } from '../lib/aggregate'
+import {
+  deltaPercent,
+  deltaTone,
+  parseOverviewRange,
+  rangeLabelKey,
+  resolveRangeWindow,
+} from '../lib/ranges'
 import type { OverviewQuotaRow, OverviewUserRow } from '../types'
 
 function timestampDaysAgo(days: number, hour = 12): number {
@@ -150,5 +159,117 @@ describe('admin overview aggregation', () => {
     expect(points).toHaveLength(24)
     expect(points[22]).toEqual({ label: '11:00', activeUsers: 2 })
     expect(points[23]).toEqual({ label: '12:00', activeUsers: 0 })
+  })
+
+  it('rejects unknown stored ranges and keeps the default', () => {
+    expect(parseOverviewRange('30d')).toBe('30d')
+    expect(parseOverviewRange('bogus')).toBe('7d')
+    expect(parseOverviewRange(undefined)).toBe('7d')
+  })
+
+  it('resolves preset windows with an equally sized previous window', () => {
+    const now = new Date(2026, 10, 7, 12, 0, 0)
+    const window = resolveRangeWindow('7d', now)
+
+    expect(window.end - window.start).toBe(7 * 24 * 3600 + 3600)
+    expect(window.previousEnd).toBe(window.start)
+    expect(window.start - window.previousStart).toBe(7 * 24 * 3600)
+    expect(window.bucket).toBe('day')
+  })
+
+  it('uses hour buckets for today and day buckets for long windows', () => {
+    const now = new Date(2026, 10, 7, 12, 0, 0)
+    expect(resolveRangeWindow('today', now).bucket).toBe('hour')
+    expect(resolveRangeWindow('24h', now).bucket).toBe('hour')
+    expect(resolveRangeWindow('30d', now).bucket).toBe('day')
+  })
+
+  it('buckets window rows into consecutive hours with zero-filled gaps', () => {
+    const now = new Date(2026, 10, 7, 3, 0, 0)
+    const window = resolveRangeWindow('today', now)
+    const hour = (h: number) =>
+      Math.floor(new Date(2026, 10, 7, h, 0, 0).getTime() / 1000)
+    const rows: OverviewQuotaRow[] = [
+      { created_at: hour(1), quota: 100, token_used: 10, count: 1 },
+      { created_at: hour(1), quota: 50, token_used: 5, count: 2 },
+      { created_at: hour(3), quota: 7, token_used: 1, count: 1 },
+      { created_at: hour(4), quota: 9, token_used: 2, count: 1 },
+    ]
+
+    const points = buildBucketSeries(rows, window, now)
+
+    expect(points).toHaveLength(4)
+    expect(points[0]).toEqual({
+      label: '00:00',
+      quota: 0,
+      tokens: 0,
+      requests: 0,
+    })
+    expect(points[1]).toEqual({
+      label: '01:00',
+      quota: 150,
+      tokens: 15,
+      requests: 3,
+    })
+    expect(points[3].quota).toBe(7)
+    expect(points.every((point) => Number.isInteger(point.quota))).toBe(true)
+  })
+
+  it('buckets window rows into consecutive days for long ranges', () => {
+    const now = new Date(2026, 10, 7, 12, 0, 0)
+    const window = resolveRangeWindow('7d', now)
+    const day = (daysAgo: number) =>
+      Math.floor(new Date(2026, 10, 7 - daysAgo, 12, 0, 0).getTime() / 1000)
+    const rows: OverviewQuotaRow[] = [
+      { created_at: day(0), quota: 10, token_used: 1, count: 1 },
+      { created_at: day(6), quota: 20, token_used: 2, count: 1 },
+      { created_at: day(9), quota: 999, token_used: 9, count: 1 },
+    ]
+
+    const points = buildBucketSeries(rows, window, now)
+
+    expect(points).toHaveLength(8)
+    expect(points[1].quota).toBe(20)
+    expect(points.at(-1)?.quota).toBe(10)
+  })
+
+  it('builds one zero-filled activity entry per day for the heatmap', () => {
+    const now = new Date(2026, 10, 7, 12, 0, 0)
+    const day = (daysAgo: number, hour = 12) =>
+      Math.floor(new Date(2026, 10, 7 - daysAgo, hour, 0, 0).getTime() / 1000)
+    const rows: OverviewQuotaRow[] = [
+      { created_at: day(0), quota: 100, token_used: 500, count: 2 },
+      { created_at: day(1), quota: 40, token_used: 0, count: 0 },
+    ]
+
+    const points = buildDailyActivity(rows, 14, now)
+
+    expect(points).toHaveLength(14)
+    expect(points.at(-1)).toEqual({
+      day: '2026-11-07',
+      tokens: 500,
+      requests: 2,
+      quota: 100,
+    })
+    expect(points.at(-2)?.tokens).toBe(0)
+    expect(points[0].day).toBe('2026-10-25')
+  })
+
+  it('computes delta percentages and verdict tones for the tiles', () => {
+    expect(deltaPercent(150, 100)).toBe(50)
+    expect(deltaPercent(50, 100)).toBe(-50)
+    expect(deltaPercent(100, 0)).toBeUndefined()
+    expect(deltaPercent(100, undefined)).toBeUndefined()
+
+    expect(deltaTone(50)).toBe('success')
+    expect(deltaTone(-1)).toBe('danger')
+    expect(deltaTone(undefined)).toBeNull()
+  })
+
+  it('maps every range preset to a label key', () => {
+    expect(rangeLabelKey('today')).toBe('Today')
+    expect(rangeLabelKey('24h')).toBe('Last 24 hours')
+    expect(rangeLabelKey('7d')).toBe('Last 7 days')
+    expect(rangeLabelKey('30d')).toBe('Last 30 days')
   })
 })
