@@ -249,7 +249,7 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 	err = DB.Transaction(func(tx *gorm.DB) error {
 		err := lockForUpdate(tx).Where(refCol+" = ?", referenceId).First(topUp).Error
 		if err != nil {
-			return errors.New("top-up order not found")
+			return ErrTopUpNotFound
 		}
 
 		if topUp.PaymentProvider != PaymentProviderStripe {
@@ -257,7 +257,7 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 		}
 
 		if topUp.Status != common.TopUpStatusPending {
-			return errors.New("invalid top-up order status")
+			return ErrTopUpStatusInvalid
 		}
 
 		topUp.CompleteTime = common.GetTimestamp()
@@ -279,8 +279,23 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 	})
 
 	if err != nil {
-		common.SysError(common.LogText("topup failed: %s", err.Error()))
-		return errors.New("top-up failed")
+		switch {
+		case errors.Is(err, ErrTopUpNotFound):
+			common.SysError(common.LogText("stripe topup order not found: %s", err.Error()))
+			return err
+		case errors.Is(err, ErrPaymentMethodMismatch):
+			common.SysError(common.LogText("stripe topup payment method mismatch: %s", err.Error()))
+			return err
+		case errors.Is(err, ErrTopUpStatusInvalid):
+			common.SysError(common.LogText("stripe topup order status invalid: %s", err.Error()))
+			return err
+		case errors.Is(err, ErrInvalidTopUpQuota), errors.Is(err, ErrTopUpQuotaLimitExceeded):
+			common.SysError(common.LogText("stripe topup invalid quota: %s", err.Error()))
+			return err
+		default:
+			common.SysError(common.LogText("stripe topup failed: %s", err.Error()))
+			return fmt.Errorf("top-up failed: %w", err)
+		}
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quota, common.LogText("stripe topup"))
 
