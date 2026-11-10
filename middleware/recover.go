@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"runtime/debug"
 
@@ -17,7 +16,7 @@ func RelayPanicRecover() gin.HandlerFunc {
 				common.SysLog(common.LogText("stacktrace from panic: %s", string(debug.Stack())))
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error": gin.H{
-						"message": fmt.Sprintf("Panic detected, error: %v. Please submit a issue here: https://github.com/Calcium-Ion/new-api", err),
+						"message": "Internal Server Error",
 						"type":    "new_api_panic",
 					},
 				})
@@ -35,7 +34,7 @@ func PanicRecover() gin.HandlerFunc {
 		common.SysLog(common.LogText("panic detected: %v", err))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": gin.H{
-				"message": fmt.Sprintf("Panic detected, error: %v. Please submit a issue here: https://github.com/Calcium-Ion/new-api", err),
+				"message": "Internal Server Error",
 				"type":    "new_api_panic",
 			},
 		})
