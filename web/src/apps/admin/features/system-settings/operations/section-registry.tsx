@@ -21,6 +21,7 @@ import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
 import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
+import { MaintenanceModeSection } from '../maintenance/maintenance-mode-section'
 import { PerformanceSection } from '../maintenance/performance-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
 import type { OperationsSettings } from '../types'
@@ -108,6 +109,21 @@ const OPERATIONS_SECTIONS = [
             settings['log_setting.user_export_enabled'] ?? true,
           'log_setting.max_range_days':
             settings['log_setting.max_range_days'] ?? 365,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'maintenance-mode',
+    titleKey: 'Maintenance Mode',
+    build: (settings: OperationsSettings) => (
+      <MaintenanceModeSection
+        defaultValues={{
+          'maintenance_setting.enabled':
+            settings['maintenance_setting.enabled'] ?? false,
+          'maintenance_setting.html': settings['maintenance_setting.html'] ?? '',
+          'maintenance_setting.whitelist':
+            settings['maintenance_setting.whitelist'] ?? '',
         }}
       />
     ),

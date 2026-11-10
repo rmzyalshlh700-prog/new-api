@@ -50,6 +50,9 @@ const STATUS_RELATED_KEYS = new Set([
   'passkey.origins',
   'QuotaRemindEnabled',
   'QuotaRemindThreshold',
+  'maintenance_setting.enabled',
+  'maintenance_setting.html',
+  'maintenance_setting.whitelist',
 ])
 
 export function useUpdateOption() {

@@ -135,6 +135,8 @@ export interface SystemStatus {
     password_login_encryption_enabled?: boolean
     password_register_enabled?: boolean
     custom_oauth_providers?: CustomOAuthProviderInfo[]
+    maintenance_enabled?: boolean
+    maintenance_html?: string
     [key: string]: unknown
   }
   // Allow direct access to common properties
@@ -182,6 +184,8 @@ export interface SystemStatus {
   password_login_encryption_enabled?: boolean
   password_register_enabled?: boolean
   custom_oauth_providers?: CustomOAuthProviderInfo[]
+  maintenance_enabled?: boolean
+  maintenance_html?: string
   log_export_enabled?: boolean
   log_max_range_days?: number
   quota_remind_enabled?: boolean

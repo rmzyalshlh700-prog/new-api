@@ -80,6 +80,7 @@ export const SETTINGS_OPERATIONS_SECTION_IDS = [
   'email',
   'worker',
   'logs',
+  'maintenance-mode',
   'performance',
   'update-checker',
 ] as const
