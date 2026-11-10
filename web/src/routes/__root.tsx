@@ -33,6 +33,11 @@ import { ThemeCustomizationProvider } from '@/shared/context/theme-customization
 import { saveAffiliateCode } from '@/shared/features/auth/lib/storage'
 import { GeneralError } from '@/shared/features/errors/general-error'
 import { NotFoundError } from '@/shared/features/errors/not-found-error'
+import {
+  isMaintenanceExemptPath,
+  maintenanceProbeQueryOptions,
+  shouldRedirectToMaintenance,
+} from '@/shared/features/maintenance/api'
 import { getSetupStatus } from '@/shared/features/setup/api'
 import { useSystemConfig } from '@/shared/hooks/use-system-config'
 import {
@@ -114,7 +119,7 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   // 应用初始化与路由解析前统一校验会话
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ context, location }) => {
     const legacyTarget = resolveLegacyRoute(location.href)
     if (legacyTarget) {
       throw redirect({ href: legacyTarget, replace: true })
@@ -146,6 +151,16 @@ export const Route = createRootRouteWithContext<{
       }
     } else {
       await authBootstrap
+    }
+
+    if (!isMaintenanceExemptPath(pathname)) {
+      const sessionId = useAuthStore.getState().auth.session?.sid ?? null
+      const probe = await context.queryClient
+        .ensureQueryData(maintenanceProbeQueryOptions(sessionId))
+        .catch(() => null)
+      if (shouldRedirectToMaintenance(pathname, probe)) {
+        throw redirect({ to: '/maintenance', replace: true })
+      }
     }
   },
   component: RootComponent,

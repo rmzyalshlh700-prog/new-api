@@ -85,6 +85,21 @@ func maintenanceRequestUser(c *gin.Context) *model.UserBase {
 	return user
 }
 
+// MaintenanceBypass reports whether the request's session is an administrator
+// or a whitelisted user, and therefore keeps access during maintenance.
+func MaintenanceBypass(c *gin.Context) bool {
+	user := maintenanceRequestUser(c)
+	if user == nil {
+		return false
+	}
+	if user.Role >= common.RoleAdminUser {
+		return true
+	}
+	common.OptionMapRWMutex.RLock()
+	defer common.OptionMapRWMutex.RUnlock()
+	return maintenance_setting.IsWhitelisted(user.Email, user.Username)
+}
+
 // MaintenanceMode blocks API traffic while maintenance mode is enabled. HTML
 // documents and static assets always load so the SPA can boot, re-establish the
 // session from its refresh cookie and decide client-side whether the user is
@@ -108,18 +123,9 @@ func MaintenanceMode() gin.HandlerFunc {
 			return
 		}
 
-		if user := maintenanceRequestUser(c); user != nil {
-			if user.Role >= common.RoleAdminUser {
-				c.Next()
-				return
-			}
-			common.OptionMapRWMutex.RLock()
-			whitelisted := maintenance_setting.IsWhitelisted(user.Email, user.Username)
-			common.OptionMapRWMutex.RUnlock()
-			if whitelisted {
-				c.Next()
-				return
-			}
+		if MaintenanceBypass(c) {
+			c.Next()
+			return
 		}
 
 		c.Header("Cache-Control", "no-store")

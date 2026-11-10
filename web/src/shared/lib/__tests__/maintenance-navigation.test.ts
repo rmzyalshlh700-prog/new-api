@@ -19,6 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 import { AxiosError, type AxiosAdapter } from 'axios'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import {
+  isMaintenanceExemptPath,
+  shouldRedirectToMaintenance,
+} from '@/shared/features/maintenance/api'
+
 import { api } from '../http-client'
 
 const originalLocation = window.location
@@ -97,4 +102,26 @@ it('does not treat an unrelated 503 as maintenance', async () => {
   await expect(api.get('/api/user/self')).rejects.toBeInstanceOf(AxiosError)
 
   expect(replace).not.toHaveBeenCalled()
+})
+
+it('redirects protected routes only when maintenance blocks the session', () => {
+  const blocked = { enabled: true, bypass: false }
+
+  expect(shouldRedirectToMaintenance('/dashboard', blocked)).toBe(true)
+  expect(shouldRedirectToMaintenance('/app/wallet', blocked)).toBe(true)
+  expect(shouldRedirectToMaintenance('/maintenance', blocked)).toBe(false)
+  expect(shouldRedirectToMaintenance('/login', blocked)).toBe(false)
+  expect(shouldRedirectToMaintenance('/oauth/github', blocked)).toBe(false)
+  expect(
+    shouldRedirectToMaintenance('/dashboard', { enabled: true, bypass: true })
+  ).toBe(false)
+  expect(
+    shouldRedirectToMaintenance('/dashboard', { enabled: false, bypass: false })
+  ).toBe(false)
+})
+
+it('treats the maintenance page and auth flows as exempt from the guard', () => {
+  expect(isMaintenanceExemptPath('/maintenance')).toBe(true)
+  expect(isMaintenanceExemptPath('/login')).toBe(true)
+  expect(isMaintenanceExemptPath('/dashboard')).toBe(false)
 })

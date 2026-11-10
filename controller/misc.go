@@ -39,6 +39,24 @@ func TestStatus(c *gin.Context) {
 	return
 }
 
+// GetMaintenanceStatus tells the SPA whether maintenance is enabled and
+// whether the caller's session may bypass it. It is exempt from the
+// maintenance middleware so the router guard can run before a page renders.
+func GetMaintenanceStatus(c *gin.Context) {
+	common.OptionMapRWMutex.RLock()
+	enabled := maintenance_setting.Get().MaintenanceEnabled
+	common.OptionMapRWMutex.RUnlock()
+
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"enabled": enabled,
+			"bypass":  enabled && middleware.MaintenanceBypass(c),
+		},
+	})
+}
+
 func GetStatus(c *gin.Context) {
 
 	cs := console_setting.GetConsoleSetting()
