@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -67,30 +68,57 @@ func TestMaintenanceModeDisabledPassesTraffic(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 }
 
-func TestMaintenanceModeRedirectsAnonymousTraffic(t *testing.T) {
+func TestMaintenanceModeAllowsDocumentRequests(t *testing.T) {
 	withMaintenanceSetting(t, true, "")
 
-	webRecorder := performMaintenanceRequest(t, http.MethodGet, "/dashboard", "")
-	require.Equal(t, http.StatusFound, webRecorder.Code)
-	assert.Equal(t, maintenanceRedirectPath, webRecorder.Header().Get("Location"))
+	for _, requestPath := range []string{
+		"/",
+		"/dashboard",
+		"/assets/index.js",
+		"/maintenance",
+	} {
+		t.Run(requestPath, func(t *testing.T) {
+			recorder := performMaintenanceRequest(t, http.MethodGet, requestPath, "")
+			require.Equal(t, http.StatusOK, recorder.Code)
+		})
+	}
+}
 
-	apiRecorder := performMaintenanceRequest(t, http.MethodPost, "/api/user/self", "")
-	require.Equal(t, http.StatusTemporaryRedirect, apiRecorder.Code)
-	assert.Equal(t, maintenanceRedirectPath, apiRecorder.Header().Get("Location"))
+func TestMaintenanceModeBlocksAPIRequests(t *testing.T) {
+	withMaintenanceSetting(t, true, "")
+
+	for _, request := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/user/self"},
+		{http.MethodPost, "/api/user/self"},
+		{http.MethodPost, "/v1/chat/completions"},
+		{http.MethodGet, "/dashboard/billing/usage"},
+	} {
+		t.Run(request.method+" "+request.path, func(t *testing.T) {
+			recorder := performMaintenanceRequest(t, request.method, request.path, "")
+			require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+			assert.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &body))
+			assert.Equal(t, false, body["success"])
+			assert.Equal(t, true, body["maintenance_active"])
+			assert.Equal(t, "System under maintenance", body["message"])
+		})
+	}
 }
 
 func TestMaintenanceModeExemptsLoginAdminAndAuthRoutes(t *testing.T) {
 	withMaintenanceSetting(t, true, "")
 
 	for _, requestPath := range []string{
-		"/maintenance",
-		"/login",
-		"/admin/system-settings",
 		"/api/status",
+		"/api/setup",
 		"/api/user/login",
 		"/api/user/auth/refresh",
 		"/api/oauth/github",
-		"/static/js/index.js",
 	} {
 		t.Run(requestPath, func(t *testing.T) {
 			recorder := performMaintenanceRequest(t, http.MethodGet, requestPath, "")
@@ -128,8 +156,10 @@ func TestMaintenanceModeSessionBypass(t *testing.T) {
 	require.Equal(t, http.StatusOK, allowedRecorder.Code)
 
 	blockedRecorder := performMaintenanceRequest(t, http.MethodGet, "/api/user/self", blockedBundle.AccessToken)
-	require.Equal(t, http.StatusFound, blockedRecorder.Code)
-	assert.Equal(t, maintenanceRedirectPath, blockedRecorder.Header().Get("Location"))
+	require.Equal(t, http.StatusServiceUnavailable, blockedRecorder.Code)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(blockedRecorder.Body.Bytes(), &body))
+	assert.Equal(t, true, body["maintenance_active"])
 }
 
 func TestMaintenanceModeAllowsAdministrators(t *testing.T) {

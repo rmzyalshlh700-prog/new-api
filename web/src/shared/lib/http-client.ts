@@ -27,6 +27,7 @@ import {
   refreshAuthentication,
 } from '@/shared/lib/auth-session'
 import { handleServerError } from '@/shared/lib/handle-server-error'
+import { redirectToMaintenance } from '@/shared/lib/maintenance-redirect'
 import {
   getServerErrorMessage,
   safeServerErrorMessage,
@@ -91,6 +92,14 @@ function redirectToForbidden(): void {
   }
 }
 
+function isMaintenanceResponse(data: unknown): boolean {
+  return (
+    Boolean(data) &&
+    typeof data === 'object' &&
+    (data as Record<string, unknown>).maintenance_active === true
+  )
+}
+
 api.interceptors.response.use(
   (response) => {
     if (response.config.acceptAuthRotation && response.data?.success === true) {
@@ -103,6 +112,10 @@ api.interceptors.response.use(
     const config = error?.config as ApiRequestConfig | undefined
     const skipErrorHandler = config?.skipErrorHandler
     const status = error?.response?.status
+
+    if (status === 503 && isMaintenanceResponse(error?.response?.data)) {
+      redirectToMaintenance()
+    }
 
     if (status === 401) {
       if (config && !config.skipAuthRefresh && !config.authRetry) {

@@ -12,29 +12,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const maintenanceRedirectPath = "/maintenance"
-
-// Paths that stay reachable while maintenance mode is active. Administrative
-// console routes and sign-in flows are exempt so operators can still disable
-// the mode, and public page assets must load for /maintenance itself.
-var maintenanceExemptPaths = []string{
-	"/maintenance",
-	"/login",
-	"/sign-in",
-	"/sign-up",
-	"/oauth",
-	"/admin",
-	"/setup",
-	"/assets",
-	"/static",
-	"/favicon.ico",
-	"/robots.txt",
-	"/manifest.webmanifest",
-	"/site.webmanifest",
+// API surfaces that are blocked while maintenance mode is active. The
+// dashboard itself is a single-page app served from the static/NoRoute
+// handlers, so document requests and assets are never matched here and always
+// load; the SPA moves the user to /maintenance when it receives a maintenance
+// response. Relay and legacy billing endpoints are included so clients cannot
+// bypass maintenance by calling them directly.
+var maintenanceAPIPaths = []string{
+	"/api",
+	"/v1",
+	"/v1beta",
+	"/pg",
+	"/mj",
+	"/dashboard/billing",
 }
 
-// Authentication and boot APIs never redirect, otherwise nobody could sign in
-// or the console could not learn the current status while maintenance is on.
+// Authentication and boot APIs never return the maintenance error, otherwise
+// nobody could sign in or the console could not learn the current status while
+// maintenance is on.
 var maintenanceExemptAPIPaths = []string{
 	"/api/status",
 	"/api/setup",
@@ -54,12 +49,16 @@ func hasPathPrefix(requestPath, prefix string) bool {
 	return requestPath == prefix || strings.HasPrefix(requestPath, prefix+"/")
 }
 
-func isMaintenanceExemptPath(requestPath string) bool {
-	for _, prefix := range maintenanceExemptPaths {
+func isMaintenanceAPIPath(requestPath string) bool {
+	for _, prefix := range maintenanceAPIPaths {
 		if hasPathPrefix(requestPath, prefix) {
 			return true
 		}
 	}
+	return false
+}
+
+func isMaintenanceExemptAPIPath(requestPath string) bool {
 	for _, prefix := range maintenanceExemptAPIPaths {
 		if hasPathPrefix(requestPath, prefix) {
 			return true
@@ -86,13 +85,17 @@ func maintenanceRequestUser(c *gin.Context) *model.UserBase {
 	return user
 }
 
-// MaintenanceMode redirects dashboard and API traffic to /maintenance while
-// maintenance mode is enabled. Administrators and whitelisted users keep full
-// access; sign-in, admin routes and authentication APIs are always exempt.
+// MaintenanceMode blocks API traffic while maintenance mode is enabled. HTML
+// documents and static assets always load so the SPA can boot, re-establish the
+// session from its refresh cookie and decide client-side whether the user is
+// whitelisted. Administrators and whitelisted users keep full API access;
+// authentication APIs are always exempt.
 func MaintenanceMode() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestPath := c.Request.URL.Path
-		if c.Request.Method == http.MethodOptions || isMaintenanceExemptPath(requestPath) {
+		if c.Request.Method == http.MethodOptions ||
+			!isMaintenanceAPIPath(requestPath) ||
+			isMaintenanceExemptAPIPath(requestPath) {
 			c.Next()
 			return
 		}
@@ -120,11 +123,10 @@ func MaintenanceMode() gin.HandlerFunc {
 		}
 
 		c.Header("Cache-Control", "no-store")
-		status := http.StatusFound
-		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
-			status = http.StatusTemporaryRedirect
-		}
-		c.Redirect(status, maintenanceRedirectPath)
-		c.Abort()
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+			"success":            false,
+			"message":            "System under maintenance",
+			"maintenance_active": true,
+		})
 	}
 }

@@ -25,6 +25,7 @@ import { installBuildMetadata } from '@/shared/lib/build-metadata'
 import { applyFaviconToDom } from '@/shared/lib/dom-utils'
 import '@/shared/lib/dayjs'
 import { initializeFrontendCache } from '@/shared/lib/frontend-cache'
+import { registerMaintenanceRedirect } from '@/shared/lib/maintenance-redirect'
 import { createAppQueryClient } from '@/shared/lib/query-client'
 import { readCachedStatus, statusQueryOptions } from '@/shared/lib/status-query'
 
@@ -53,6 +54,14 @@ const router = createRouter({
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,
+})
+
+// Maintenance responses are handled by the HTTP client, which sits below the
+// router. Route its redirect through the router so the SPA renders
+// /maintenance without a full document reload.
+registerMaintenanceRedirect(() => {
+  if (router.state.location.pathname === '/maintenance') return
+  void router.navigate({ to: '/maintenance', replace: true })
 })
 
 // Register the router instance for type safety
