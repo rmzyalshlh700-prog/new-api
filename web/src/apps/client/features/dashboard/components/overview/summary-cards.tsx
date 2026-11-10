@@ -182,7 +182,7 @@ export function SummaryCards() {
     statusCurrencyFlag !== undefined
       ? statusCurrencyFlag
       : currencyEnabledFromStore
-  const currencyLabel = currencyEnabled ? getCurrencyLabel() : 'Tokens'
+  const currencyLabel = currencyEnabled ? getCurrencyLabel() : t('Tokens')
 
   const sparklineData = useMemo(
     () =>
@@ -219,9 +219,11 @@ export function SummaryCards() {
     if (runwayDays < 1) {
       runwayDisplay = t('Less than 1 day left')
     } else if (runwayDays > 999) {
-      runwayDisplay = `999+ ${t('days')}`
+      runwayDisplay = t('About {{days}} days left', { days: '999+' })
     } else {
-      runwayDisplay = `~${formatNumber(Math.floor(runwayDays))} ${t('days')}`
+      runwayDisplay = t('About {{days}} days left', {
+        days: formatNumber(Math.floor(runwayDays)),
+      })
     }
   } else if (remainQuota <= 0) {
     runwayDisplay = t('Balance depleted')
