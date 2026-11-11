@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate, useRouter } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/shared/components/ui/button'
@@ -70,9 +70,17 @@ export function GeneralError({
 
   const status = getHttpStatus(error)
   const isRateLimited = status === 429
-  const title = isRateLimited
+  // The emoticon is pinned left-to-right so it never lands on the wrong side
+  // of the sentence in right-to-left locales (F-4); the translated message
+  // keeps its existing key, so no locale file changes are needed.
+  const title: ReactNode = isRateLimited
     ? t('Too many requests')
-    : `${t('Oops! Something went wrong')} ${`:')`}`
+    : (
+        <span>
+          {t('Oops! Something went wrong')}{' '}
+          <span dir='ltr'>:')</span>
+        </span>
+      )
   const description = isRateLimited
     ? t('Please wait a moment before trying again.')
     : t('Please try again later.')
