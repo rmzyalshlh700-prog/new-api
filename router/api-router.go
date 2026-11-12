@@ -442,7 +442,9 @@ func SetApiRouter(router *gin.Engine) {
 		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), controller.GetCopilotUsers)
 		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotHealth)
 		// Full configuration backup download (admin console > Backup).
-		apiRouter.GET("/admin/backup/export", middleware.AdminAuth(), controller.ExportSystemBackup)
+		// The backup exports users, channels, API tokens and sensitive system
+		// options, so it is restricted to the root account.
+		apiRouter.GET("/admin/backup/export", middleware.RootAuth(), controller.ExportSystemBackup)
 		dataRoute.GET("/users", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetQuotaDatesByUser)
 		dataRoute.GET("/self", middleware.UserAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetUserQuotaDates)
 		dataRoute.GET("/flow", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAllFlowQuotaDates)

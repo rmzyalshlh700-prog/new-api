@@ -214,6 +214,15 @@ func GetLogsStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
+	// Bound the scan window like the live-stat endpoint so a stray query
+	// cannot sweep the whole logs table.
+	if endTimestamp == 0 {
+		endTimestamp = time.Now().Unix()
+	}
+	if startTimestamp > endTimestamp || endTimestamp-startTimestamp > liveStatMaxRangeSeconds {
+		common.ApiErrorMsg(c, "Invalid time range")
+		return
+	}
 	stat, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, 0, username, tokenName, channel, group)
 	if err != nil {
 		common.ApiError(c, err)
