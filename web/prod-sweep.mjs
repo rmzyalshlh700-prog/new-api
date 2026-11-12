@@ -11,7 +11,7 @@ const cookies=lr.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ')
 const AUTH={cookie:cookies,'content-type':'application/json',accept:'application/json'}
 const PATHS=['/api/setup','/api/status','/api/notice','/api/uptime/status','/api/data/self','/api/token/','/api/user/self','/api/user/self/groups','/api/user/access_tokens','/api/user/access_tokens/catalog','/api/user/login-sessions','/api/subscription/plans','/api/user/aff','/api/user/token/auto-groups','/api/log/self','/api/log/self/stat','/api/user/invitation','/api/user/2fa','/api/user/topup/info','/api/user/available_credit']
 const cache=new Map()
-for(const p of PATHS){ try{const r=await fetch(B+p,{headers:AUTH,signal:AbortSignal.timeout(8000)}); cache.set(p,{status:r.status,body:await r.text()})}catch(e){ cache.set(p,{status:502,body:JSON.stringify({success:true,message:'',data:[]})}); console.log('TIMEOUT '+p) } }
+for(const p of PATHS){ try{const r=await fetch(B+p,{headers:AUTH,signal:AbortSignal.timeout(8000)}); cache.set(p,{status:r.status,body:await r.text()})}catch{ cache.set(p,{status:502,body:JSON.stringify({success:true,message:'',data:[]})}); console.log('TIMEOUT '+p) } }
 const server=createServer(async(req,res)=>{const url=req.url.split('?')[0]
   if(url.startsWith('/api/')){
     const exact=cache.get(req.url)||cache.get(url)
@@ -35,7 +35,7 @@ for(const entry of process.argv.slice(2)){
   for(const c of cookies.split('; ')){ try{w.document.cookie=c+'; Path=/'}catch{} }
   await new Promise(r=>setTimeout(r,4000))
   const root=w.document.querySelector('#root')
-  const text=(root?.textContent||'').replace(/\s+/g,' ').trim()
+  const text=(root?.textContent||'').replaceAll(/\s+/g,' ').trim()
   console.log(`SWEEP ${entry} len=${root?.innerHTML.length} BLACK=${root?.innerHTML.length===0} ERRORDLG=${text.includes('Oops! Something went wrong')} path=${w.location.pathname}`)
   errors.slice(0,2).forEach(e=>console.log('   ERR '+e.slice(0,450)))
   w.close()
