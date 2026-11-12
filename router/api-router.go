@@ -438,6 +438,8 @@ func SetApiRouter(router *gin.Engine) {
 		copilotRoute := apiRouter.Group("/admin/copilot")
 		copilotRoute.Use(middleware.AdminAuth())
 		copilotRoute.POST("/chat", controller.AdminCopilotChat)
+		// CopilotKit v1.87+ handshake probe before the first chat exchange.
+		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)
 		copilotRoute.GET("/tools/financials", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotFinancials)
 		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), controller.GetCopilotUsers)
 		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotHealth)

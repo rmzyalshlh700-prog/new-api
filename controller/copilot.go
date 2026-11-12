@@ -188,6 +188,17 @@ func GetCopilotHealth(c *gin.Context) {
 	common.ApiSuccess(c, service.GetLiveMetrics())
 }
 
+// AdminCopilotChatInfo answers the CopilotKit v1.87+ runtime handshake so the
+// client stops probing a nonexistent /chat/info endpoint and reporting 404.
+func AdminCopilotChatInfo(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
+		"endpoints": gin.H{
+			"chat": "/api/admin/copilot/chat",
+		},
+	})
+}
+
 // AdminCopilotChat is the CopilotKit runtimeUrl: a GraphQL-over-HTTP endpoint
 // handling the generateCopilotResponse mutation. It translates the CopilotKit
 // message list into an OpenAI chat completion with the frontend tools bound,
