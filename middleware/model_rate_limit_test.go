@@ -48,6 +48,30 @@ func TestModelRedisRateLimitReservesConcurrentSuccessAdmission(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, performRateLimitRequest(router, "/completed", "127.0.0.1:1000").Code)
 }
 
+// 没有 StreamStatus 的路由（插件原生路由、模型列表）同样要能通过成功名额限制：
+// 缺少流状态既不能被当成失败，更不能让限制器 panic。
+func TestModelRateLimitWithoutStreamStatusAdmitsRequest(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	for _, backend := range []string{"memory", "redis"} {
+		t.Run(backend, func(t *testing.T) {
+			subject := strconv.Itoa(7200000 + int(modelRateLimitTestUsers.Add(1)))
+			var handler gin.HandlerFunc
+			if backend == "redis" {
+				useRateLimitMiniRedis(t)
+				handler = redisRateLimitHandler(subject, 60, 0, 1)
+			} else {
+				handler = memoryRateLimitHandler(subject, 60, 0, 1)
+			}
+
+			router := gin.New()
+			router.GET("/plugin", handler, func(c *gin.Context) { c.Status(http.StatusOK) })
+			assert.Equal(t, http.StatusOK, performRateLimitRequest(router, "/plugin", "127.0.0.1:1001").Code)
+			assert.Equal(t, http.StatusTooManyRequests, performRateLimitRequest(router, "/plugin", "127.0.0.1:1001").Code,
+				"a successful request without a stream status must still consume its slot")
+		})
+	}
+}
+
 var modelRateLimitTestUsers atomic.Int64
 
 func TestModelRateLimitStreamFailuresDoNotConsumeSuccessLimit(t *testing.T) {

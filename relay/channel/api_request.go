@@ -465,6 +465,15 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	// transparent stream retries.
 	relayClient := *client
 	relayClient.CheckRedirect = keepUpstreamRedirectResponse
+	// Bound non-streaming calls on the per-request copy. A wedged upstream that
+	// sends headers and then stalls the body would otherwise park this handler
+	// goroutine (and every buffer it owns) until the process restarts. Streaming
+	// keeps the shared client and its existing behaviour.
+	if !info.IsStream {
+		if timeout := service.NonStreamRelayTimeout(); timeout > 0 {
+			relayClient.Timeout = timeout
+		}
+	}
 	if common2.DebugEnabled && req != nil && req.URL != nil {
 		policy := service.NormalizeHTTPTransportPolicy(info.ChannelSetting)
 		logger.LogDebug(c, "http transport select: host=%s protocol=%s shards=%d policy=%s",

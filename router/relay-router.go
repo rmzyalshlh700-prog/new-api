@@ -72,6 +72,9 @@ func SetRelayRouter(router *gin.Engine) {
 	relayV1Router.Use(middleware.RouteTag("relay"))
 	relayV1Router.Use(middleware.SystemPerformanceCheck())
 	relayV1Router.Use(middleware.TokenAuth())
+	// IP and per-user request budgets run before any channel selection or
+	// upstream work, so a token holder cannot exhaust upstream connections.
+	relayV1Router.Use(middleware.RelayRateLimit())
 	{
 		// Responses WebSocket route. Channel selection happens after the first
 		// response.create event; each event runs the ordinary request limiter.

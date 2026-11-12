@@ -116,14 +116,22 @@ func memoryRateLimitHandler(subject string, duration int64, totalMaxCount, succe
 		// 3. 处理请求
 		c.Next()
 
-		// 4. 如果请求成功，记录到实际的成功请求计数中
-		reservation.Complete(modelRequestSucceeded(c))
+		// 4. 如果请求成功，记录到实际的成功请求计数中。成功名额关闭时
+		// reservation 为 nil，此时无需登记。
+		if reservation != nil {
+			reservation.Complete(modelRequestSucceeded(c))
+		}
 	}
 }
 
 func modelRequestSucceeded(c *gin.Context) bool {
+	if c.Writer.Status() >= 400 {
+		return false
+	}
+	// Routes that are not relay streams (plugin native routes, model lists) never
+	// set a StreamStatus, so a successful response is simply one without it.
 	status, _ := common.GetContextKeyType[*relaycommon.StreamStatus](c, constant.ContextKeyResponseStreamStatus)
-	return c.Writer.Status() < 400 && !status.ResponseFailed()
+	return status == nil || !status.ResponseFailed()
 }
 
 // ModelRequestRateLimit 模型请求限流中间件
@@ -156,8 +164,9 @@ func ModelRequestRateLimit() func(c *gin.Context) {
 			subject += ":" + group
 		}
 
-		// 根据存储类型选择并执行限流处理器
-		if common.RedisEnabled {
+		// 根据存储类型选择并执行限流处理器。Redis 已启用但客户端缺失（未初始化
+		// 或初始化失败）时退回进程内限流，不能让请求因限流器初始化而崩溃。
+		if common.RedisEnabled && common.RDB != nil {
 			redisRateLimitHandler(subject, duration, totalMaxCount, successMaxCount)(c)
 		} else {
 			memoryRateLimitHandler(subject, duration, totalMaxCount, successMaxCount)(c)

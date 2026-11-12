@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
@@ -46,6 +47,86 @@ func performRateLimitRequest(router http.Handler, path string, remoteAddr string
 	request.RemoteAddr = remoteAddr
 	router.ServeHTTP(recorder, request)
 	return recorder
+}
+
+func withRelayRateLimitSettings(t *testing.T, ipMax int, userMax int, windowSeconds int64) {
+	t.Helper()
+	// The limiter answers with a translated OpenAI-shaped error body.
+	require.NoError(t, i18n.Init())
+	previousEnable, previousIP := common.RelayRateLimitEnable, common.RelayRateLimitNum
+	previousUser, previousWindow := common.RelayRateLimitUserNum, common.RelayRateLimitDuration
+	common.RelayRateLimitEnable = true
+	common.RelayRateLimitNum = ipMax
+	common.RelayRateLimitUserNum = userMax
+	common.RelayRateLimitDuration = windowSeconds
+	t.Cleanup(func() {
+		common.RelayRateLimitEnable, common.RelayRateLimitNum = previousEnable, previousIP
+		common.RelayRateLimitUserNum, common.RelayRateLimitDuration = previousUser, previousWindow
+	})
+}
+
+// /v1 的按用户预算必须独立于 IP：换一个出口 IP 仍然会被同一用户预算拦住。
+func TestRelayRateLimitEnforcesUserBudget(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	useRateLimitMiniRedis(t)
+	withRelayRateLimitSettings(t, 100, 1, 60)
+
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies(nil))
+	router.GET("/v1/limited", func(c *gin.Context) { c.Set("id", 7) }, RelayRateLimit(), func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/v1/limited", "192.0.2.20:1234").Code)
+	limited := performRateLimitRequest(router, "/v1/limited", "192.0.2.20:1234")
+	assert.Equal(t, http.StatusTooManyRequests, limited.Code)
+	assert.NotEmpty(t, limited.Header().Get("Retry-After"))
+	assert.Contains(t, limited.Body.String(), `"error"`, "relay clients need an OpenAI-shaped error body")
+
+	assert.Equal(t, http.StatusTooManyRequests, performRateLimitRequest(router, "/v1/limited", "192.0.2.21:1234").Code,
+		"the user budget must not be bypassable by changing the client IP")
+}
+
+// 按 IP 预算在多个用户/令牌之间共享：同一主机的第二个令牌也必须受限，
+// 否则一个攻击者可以用大量令牌绕过按用户预算。
+func TestRelayRateLimitEnforcesIPBudgetAcrossTokens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	useRateLimitMiniRedis(t)
+	withRelayRateLimitSettings(t, 2, 0, 60)
+
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies(nil))
+	userId := 0
+	router.GET("/v1/limited", func(c *gin.Context) {
+		userId++
+		c.Set("id", userId)
+	}, RelayRateLimit(), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	const remoteAddr = "192.0.2.30:1234"
+	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/v1/limited", remoteAddr).Code)
+	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/v1/limited", remoteAddr).Code)
+	assert.Equal(t, http.StatusTooManyRequests, performRateLimitRequest(router, "/v1/limited", remoteAddr).Code)
+	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/v1/limited", "192.0.2.31:1234").Code,
+		"the IP budget is per client IP")
+}
+
+// Redis 不可用时按 IP 预算回退到内存计数器，仍然返回 429 而不是放行。
+func TestRelayRateLimitMemoryFallbackReturns429(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousRedisEnabled := common.RedisEnabled
+	common.RedisEnabled = false
+	t.Cleanup(func() { common.RedisEnabled = previousRedisEnabled })
+	withRelayRateLimitSettings(t, 1, 0, 60)
+
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies(nil))
+	router.GET("/v1/memory-limited", RelayRateLimit(), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	const remoteAddr = "198.51.100.7:1234"
+	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/v1/memory-limited", remoteAddr).Code)
+	limited := performRateLimitRequest(router, "/v1/memory-limited", remoteAddr)
+	assert.Equal(t, http.StatusTooManyRequests, limited.Code)
+	assert.Contains(t, limited.Body.String(), `"error"`)
 }
 
 func TestRedisIPRateLimiterThresholdTTLAndNamespace(t *testing.T) {

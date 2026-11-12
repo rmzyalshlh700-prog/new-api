@@ -187,6 +187,13 @@ var RelayHTTP2PingTimeout int     // seconds to wait for a PING acknowledgement
 // ResponseHeaderTimeout only bounds the wait for the response headers; once the
 // headers arrive, streaming is unaffected.
 var RelayResponseHeaderTimeout int // unit is second
+
+// RelayNonStreamTimeout bounds a whole non-streaming upstream call: writing the
+// request and reading the response body. Streaming responses are exempt because
+// their body may legitimately stay open for a long time; they are bounded per
+// read interval instead (constant.StreamingTimeout). 0 disables the ceiling.
+var RelayNonStreamTimeout int // unit is second
+
 var RelayMaxIdleConns int
 var RelayMaxIdleConnsPerHost int
 
@@ -247,6 +254,15 @@ var (
 	SearchRateLimitEnable         = true
 	SearchRateLimitNum            = 10
 	SearchRateLimitDuration int64 = 60
+
+	// RelayRateLimit* guard the /v1 relay surface before any upstream work.
+	// The IP budget stops one host from probing token keys or flooding the
+	// gateway with any number of tokens; the user budget stops one account from
+	// parking arbitrarily many upstream connections with cheap requests.
+	RelayRateLimitEnable         = true
+	RelayRateLimitNum            = 1800
+	RelayRateLimitUserNum        = 1200
+	RelayRateLimitDuration int64 = 60
 )
 
 var RateLimitKeyExpirationDuration = 20 * time.Minute

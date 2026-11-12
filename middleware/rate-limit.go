@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
@@ -258,6 +259,91 @@ func userRedisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, key
 	if !allowed {
 		writeRateLimited(c, ttlSeconds)
 	}
+}
+
+// RelayRateLimit guards the relay surface (/v1) before any channel selection or
+// upstream work. Two fixed-window budgets apply: one per client IP, which stops
+// a single host from probing token keys or flooding the gateway with any number
+// of tokens, and one per authenticated user, which stops one account from
+// parking arbitrarily many upstream connections with cheap requests that never
+// succeed (the success-count limit in ModelRequestRateLimit cannot see those).
+//
+// Rejections use 429 with Retry-After and an OpenAI-shaped error body so client
+// SDKs back off instead of treating the limit as a fatal error.
+func RelayRateLimit() func(c *gin.Context) {
+	if !common.RelayRateLimitEnable {
+		return defNext
+	}
+	ipMax := common.RelayRateLimitNum
+	userMax := common.RelayRateLimitUserNum
+	window := common.RelayRateLimitDuration
+	if window <= 0 {
+		window = 60
+	}
+	if ipMax <= 0 && userMax <= 0 {
+		return defNext
+	}
+
+	if common.RedisEnabled {
+		return func(c *gin.Context) {
+			if !relayRedisBudgetTake(c, redisIPRateLimitKey("RL", c.ClientIP()), ipMax, window) {
+				return
+			}
+			if userId := c.GetInt("id"); userMax > 0 && userId != 0 &&
+				!relayRedisBudgetTake(c, redisUserRateLimitKey("RLU", userId), userMax, window) {
+				return
+			}
+			c.Next()
+		}
+	}
+
+	inMemoryRateLimiter.Init(common.RateLimitKeyExpirationDuration)
+	return func(c *gin.Context) {
+		if ipMax > 0 && !inMemoryRateLimiter.Request("RL"+c.ClientIP(), ipMax, window) {
+			writeRelayRateLimited(c, window, ipMax)
+			return
+		}
+		if userId := c.GetInt("id"); userMax > 0 && userId != 0 &&
+			!inMemoryRateLimiter.Request(fmt.Sprintf("RLU:user:%d", userId), userMax, window) {
+			writeRelayRateLimited(c, window, userMax)
+			return
+		}
+		c.Next()
+	}
+}
+
+// relayRedisBudgetTake consumes one unit of a relay budget and writes the 429
+// itself when the budget is exhausted. A Redis failure fails closed with 500:
+// serving unlimited traffic because the counter is unavailable would defeat the
+// limiter exactly when the gateway is under stress.
+func relayRedisBudgetTake(c *gin.Context, key string, maxRequestNum int, window int64) bool {
+	if maxRequestNum <= 0 {
+		return true
+	}
+	allowed, _, ttlSeconds, err := redisFixedWindowTake(c.Request.Context(), key, maxRequestNum, window)
+	if err != nil {
+		logger.LogError(c.Request.Context(), common.LogText("relay rate limit check failed (key=%s): %v", key, err))
+		c.Status(http.StatusInternalServerError)
+		c.Abort()
+		return false
+	}
+	if !allowed {
+		writeRelayRateLimited(c, ttlSeconds, maxRequestNum)
+		return false
+	}
+	return true
+}
+
+func writeRelayRateLimited(c *gin.Context, retryAfterSeconds int64, maxRequestNum int) {
+	if retryAfterSeconds > 0 {
+		c.Header("Retry-After", strconv.FormatInt(retryAfterSeconds, 10))
+	}
+	minutes := int(retryAfterSeconds / 60)
+	if minutes < 1 {
+		minutes = 1
+	}
+	abortWithOpenAiMessage(c, http.StatusTooManyRequests,
+		i18n.T(c, i18n.MsgRateLimitReached, map[string]any{"Minutes": minutes, "Max": maxRequestNum}))
 }
 
 // SearchRateLimit returns a per-user rate limiter for search endpoints.

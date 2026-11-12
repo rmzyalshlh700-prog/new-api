@@ -24,6 +24,9 @@ type userQuotaDebtState struct {
 
 // GetUserQuotaDebt 返回用户当前未结清的欠费额度。
 func GetUserQuotaDebt(userId int) (int64, error) {
+	if DB == nil {
+		return 0, nil
+	}
 	var state userQuotaDebtState
 	if err := DB.Model(&User{}).Select("quota", "quota_debt").Where("id = ?", userId).Take(&state).Error; err != nil {
 		return 0, err
@@ -34,6 +37,12 @@ func GetUserQuotaDebt(userId int) (int64, error) {
 // RecordUserQuotaDebt 以原子增量把无法覆盖的结算差额累加到用户欠费上。欠费上限
 // 与钱包上限一致，避免账单字段溢出成负数。
 func RecordUserQuotaDebt(userId int, amount int) (int64, error) {
+	if DB == nil {
+		// 没有持久化存储就无法登记欠费；这是未初始化/无库的运行环境，不能让
+		// 结算路径因为缺少数据库而崩溃。
+		common.SysError(common.LogText("cannot record quota debt without a database (userId=%d amount=%d)", userId, amount))
+		return 0, nil
+	}
 	amount64 := int64(amount)
 	if amount64 <= 0 {
 		return GetUserQuotaDebt(userId)
@@ -83,6 +92,10 @@ func recordSettlementShortfall(userId int, requested int, deducted int) (int64, 
 // 余额扣成负数。余额不足时剩余欠费保持原样，由调用方阻断请求。
 // 返回值 remaining 为未结清的欠费，repaid 为本次抵扣的额度。
 func RepayUserQuotaDebt(userId int) (remaining int64, repaid int64, err error) {
+	if DB == nil {
+		// 无数据库时没有已登记的欠费，请求照常放行。
+		return 0, 0, nil
+	}
 	for range userQuotaDebtRepayAttempts {
 		var state userQuotaDebtState
 		readErr := DB.Model(&User{}).

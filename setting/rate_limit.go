@@ -18,7 +18,10 @@ const maxRateLimitDurationSeconds = 24 * 60 * 60
 // window of at most 24 hours.
 const maxModelRequestRateLimitCount int64 = math.MaxInt64 / maxRateLimitDurationSeconds
 
-var ModelRequestRateLimitEnabled = false
+// ModelRequestRateLimitEnabled is on by default: a gateway that serves an
+// upstream connection per request cannot rely on the per-request quota alone to
+// bound concurrency. Existing installations keep their stored option value.
+var ModelRequestRateLimitEnabled = true
 var ModelRequestRateLimitDurationMinutes = 1
 var ModelRequestRateLimitCount = 0
 var ModelRequestRateLimitSuccessCount = 1000

@@ -151,9 +151,12 @@ func InitEnv() {
 	BatchUpdateInterval = GetEnvOrDefault("BATCH_UPDATE_INTERVAL", 5)
 	RelayTimeout = GetEnvOrDefault("RELAY_TIMEOUT", 0)
 	RelayIdleConnTimeout = GetEnvOrDefault("RELAY_IDLE_CONN_TIMEOUT", 90)
-	RelayHTTP2PingIdleTimeout = GetEnvOrDefault("RELAY_HTTP2_PING_IDLE_TIMEOUT", 0)
+	// Probing the upstream connection detects a half-open or wedged stream that
+	// would otherwise park the relay goroutine until the OS gives up.
+	RelayHTTP2PingIdleTimeout = GetEnvOrDefault("RELAY_HTTP2_PING_IDLE_TIMEOUT", 60)
 	RelayHTTP2PingTimeout = GetEnvOrDefault("RELAY_HTTP2_PING_TIMEOUT", 15)
 	RelayResponseHeaderTimeout = GetEnvOrDefault("RELAY_RESPONSE_HEADER_TIMEOUT", 1800)
+	RelayNonStreamTimeout = GetEnvOrDefault("RELAY_NON_STREAM_TIMEOUT", 600)
 	RelayMaxIdleConns = GetEnvOrDefault("RELAY_MAX_IDLE_CONNS", 500)
 	RelayMaxIdleConnsPerHost = GetEnvOrDefault("RELAY_MAX_IDLE_CONNS_PER_HOST", 100)
 
@@ -181,6 +184,11 @@ func InitEnv() {
 	SearchRateLimitEnable = GetEnvOrDefaultBool("SEARCH_RATE_LIMIT_ENABLE", true)
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
+
+	RelayRateLimitEnable = GetEnvOrDefaultBool("RELAY_RATE_LIMIT_ENABLE", true)
+	RelayRateLimitNum = GetEnvOrDefault("RELAY_RATE_LIMIT", 1800)
+	RelayRateLimitUserNum = GetEnvOrDefault("RELAY_RATE_LIMIT_USER", 1200)
+	RelayRateLimitDuration = int64(GetEnvOrDefault("RELAY_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
 }
 

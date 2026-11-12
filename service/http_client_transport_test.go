@@ -24,6 +24,24 @@ import (
 	"golang.org/x/net/http2/hpack"
 )
 
+// 非流式请求必须有整请求上限；RELAY_TIMEOUT 更严格时以它为准；0 可显式关闭。
+func TestNonStreamRelayTimeoutCeiling(t *testing.T) {
+	previousNonStream, previousRelay := common.RelayNonStreamTimeout, common.RelayTimeout
+	t.Cleanup(func() { common.RelayNonStreamTimeout, common.RelayTimeout = previousNonStream, previousRelay })
+
+	common.RelayNonStreamTimeout, common.RelayTimeout = 600, 0
+	assert.Equal(t, 10*time.Minute, NonStreamRelayTimeout())
+
+	common.RelayNonStreamTimeout, common.RelayTimeout = 42, 0
+	assert.Equal(t, 42*time.Second, NonStreamRelayTimeout())
+
+	common.RelayNonStreamTimeout, common.RelayTimeout = 600, 5
+	assert.Equal(t, 5*time.Second, NonStreamRelayTimeout(), "RELAY_TIMEOUT must win when it is stricter")
+
+	common.RelayNonStreamTimeout, common.RelayTimeout = 0, 0
+	assert.Zero(t, NonStreamRelayTimeout(), "0 disables the non-stream ceiling")
+}
+
 func withRelayHTTPTransportSettings(t *testing.T) {
 	t.Helper()
 	prevMaxIdle := common.RelayMaxIdleConns

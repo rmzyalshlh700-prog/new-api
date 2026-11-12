@@ -8,13 +8,50 @@ import (
 	"reflect"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// 上游返回响应头后拖住响应体时，非流式请求必须被整请求超时截断，不能无限期
+// 占用处理协程与它持有的缓冲区。
+func TestDoRequestCutsStalledNonStreamBody(t *testing.T) {
+	service.InitHttpClient()
+	gin.SetMode(gin.TestMode)
+	previousNonStream, previousRelay := common.RelayNonStreamTimeout, common.RelayTimeout
+	common.RelayNonStreamTimeout, common.RelayTimeout = 1, 0
+	t.Cleanup(func() { common.RelayNonStreamTimeout, common.RelayTimeout = previousNonStream, previousRelay })
+
+	stalled := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"partial":`)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		<-r.Context().Done()
+	}))
+	defer stalled.Close()
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/relay", nil)
+	req, err := http.NewRequest(http.MethodPost, stalled.URL, bytes.NewReader([]byte(`{"model":"test"}`)))
+	require.NoError(t, err)
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}
+
+	start := time.Now()
+	resp, err := doRequest(ctx, req, info)
+	if err == nil {
+		defer resp.Body.Close()
+		_, err = io.ReadAll(resp.Body)
+	}
+	require.Error(t, err, "a stalled non-stream body must be cut by the request timeout")
+	assert.Less(t, time.Since(start), 30*time.Second)
+}
 
 func TestDoRequestReturnsUpstreamRedirectWithoutFollowing(t *testing.T) {
 	service.InitHttpClient()

@@ -76,6 +76,27 @@ func ValidateSSRFProtectedFetchURL(urlStr string) error {
 // time.Duration without overflowing (~292 years).
 const maxTimeoutSeconds = int(math.MaxInt64 / int64(time.Second))
 
+// NonStreamRelayTimeout returns the whole-request ceiling for a non-streaming
+// upstream call. RELAY_NON_STREAM_TIMEOUT defaults to 10 minutes and 0 disables
+// it; RELAY_TIMEOUT still wins when it is the stricter value.
+//
+// Streaming responses are deliberately exempt: their body can legitimately stay
+// open for a long time, and they are bounded per read interval by
+// constant.StreamingTimeout instead. Without this ceiling a non-streaming call
+// to an upstream that sends headers and then stalls the body would park the
+// handler goroutine and its buffers for the life of the process.
+func NonStreamRelayTimeout() time.Duration {
+	seconds := min(max(common.RelayNonStreamTimeout, 0), maxTimeoutSeconds)
+	timeout := time.Duration(seconds) * time.Second
+	if common.RelayTimeout > 0 {
+		relayTimeout := time.Duration(min(common.RelayTimeout, maxTimeoutSeconds)) * time.Second
+		if timeout <= 0 || relayTimeout < timeout {
+			timeout = relayTimeout
+		}
+	}
+	return timeout
+}
+
 func newRelayHTTPTransport() *http.Transport {
 	var transport *http.Transport
 	if defaultTransport, ok := http.DefaultTransport.(*http.Transport); ok && defaultTransport != nil {
