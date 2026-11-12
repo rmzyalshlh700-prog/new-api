@@ -1,11 +1,9 @@
-import { useCallback } from 'react';
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import '@copilotkit/react-ui/styles.css';
+import { Component, useCallback, type ErrorInfo, type ReactNode } from 'react';
 import { CopilotKit } from '@copilotkit/react-core';
 import { CopilotPopup } from '@copilotkit/react-ui';
-import '@copilotkit/react-ui/styles.css';
 import { ChevronsUpDown, MessagesSquare, Send, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '@/shared/stores/auth-store';
 import { getCommonHeaders, getFreshAuthHeaders } from '@/shared/lib/auth-session';
 import { useAdminCopilot } from './use-admin-copilot';
 
@@ -66,28 +64,29 @@ function AdminCopilotTools() {
  */
 export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
   const { t } = useTranslation();
-  const accessToken = useAuthStore((s) => s.auth.accessToken);
 
   // CopilotKit does not share the app's HTTP client, so its fetch calls would
   // otherwise hit AdminAuth() without a Bearer token and return 401. Forward
   // the current access token on every runtime request, and let CopilotKit
   // re-resolve the headers (with a refresh when the token is about to expire)
-  // before each new chat exchange.
-  const headers = useCallback(async () => {
+  // before each new chat exchange. Never hand CopilotKit an `undefined` header
+  // value: its fetch path throws while serializing the request.
+  const headers = useCallback(async (): Promise<Record<string, string>> => {
     try {
       return await getFreshAuthHeaders();
     } catch {
-      const fallback = getCommonHeaders();
-      if (!useAuthStore.getState().auth.accessToken) {
-        delete fallback.Authorization;
-      }
-      return fallback;
+      const authorization = getCommonHeaders().Authorization;
+      return authorization
+        ? { 'Content-Type': 'application/json', Authorization: authorization }
+        : { 'Content-Type': 'application/json' };
     }
-  }, [accessToken]);
+  }, []);
 
   return (
     <CopilotKit runtimeUrl="/api/admin/copilot/chat" headers={headers}>
-      <AdminCopilotTools />
+      <CopilotNullErrorBoundary>
+        <AdminCopilotTools />
+      </CopilotNullErrorBoundary>
       {children}
       <CopilotNullErrorBoundary>
         <CopilotPopup

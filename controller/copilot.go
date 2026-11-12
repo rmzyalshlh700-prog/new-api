@@ -188,13 +188,18 @@ func GetCopilotHealth(c *gin.Context) {
 	common.ApiSuccess(c, service.GetLiveMetrics())
 }
 
-// AdminCopilotChatInfo answers the CopilotKit v1.87+ runtime handshake so the
-// client stops probing a nonexistent /chat/info endpoint and reporting 404.
+// AdminCopilotChatInfo answers the CopilotKit v1.87+ runtime handshake. The
+// client registers remote agents from `agents`, so a payload without a
+// `default` agent makes CopilotKit drop every outgoing message ("Agent
+// default not found") and breaks the chat message renderer. Keep the shape in
+// sync with @copilotkit/core's performRuntimeConnection contract.
 func AdminCopilotChatInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status": "ok",
-		"endpoints": gin.H{
-			"chat": "/api/admin/copilot/chat",
+		"version": "1.87.1",
+		"agents": gin.H{
+			"default": gin.H{
+				"description": "Admin Copilot",
+			},
 		},
 	})
 }
