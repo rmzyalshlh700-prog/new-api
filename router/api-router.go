@@ -434,6 +434,13 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/metrics", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAdminDashboardMetrics)
 		// Net profit (revenue - upstream cost) for the dashboard profit card.
 		apiRouter.GET("/admin/profit_stats", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetProfitStats)
+		// Admin Copilot: chat proxy for CopilotKit plus REST data for frontend tools.
+		copilotRoute := apiRouter.Group("/admin/copilot")
+		copilotRoute.Use(middleware.AdminAuth())
+		copilotRoute.POST("/chat", controller.AdminCopilotChat)
+		copilotRoute.GET("/tools/financials", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotFinancials)
+		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), controller.GetCopilotUsers)
+		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotHealth)
 		// Full configuration backup download (admin console > Backup).
 		apiRouter.GET("/admin/backup/export", middleware.AdminAuth(), controller.ExportSystemBackup)
 		dataRoute.GET("/users", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetQuotaDatesByUser)

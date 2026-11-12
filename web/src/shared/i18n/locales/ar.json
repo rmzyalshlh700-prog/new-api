@@ -2916,7 +2916,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "المشاريع ذات الصلة",
     "footer.defaultCopyright": "جميع الحقوق محفوظة.",
-    "footer.new\u0061pi.projectAttributionSuffix": "جميع الحقوق محفوظة. صُمم وطُوّر بواسطة المساهمين في المشروع.",
+    "footer.newapi.projectAttributionSuffix": "جميع الحقوق محفوظة. صُمم وطُوّر بواسطة المساهمين في المشروع.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "بالنسبة للقنوات المخصصة المتقدمة، ينطبق هذا فقط على مسارات /v1/responses دون تحويل البروتوكول.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "بالنسبة للقنوات المضافة بعد 10 مايو 2025، لا حاجة إلى إزالة \".\" من أسماء النماذج أثناء النشر",
     "For private deployments, format: https://fastgpt.run/api/openapi": "للنشر الخاص، التنسيق: https://fastgpt.run/api/openapi",
@@ -7627,6 +7627,18 @@
     "Group Type": "Group Type",
     "Stripe Price ID": "Stripe Price ID",
     "Creem Product ID": "Creem Product ID",
-    "Waffo Pancake Product ID": "Waffo Pancake Product ID"
+    "Waffo Pancake Product ID": "Waffo Pancake Product ID",
+    "Admin Copilot": "مساعد المسؤول الذكي",
+    "Ask Admin Copilot...": "اسأل مساعد المسؤول...",
+    "Hello! I'm your admin copilot. Ask me about finances, users or system health.": "مرحباً! أنا مساعدك الذكي للإدارة. اسألني عن المالية أو المستخدمين أو حالة النظام.",
+    "An error occurred. Please try again.": "حدث خطأ. يرجى المحاولة مرة أخرى.",
+    "Stop generating": "إيقاف التوليد",
+    "Regenerate response": "إعادة إنشاء الرد",
+    "Thumbs up": "إعجاب",
+    "Thumbs down": "عدم إعجاب",
+    "The admin console page the user is currently viewing, including query parameters": "صفحة لوحة تحكم المسؤول التي يشاهدها المستخدم حالياً، بما في ذلك معاملات الاستعلام",
+    "Fetch the platform financial summary: today and this month revenue, cost and profit stats": "جلب الملخص المالي للمنصة: إحصاءات الإيرادات والتكلفة والأرباح لليوم وهذا الشهر",
+    "Look up platform user details by numeric id, email or username; returns one user or a list of matches": "البحث عن تفاصيل مستخدم المنصة بواسطة المعرّف الرقمي أو البريد الإلكتروني أو اسم المستخدم؛ يُرجع مستخدماً واحداً أو قائمة بالنتائج المطابقة",
+    "Fetch current server health: CPU usage, memory usage, load average and network throughput": "جلب حالة الخادم الحالية: استخدام المعالج والذاكرة ومتوسط التحميل وسرعة الشبكة"
   }
 }

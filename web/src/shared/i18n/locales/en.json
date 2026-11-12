@@ -2916,7 +2916,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For private deployments, format: https://fastgpt.run/api/openapi": "For private deployments, format: https://fastgpt.run/api/openapi",
@@ -7627,6 +7627,18 @@
     "Group Type": "Group Type",
     "Stripe Price ID": "Stripe Price ID",
     "Creem Product ID": "Creem Product ID",
-    "Waffo Pancake Product ID": "Waffo Pancake Product ID"
+    "Waffo Pancake Product ID": "Waffo Pancake Product ID",
+    "Admin Copilot": "Admin Copilot",
+    "Ask Admin Copilot...": "Ask Admin Copilot...",
+    "Hello! I'm your admin copilot. Ask me about finances, users or system health.": "Hello! I'm your admin copilot. Ask me about finances, users or system health.",
+    "An error occurred. Please try again.": "An error occurred. Please try again.",
+    "Stop generating": "Stop generating",
+    "Regenerate response": "Regenerate response",
+    "Thumbs up": "Thumbs up",
+    "Thumbs down": "Thumbs down",
+    "The admin console page the user is currently viewing, including query parameters": "The admin console page the user is currently viewing, including query parameters",
+    "Fetch the platform financial summary: today and this month revenue, cost and profit stats": "Fetch the platform financial summary: today and this month revenue, cost and profit stats",
+    "Look up platform user details by numeric id, email or username; returns one user or a list of matches": "Look up platform user details by numeric id, email or username; returns one user or a list of matches",
+    "Fetch current server health: CPU usage, memory usage, load average and network throughput": "Fetch current server health: CPU usage, memory usage, load average and network throughput"
   }
 }

@@ -77,6 +77,10 @@ export default defineConfig(({ envMode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        // CopilotKit v2 declares maplibre-gl as a dynamic optional import for
+        // generative-UI maps; the admin copilot never renders one, so resolve
+        // it to a stub to keep the bundler from erroring.
+        'maplibre-gl': path.resolve(__dirname, './src/shims/empty-module.ts'),
       },
     },
     html: {
