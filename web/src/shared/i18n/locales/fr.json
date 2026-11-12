@@ -7567,6 +7567,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Archive": "Archive",
+    "Daily archive of historical usage, revenue and payments.": "Daily archive of historical usage, revenue and payments.",
+    "Daily Summaries": "Daily Summaries",
+    "Export Day Data": "Export Day Data",
+    "Failed to load archive": "Failed to load archive",
+    "Failed to export archive": "Failed to export archive",
+    "No archive data": "No archive data",
+    "No archived days in the selected range.": "No archived days in the selected range.",
+    "No usage logs": "No usage logs",
+    "No usage logs in the selected range.": "No usage logs in the selected range.",
+    "Start date": "Start date",
+    "End date": "End date",
+    "Top-up Amount": "Top-up Amount",
+    "New Users": "New Users"
   }
 }

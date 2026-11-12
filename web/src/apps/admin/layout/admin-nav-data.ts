@@ -125,6 +125,12 @@ export function useAdminSidebarData(): SidebarData {
         title: t('Security & Limits'),
         items: [
           {
+            title: t('Archive'),
+            url: '/admin/archive',
+            icon: Box,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
             title: t('Audit Logs'),
             url: '/admin/audit-logs',
             icon: ClipboardList,

@@ -7567,6 +7567,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "تقريب"
+    "Zoom": "تقريب",
+    "Archive": "الأرشيف",
+    "Daily archive of historical usage, revenue and payments.": "أرشيف يومي للاستخدام السابق والإيرادات والمدفوعات.",
+    "Daily Summaries": "الملخصات اليومية",
+    "Export Day Data": "تصدير بيانات اليوم",
+    "Failed to load archive": "فشل تحميل الأرشيف",
+    "Failed to export archive": "فشل تصدير الأرشيف",
+    "No archive data": "لا توجد بيانات أرشيف",
+    "No archived days in the selected range.": "لا توجد أيام مؤرشفة في النطاق المحدد.",
+    "No usage logs": "لا توجد سجلات استخدام",
+    "No usage logs in the selected range.": "لا توجد سجلات استخدام في النطاق المحدد.",
+    "Start date": "تاريخ البدء",
+    "End date": "تاريخ الانتهاء",
+    "Top-up Amount": "مبلغ الشحن",
+    "New Users": "مستخدمون جدد"
   }
 }

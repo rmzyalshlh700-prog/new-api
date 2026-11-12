@@ -351,6 +351,15 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			paymentLogRoute.GET("/logs", controller.GetAdminPaymentLogs)
 		}
+		archiveRoute := apiRouter.Group("/admin/archive")
+		archiveRoute.Use(middleware.AdminAuth())
+		archiveRoute.Use(middleware.RequireVisibleSection("dashboard"))
+		{
+			archiveRoute.GET("/summary", controller.GetArchiveSummary)
+			archiveRoute.GET("/logs", controller.GetArchiveLogs)
+			archiveRoute.GET("/payments", controller.GetArchivePayments)
+			archiveRoute.GET("/export", controller.ExportArchiveDay)
+		}
 		contactLinkRoute := apiRouter.Group("/admin/contact_links")
 		contactLinkRoute.Use(middleware.AdminAuth())
 		contactLinkRoute.Use(middleware.RequireVisibleSection("system_settings"))

@@ -21,6 +21,7 @@ type performanceIndex struct {
 // database is configured, so the same set is applied to both handles.
 var mainDatabaseIndexes = []performanceIndex{
 	{table: "logs", name: "idx_logs_created_at_type_user_id", columns: "created_at, type, user_id"},
+	{table: "logs", name: "idx_logs_created_at", columns: "created_at"},
 	{table: "users", name: "idx_users_quota", columns: "quota"},
 	{table: "users", name: "idx_users_created_at", columns: "created_at"},
 	{table: "tokens", name: "idx_tokens_status_created_time", columns: "status, created_time"},
@@ -31,6 +32,7 @@ var mainDatabaseIndexes = []performanceIndex{
 // primary index through the table engine and rejects CREATE INDEX, so the
 // caller skips this migration for ClickHouse.
 var logDatabaseIndexes = []performanceIndex{
+	{table: "logs", name: "idx_logs_created_at", columns: "created_at"},
 	{table: "logs", name: "idx_logs_created_at_type_user_id", columns: "created_at, type, user_id"},
 }
 

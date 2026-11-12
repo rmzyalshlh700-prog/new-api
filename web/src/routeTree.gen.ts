@@ -39,6 +39,7 @@ import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin/index'
+import { Route as AdminAdminArchiveRouteImport } from './routes/_admin/admin/archive'
 import { Route as AdminAdminBackupRouteImport } from './routes/_admin/admin/backup'
 import { Route as AdminAdminOverviewRouteImport } from './routes/_admin/admin/overview'
 import { Route as AdminAdminPaymentsRouteImport } from './routes/_admin/admin/payments'
@@ -227,6 +228,11 @@ const authUserResetRoute = authUserResetRouteImport.update({
 const AdminAdminIndexRoute = AdminAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAdminArchiveRoute = AdminAdminArchiveRouteImport.update({
+  id: '/admin/archive',
+  path: '/admin/archive',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminAdminBackupRoute = AdminAdminBackupRouteImport.update({
@@ -487,6 +493,7 @@ export interface FileRoutesByFullPath {
   '/setup/': typeof SetupIndexRoute
   '/admin/system-settings': typeof AdminAdminSystemSettingsRouteRouteWithChildren
   '/user/reset': typeof authUserResetRoute
+  '/admin/archive': typeof AdminAdminArchiveRoute
   '/admin/backup': typeof AdminAdminBackupRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
@@ -556,6 +563,7 @@ export interface FileRoutesByTo {
   '/rankings': typeof RankingsIndexRoute
   '/setup': typeof SetupIndexRoute
   '/user/reset': typeof authUserResetRoute
+  '/admin/archive': typeof AdminAdminArchiveRoute
   '/admin/backup': typeof AdminAdminBackupRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
@@ -630,6 +638,7 @@ export interface FileRoutesById {
   '/setup/': typeof SetupIndexRoute
   '/_admin/admin/system-settings': typeof AdminAdminSystemSettingsRouteRouteWithChildren
   '/(auth)/user/reset': typeof authUserResetRoute
+  '/_admin/admin/archive': typeof AdminAdminArchiveRoute
   '/_admin/admin/backup': typeof AdminAdminBackupRoute
   '/_admin/admin/overview': typeof AdminAdminOverviewRoute
   '/_admin/admin/payments': typeof AdminAdminPaymentsRoute
@@ -703,6 +712,7 @@ export interface FileRouteTypes {
     | '/setup/'
     | '/admin/system-settings'
     | '/user/reset'
+    | '/admin/archive'
     | '/admin/backup'
     | '/admin/overview'
     | '/admin/payments'
@@ -772,6 +782,7 @@ export interface FileRouteTypes {
     | '/rankings'
     | '/setup'
     | '/user/reset'
+    | '/admin/archive'
     | '/admin/backup'
     | '/admin/overview'
     | '/admin/payments'
@@ -845,6 +856,7 @@ export interface FileRouteTypes {
     | '/setup/'
     | '/_admin/admin/system-settings'
     | '/(auth)/user/reset'
+    | '/_admin/admin/archive'
     | '/_admin/admin/backup'
     | '/_admin/admin/overview'
     | '/_admin/admin/payments'
@@ -1120,6 +1132,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminAdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_admin/admin/archive': {
+      id: '/_admin/admin/archive'
+      path: '/admin/archive'
+      fullPath: '/admin/archive'
+      preLoaderRoute: typeof AdminAdminArchiveRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_admin/admin/backup': {
@@ -1504,6 +1523,7 @@ const AdminAdminSystemSettingsRouteRouteWithChildren =
 
 interface AdminRouteRouteChildren {
   AdminAdminSystemSettingsRouteRoute: typeof AdminAdminSystemSettingsRouteRouteWithChildren
+  AdminAdminArchiveRoute: typeof AdminAdminArchiveRoute
   AdminAdminBackupRoute: typeof AdminAdminBackupRoute
   AdminAdminOverviewRoute: typeof AdminAdminOverviewRoute
   AdminAdminPaymentsRoute: typeof AdminAdminPaymentsRoute
@@ -1522,6 +1542,7 @@ interface AdminRouteRouteChildren {
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAdminSystemSettingsRouteRoute:
     AdminAdminSystemSettingsRouteRouteWithChildren,
+  AdminAdminArchiveRoute: AdminAdminArchiveRoute,
   AdminAdminBackupRoute: AdminAdminBackupRoute,
   AdminAdminOverviewRoute: AdminAdminOverviewRoute,
   AdminAdminPaymentsRoute: AdminAdminPaymentsRoute,
