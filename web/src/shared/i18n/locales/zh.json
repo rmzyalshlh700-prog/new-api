@@ -7581,6 +7581,17 @@
     "Start date": "Start date",
     "End date": "End date",
     "Top-up Amount": "Top-up Amount",
-    "New Users": "New Users"
+    "New Users": "New Users",
+    "Server Performance": "Server Performance",
+    "Network Speed": "Network Speed",
+    "CPU Usage": "CPU Usage",
+    "Memory Usage": "Memory Usage",
+    "CPU trend (last 60s)": "CPU trend (last 60s)",
+    "Memory trend (last 60s)": "Memory trend (last 60s)",
+    "Download trend (last 60s)": "Download trend (last 60s)",
+    "Upload trend (last 60s)": "Upload trend (last 60s)",
+    "Load average": "Load average",
+    "Live": "Live",
+    "Connecting...": "Connecting..."
   }
 }

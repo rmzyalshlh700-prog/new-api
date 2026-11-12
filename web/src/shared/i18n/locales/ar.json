@@ -7581,6 +7581,17 @@
     "Start date": "تاريخ البدء",
     "End date": "تاريخ الانتهاء",
     "Top-up Amount": "مبلغ الشحن",
-    "New Users": "مستخدمون جدد"
+    "New Users": "مستخدمون جدد",
+    "Server Performance": "أداء الخادم",
+    "Network Speed": "سرعة الشبكة",
+    "CPU Usage": "استخدام المعالج",
+    "Memory Usage": "استخدام الذاكرة",
+    "CPU trend (last 60s)": "اتجاه المعالج (آخر 60 ثانية)",
+    "Memory trend (last 60s)": "اتجاه الذاكرة (آخر 60 ثانية)",
+    "Download trend (last 60s)": "اتجاه التنزيل (آخر 60 ثانية)",
+    "Upload trend (last 60s)": "اتجاه الرفع (آخر 60 ثانية)",
+    "Load average": "متوسط الحمل",
+    "Live": "مباشر",
+    "Connecting...": "جارٍ الاتصال..."
   }
 }

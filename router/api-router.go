@@ -407,6 +407,12 @@ func SetApiRouter(router *gin.Engine) {
 
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAllQuotaDates)
+
+		// Real-time OS metrics streamed over SSE (one snapshot per second).
+		liveMetricsRoute := apiRouter.Group("/admin/metrics")
+		liveMetricsRoute.Use(middleware.AdminAuth())
+		liveMetricsRoute.Use(middleware.RequireVisibleSection("dashboard"))
+		liveMetricsRoute.GET("/live", controller.StreamLiveMetrics)
 		dataRoute.GET("/metrics", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAdminDashboardMetrics)
 		// Net profit (revenue - upstream cost) for the dashboard profit card.
 		apiRouter.GET("/admin/profit_stats", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetProfitStats)

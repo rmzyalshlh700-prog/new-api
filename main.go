@@ -136,6 +136,7 @@ func main() {
 
 	// Daily archive aggregation (previous day's metrics, at midnight)
 	service.StartDailyArchiveTask()
+	service.StartLiveMetricsSampler()
 
 	// Report this process as a system instance so the System Info page can show
 	// all currently alive nodes in multi-instance deployments.

@@ -42,6 +42,7 @@ import {
 import { ActivityTrendPanel } from './components/activity-trend-panel'
 import { ClientBalancesPanel } from './components/client-balances-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
+import { NetworkSpeedWidget, ServerPerformanceWidget } from './components/live-metrics-widgets'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
 import { PerformanceOverview } from './components/performance-overview'
 import { PlatformMetricsCards } from './components/platform-metrics-cards'
@@ -50,6 +51,7 @@ import { TokenUsagePanel } from './components/token-usage-panel'
 import { TopModelsPanel } from './components/top-models-panel'
 import { UserCharts } from './components/user-analytics'
 import { ALL_TIME_REFRESH_MS, LIVE_REFRESH_MS } from './constants'
+import { useLiveMetrics } from './hooks/use-live-metrics'
 import {
   buildDailyRevenue,
   buildModelUsage,
@@ -95,6 +97,8 @@ export function AdminOverview() {
     )
   )
   const currentHour = now.getHours()
+
+  const liveMetrics = useLiveMetrics()
 
   const quotaQuery = useQuery({
     queryKey: ['admin-overview', 'quota', windowStart],
@@ -334,6 +338,23 @@ export function AdminOverview() {
                   daysElapsed={now.getDate()}
                   loading={quotaQuery.isLoading}
                 />
+              </FadeIn>
+
+              <FadeIn delay={0.05}>
+                <div className='grid gap-3 sm:gap-4 xl:grid-cols-2'>
+                  <ServerPerformanceWidget
+                    metrics={liveMetrics.metrics}
+                    connected={liveMetrics.connected}
+                    cpuHistory={liveMetrics.cpuHistory}
+                    memoryHistory={liveMetrics.memoryHistory}
+                  />
+                  <NetworkSpeedWidget
+                    metrics={liveMetrics.metrics}
+                    connected={liveMetrics.connected}
+                    downloadHistory={liveMetrics.downloadHistory}
+                    uploadHistory={liveMetrics.uploadHistory}
+                  />
+                </div>
               </FadeIn>
 
               <div className='grid gap-3 sm:gap-4 xl:grid-cols-2'>
