@@ -20,9 +20,10 @@ var (
 	dailyArchiveRunning atomic.Bool
 )
 
-// StartDailyArchiveTask archives the previous day's metrics shortly after each
-// local midnight. On startup it also backfills recent days that are missing,
-// so a restart across midnight does not leave a gap.
+// StartDailyArchiveTask archives the previous day's metrics at 00:00 local
+// time every day. On startup it also backfills recent days that are missing,
+// so a restart across midnight does not leave a gap. The scheduling loop runs
+// in a pooled goroutine, so it never blocks startup or request handling.
 func StartDailyArchiveTask() {
 	dailyArchiveOnce.Do(func() {
 		if !common.IsMasterNode {
@@ -32,9 +33,16 @@ func StartDailyArchiveTask() {
 			runDailyArchive()
 			for {
 				now := time.Now()
-				next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 5, 0, 0, now.Location())
+				next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 				time.Sleep(time.Until(next))
 				runDailyArchive()
+				// Consume logs written just before midnight can commit after the
+				// run above; refresh the closed day once the write burst drains so
+				// the archived totals are final.
+				time.Sleep(5 * time.Minute)
+				if err := model.ArchiveDay(time.Now().AddDate(0, 0, -1)); err != nil {
+					logger.LogWarn(context.Background(), common.LogText("daily archive refresh failed: %v", err))
+				}
 			}
 		})
 	})

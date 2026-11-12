@@ -46,6 +46,23 @@ export interface ArchiveRange {
   end_date: string
 }
 
+/**
+ * A committed range is queryable only when both dates are present and
+ * ordered. Callers gate their queries on this so a half-picked or reversed
+ * range never reaches the backend (which would reject it) and cannot drive a
+ * refetch/render loop. YYYY-MM-DD strings compare correctly as strings.
+ */
+export function isValidArchiveRange(
+  range: ArchiveRange | null
+): range is ArchiveRange {
+  return (
+    range !== null &&
+    range.start_date !== '' &&
+    range.end_date !== '' &&
+    range.start_date <= range.end_date
+  )
+}
+
 export interface ArchivePage<T> {
   items: T[]
   total: number

@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { SummaryTab, LogsTab, PaymentsTab } from './components/archive-tables'
 import { TabErrorBoundary } from './components/tab-error-boundary'
-import type { ArchiveRange } from './api'
+import { isValidArchiveRange, type ArchiveRange } from './api'
 import { DatePicker } from '@/shared/components/date-picker'
 import { Button } from '@/shared/components/ui/button'
 import {
@@ -42,12 +42,20 @@ export function ArchiveExplorer() {
   const [range, setRange] = useState<ArchiveRange | null>(null)
   const [tab, setTab] = useState('summaries')
 
+  const nextRange: ArchiveRange | null =
+    startDate && endDate
+      ? {
+          start_date: formatDateStr(startDate),
+          end_date: formatDateStr(endDate),
+        }
+      : null
+  const canApply = isValidArchiveRange(nextRange)
+
   const handleApply = () => {
-    if (!startDate || !endDate) return
-    setRange({
-      start_date: formatDateStr(startDate),
-      end_date: formatDateStr(endDate),
-    })
+    // Reversed or partial ranges are never committed: the queries stay
+    // disabled instead of hammering the API with an invalid time range.
+    if (!isValidArchiveRange(nextRange)) return
+    setRange(nextRange)
   }
 
   return (
@@ -73,11 +81,7 @@ export function ArchiveExplorer() {
             placeholder={t('Select date')}
           />
         </div>
-        <Button
-          className='gap-1.5'
-          disabled={!startDate || !endDate}
-          onClick={handleApply}
-        >
+        <Button className='gap-1.5' disabled={!canApply} onClick={handleApply}>
           <CalendarDays className='size-4' aria-hidden='true' />
           {t('Apply')}
         </Button>

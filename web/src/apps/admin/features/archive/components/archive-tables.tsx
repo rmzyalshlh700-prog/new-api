@@ -43,6 +43,7 @@ import {
   getArchiveLogs,
   getArchivePayments,
   getArchiveSummary,
+  isValidArchiveRange,
   type ArchiveLog,
   type ArchiveRange,
   type DailyArchive,
@@ -64,7 +65,8 @@ export function SummaryTab({ range }: TabProps) {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['archive-summary', range],
-    enabled: range !== null,
+    // No request (and therefore no error toast) until a valid range exists.
+    enabled: isValidArchiveRange(range),
     staleTime: 60 * 1000,
     queryFn: async () => {
       const result = await getArchiveSummary(range as ArchiveRange)
@@ -160,7 +162,9 @@ export function SummaryTab({ range }: TabProps) {
   ]
 
   const { table } = useDataTable({
-    data: data ?? [],
+    // Stable identity: a fresh array per render makes TanStack reset table
+    // state on every render, which freezes the page before data arrives.
+    data: data ?? EMPTY_ITEMS,
     columns,
     enableSorting: false,
     initialPagination: { pageIndex: 0, pageSize: 31 },
@@ -197,7 +201,7 @@ function usePagedArchive<T>(
   })
   const query = useQuery({
     queryKey: [key, range, pagination.pageIndex, pagination.pageSize],
-    enabled: range !== null,
+    enabled: isValidArchiveRange(range),
     placeholderData: (previous) => previous,
     staleTime: 30 * 1000,
     queryFn: async () => {
