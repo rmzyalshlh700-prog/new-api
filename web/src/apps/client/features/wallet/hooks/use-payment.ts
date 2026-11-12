@@ -124,20 +124,23 @@ export function usePayment() {
         const isNowPayments = isNowPaymentsPayment(paymentType)
         const amount = Math.floor(topupAmount)
 
-        const response = isStripe
-          ? await requestStripePayment({
-              amount,
-              payment_method: 'stripe',
-            })
-          : isNowPayments
-            ? await requestNowPaymentsPayment({
-                amount,
-                payment_method: 'nowpayments',
-              })
-            : await requestPayment({
-                amount,
-                payment_method: paymentType,
-              })
+        let response
+        if (isStripe) {
+          response = await requestStripePayment({
+            amount,
+            payment_method: 'stripe',
+          })
+        } else if (isNowPayments) {
+          response = await requestNowPaymentsPayment({
+            amount,
+            payment_method: 'nowpayments',
+          })
+        } else {
+          response = await requestPayment({
+            amount,
+            payment_method: paymentType,
+          })
+        }
 
         if (!isApiSuccess(response)) {
           handleServerError(response, i18next.t('Payment request failed'))
