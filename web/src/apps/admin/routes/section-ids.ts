@@ -51,6 +51,7 @@ export const SETTINGS_BILLING_SECTION_IDS = [
   'group-pricing',
   'payment',
   'checkin',
+  'support',
 ] as const
 export const SETTINGS_BILLING_DEFAULT_SECTION = 'quota'
 

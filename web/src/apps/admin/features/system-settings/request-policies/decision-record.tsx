@@ -22,4 +22,4 @@ For commercial licensing, please contact support@quantumnous.com
  * The implementation lives in `@/shared/features/request-policies/decision-record` because it is shared by both
  * portals. This module keeps the admin-local import path stable.
  */
-export * from '@/shared/features/request-policies/decision-record'
+export { PolicyDecisionRecord } from '@/shared/features/request-policies/decision-record'

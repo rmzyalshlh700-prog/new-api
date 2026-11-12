@@ -7623,6 +7623,10 @@
     "Connecting...": "Connecting...",
     "Exporting…": "Exporting…",
     "This section failed to load": "This section failed to load",
-    "Please try again or pick a different date range.": "Please try again or pick a different date range."
+    "Please try again or pick a different date range.": "Please try again or pick a different date range.",
+    "Group Type": "Group Type",
+    "Stripe Price ID": "Stripe Price ID",
+    "Creem Product ID": "Creem Product ID",
+    "Waffo Pancake Product ID": "Waffo Pancake Product ID"
   }
 }

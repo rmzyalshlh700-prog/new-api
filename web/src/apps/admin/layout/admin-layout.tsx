@@ -18,10 +18,15 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { AuthenticatedLayout } from '@/shared/components/layout/components/authenticated-layout'
 
+import { AdminErrorBoundary } from './admin-error-boundary'
 import { useAdminSidebarView } from './admin-sidebar-view'
 
 /** Admin portal shell: shared authenticated chrome with admin navigation only. */
 export function AdminLayout() {
   const { navGroups } = useAdminSidebarView()
-  return <AuthenticatedLayout navGroups={navGroups} portal='admin' />
+  return (
+    <AdminErrorBoundary>
+      <AuthenticatedLayout navGroups={navGroups} portal='admin' />
+    </AdminErrorBoundary>
+  )
 }

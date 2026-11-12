@@ -56,8 +56,7 @@ import {
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip'
 import { toIntlLocale } from '@/shared/i18n/languages'
-import { currentIntlLocale } from '@/shared/lib/format'
-import { formatTimestampRelative, formatTimestampToDate } from '@/shared/lib/format'
+import { currentIntlLocale,formatTimestampRelative,formatTimestampToDate } from '@/shared/lib/format'
 import { handleServerError } from '@/shared/lib/handle-server-error'
 import { createServerError } from '@/shared/lib/server-error-message'
 import { cn } from '@/shared/lib/utils'

@@ -7623,6 +7623,10 @@
     "Connecting...": "Connecting...",
     "Exporting…": "エクスポート中…",
     "This section failed to load": "このセクションの読み込みに失敗しました",
-    "Please try again or pick a different date range.": "再試行するか、別の期間を選択してください。"
+    "Please try again or pick a different date range.": "再試行するか、別の期間を選択してください。",
+    "Group Type": "Group Type",
+    "Stripe Price ID": "Stripe Price ID",
+    "Creem Product ID": "Creem Product ID",
+    "Waffo Pancake Product ID": "Waffo Pancake Product ID"
   }
 }

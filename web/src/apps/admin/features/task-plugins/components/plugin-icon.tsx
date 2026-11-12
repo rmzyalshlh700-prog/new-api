@@ -22,4 +22,4 @@ For commercial licensing, please contact support@quantumnous.com
  * The implementation lives in `@/shared/components/plugin-icon` because it is shared by both
  * portals. This module keeps the admin-local import path stable.
  */
-export * from '@/shared/components/plugin-icon'
+export { PluginIcon } from '@/shared/components/plugin-icon'

@@ -40,8 +40,8 @@ import {
   userReplyTicket,
 } from './api'
 import {
-  TICKET_PRIORITY_BADGES,
-  TICKET_STATUS_BADGES,
+  getTicketPriorityBadge,
+  getTicketStatusBadge,
   type Ticket,
   type TicketMessage,
 } from './types'
@@ -147,13 +147,13 @@ export function TicketChat({
             {ticket && (
               <>
                 <StatusBadge
-                  label={t(TICKET_STATUS_BADGES[ticket.status].labelKey)}
-                  variant={TICKET_STATUS_BADGES[ticket.status].variant}
+                  label={t(getTicketStatusBadge(ticket.status).labelKey)}
+                  variant={getTicketStatusBadge(ticket.status).variant}
                   size='sm'
                 />
                 <StatusBadge
-                  label={t(TICKET_PRIORITY_BADGES[ticket.priority].labelKey)}
-                  variant={TICKET_PRIORITY_BADGES[ticket.priority].variant}
+                  label={t(getTicketPriorityBadge(ticket.priority).labelKey)}
+                  variant={getTicketPriorityBadge(ticket.priority).variant}
                   size='sm'
                 />
               </>

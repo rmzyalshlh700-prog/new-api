@@ -69,3 +69,25 @@ export const TICKET_PRIORITY_BADGES: Record<
   normal: { labelKey: 'Normal', variant: 'info' },
   high: { labelKey: 'High', variant: 'danger' },
 }
+
+const FALLBACK_TICKET_BADGE: { labelKey: string; variant: StatusVariant } = {
+  labelKey: 'Unknown',
+  variant: 'neutral',
+}
+
+/**
+ * Ticket status/priority arrive from the API as unvalidated strings (they are
+ * only cast to the union types at the call sites), so a new backend value
+ * must degrade to a neutral badge instead of crashing the ticket list.
+ */
+export function getTicketStatusBadge(
+  status: TicketStatus
+): { labelKey: string; variant: StatusVariant } {
+  return TICKET_STATUS_BADGES[status] ?? FALLBACK_TICKET_BADGE
+}
+
+export function getTicketPriorityBadge(
+  priority: TicketPriority
+): { labelKey: string; variant: StatusVariant } {
+  return TICKET_PRIORITY_BADGES[priority] ?? FALLBACK_TICKET_BADGE
+}

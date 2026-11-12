@@ -44,9 +44,9 @@ import { formatTimestampToDate } from '@/shared/lib/format'
 import { adminGetTickets, adminUpdateTicketStatus } from './api'
 import { TicketChat } from './ticket-chat'
 import {
-  TICKET_PRIORITY_BADGES,
   TICKET_STATUSES,
-  TICKET_STATUS_BADGES,
+  getTicketPriorityBadge,
+  getTicketStatusBadge,
   type Ticket,
   type TicketStatus,
 } from './types'
@@ -58,6 +58,8 @@ export function SupportTickets() {
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('all')
   const [activeTicketId, setActiveTicketId] = useState<number | null>(null)
+  // Guard against double-submitting a status change while one is in flight.
+  const [statusUpdateInFlight, setStatusUpdateInFlight] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-support-tickets', statusFilter],
@@ -82,6 +84,8 @@ export function SupportTickets() {
   }, [queryClient])
 
   const handleStatusChange = async (ticket: Ticket, status: TicketStatus) => {
+    if (statusUpdateInFlight) return
+    setStatusUpdateInFlight(true)
     try {
       const result = await adminUpdateTicketStatus(ticket.id, status)
       if (result.success) {
@@ -91,6 +95,8 @@ export function SupportTickets() {
       }
     } catch (error) {
       handleServerError(error, t('Failed to update ticket status'))
+    } finally {
+      setStatusUpdateInFlight(false)
     }
   }
 
@@ -113,7 +119,7 @@ export function SupportTickets() {
                 <SelectItem value='all'>{t('All')}</SelectItem>
                 {TICKET_STATUSES.map((status) => (
                   <SelectItem key={status} value={status}>
-                    {t(TICKET_STATUS_BADGES[status].labelKey)}
+                    {t(getTicketStatusBadge(status).labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -156,13 +162,13 @@ export function SupportTickets() {
                     </p>
                   </div>
                   <StatusBadge
-                    label={t(TICKET_STATUS_BADGES[ticket.status].labelKey)}
-                    variant={TICKET_STATUS_BADGES[ticket.status].variant}
+                    label={t(getTicketStatusBadge(ticket.status).labelKey)}
+                    variant={getTicketStatusBadge(ticket.status).variant}
                     size='sm'
                   />
                   <StatusBadge
-                    label={t(TICKET_PRIORITY_BADGES[ticket.priority].labelKey)}
-                    variant={TICKET_PRIORITY_BADGES[ticket.priority].variant}
+                    label={t(getTicketPriorityBadge(ticket.priority).labelKey)}
+                    variant={getTicketPriorityBadge(ticket.priority).variant}
                     size='sm'
                   />
                   <Select
@@ -171,13 +177,17 @@ export function SupportTickets() {
                       void handleStatusChange(ticket, value as TicketStatus)
                     }
                   >
-                    <SelectTrigger size='sm' className='w-36'>
+                    <SelectTrigger
+                      size='sm'
+                      className='w-36'
+                      disabled={statusUpdateInFlight}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {TICKET_STATUSES.map((status) => (
                         <SelectItem key={status} value={status}>
-                          {t(TICKET_STATUS_BADGES[status].labelKey)}
+                          {t(getTicketStatusBadge(status).labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -200,7 +210,7 @@ export function SupportTickets() {
 
         <TicketChat
           ticketId={activeTicketId}
-          isAdmin={true}
+          isAdmin
           onOpenChange={(open) => {
             if (!open) setActiveTicketId(null)
           }}
