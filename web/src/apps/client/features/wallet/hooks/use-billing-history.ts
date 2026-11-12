@@ -153,6 +153,16 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     fetchBillingHistory()
   }, [debouncedKeyword, fetchBillingHistory, keyword])
 
+  // Keep pending orders live: the backend expires stale pending orders in the
+  // background, so re-fetch periodically while any order is still pending.
+  const hasPending = records.some((record) => record.status === 'pending')
+  useEffect(() => {
+    if (!hasPending || keyword !== debouncedKeyword) return
+
+    const timer = setInterval(fetchBillingHistory, 60 * 1000)
+    return () => clearInterval(timer)
+  }, [hasPending, fetchBillingHistory, keyword, debouncedKeyword])
+
   return {
     records,
     total,

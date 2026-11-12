@@ -272,8 +272,41 @@ func CreemWebhook(c *gin.Context) {
 	switch webhookEvent.EventType {
 	case "checkout.completed":
 		handleCheckoutCompleted(c, &webhookEvent)
+	case "checkout.canceled", "checkout.expired", "payment.failed", "payment.refunded":
+		handleCreemOrderExpired(c, &webhookEvent)
 	default:
 		logger.LogInfo(c.Request.Context(), common.LogText("Creem webhook ignored event event_type=%s event_id=%s", webhookEvent.EventType, webhookEvent.Id))
+		c.Status(http.StatusOK)
+	}
+}
+
+// handleCreemOrderExpired transitions a pending top-up to expired when Creem
+// reports the checkout was canceled, lapsed, the payment failed or was
+// refunded, keeping the billing history and admin stats accurate.
+func handleCreemOrderExpired(c *gin.Context, event *CreemWebhookEvent) {
+	referenceId := event.Object.RequestId
+	if referenceId == "" {
+		logger.LogWarn(c.Request.Context(), common.LogText("Creem webhook missing request_id event_id=%s order_id=%s", event.Id, event.Object.Order.Id))
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	LockOrder(referenceId)
+	defer UnlockOrder(referenceId)
+
+	err := model.UpdatePendingTopUpStatus(referenceId, model.PaymentProviderCreem, common.TopUpStatusExpired)
+	switch {
+	case errors.Is(err, model.ErrTopUpNotFound):
+		logger.LogWarn(c.Request.Context(), common.LogText("Creem top-up order not found trade_no=%s event_id=%s", referenceId, event.Id))
+		c.Status(http.StatusOK)
+	case errors.Is(err, model.ErrTopUpStatusInvalid):
+		logger.LogInfo(c.Request.Context(), common.LogText("Creem top-up order not pending, expiration ignored trade_no=%s event_id=%s", referenceId, event.Id))
+		c.Status(http.StatusOK)
+	case err != nil:
+		logger.LogError(c.Request.Context(), common.LogText("Creem webhook failed to expire order trade_no=%s event_id=%s error=%q", referenceId, event.Id, err.Error()))
+		c.AbortWithStatus(http.StatusInternalServerError)
+	default:
+		logger.LogInfo(c.Request.Context(), common.LogText("Creem top-up expired trade_no=%s event_type=%s event_id=%s client_ip=%s", referenceId, event.EventType, event.Id, c.ClientIP()))
 		c.Status(http.StatusOK)
 	}
 }

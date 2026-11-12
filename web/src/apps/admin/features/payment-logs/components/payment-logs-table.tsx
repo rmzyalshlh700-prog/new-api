@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
+import type { PaymentLogEntry } from '../types'
 import type {
   ColumnFiltersState,
   OnChangeFn,
@@ -51,6 +52,8 @@ export function PaymentLogsTable() {
   // builder converts them once, at the API boundary.
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+
+  const hasPendingFilter = status === 'pending'
 
   // The table only needs to know which filters are active; the strings above
   // stay the single source of truth for every request.
@@ -148,9 +151,13 @@ export function PaymentLogsTable() {
     },
     placeholderData: (previousData) => previousData,
     staleTime: 30 * 1000,
+    // Pending orders are expired server-side by the background task; a live
+    // refetch keeps pending counts and badges accurate without a reload.
+    refetchInterval: hasPendingFilter ? 60 * 1000 : false,
+    refetchIntervalInBackground: false,
   })
 
-  const entries = data?.items ?? []
+  const entries: PaymentLogEntry[] = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize))
 

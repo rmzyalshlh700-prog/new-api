@@ -378,6 +378,8 @@ func NowPaymentsWebhook(c *gin.Context) {
 			return
 		}
 		nowPaymentsFulfillOrder(ctx, ipn, ratio, c.ClientIP())
+	case "expired", "failed", "refunded":
+		nowPaymentsExpireOrder(ctx, ipn, c.ClientIP())
 	default:
 		logger.LogInfo(ctx, common.LogText("NOWPayments webhook ignored payment_status payment_id=%d order_id=%s payment_status=%s client_ip=%s", ipn.PaymentId, ipn.OrderId, ipn.PaymentStatus, c.ClientIP()))
 	}
@@ -418,6 +420,26 @@ func nowPaymentsFulfillOrder(ctx context.Context, ipn nowPaymentsIpnPayload, com
 		return
 	}
 	logger.LogInfo(ctx, common.LogText("NOWPayments top-up succeeded trade_no=%s payment_id=%d payment_status=%s completion_ratio=%s client_ip=%s", ipn.OrderId, ipn.PaymentId, ipn.PaymentStatus, completionRatio.String(), callerIp))
+}
+
+// nowPaymentsExpireOrder transitions a pending order to expired when the
+// gateway reports the payment lapsed, failed or was refunded, so the billing
+// history and admin stats stop treating it as actionable.
+func nowPaymentsExpireOrder(ctx context.Context, ipn nowPaymentsIpnPayload, callerIp string) {
+	LockOrder(ipn.OrderId)
+	defer UnlockOrder(ipn.OrderId)
+
+	err := model.UpdatePendingTopUpStatus(ipn.OrderId, model.PaymentProviderNowPayments, common.TopUpStatusExpired)
+	switch {
+	case errors.Is(err, model.ErrTopUpNotFound):
+		logger.LogWarn(ctx, common.LogText("NOWPayments webhook order not found trade_no=%s payment_id=%d client_ip=%s", ipn.OrderId, ipn.PaymentId, callerIp))
+	case errors.Is(err, model.ErrTopUpStatusInvalid):
+		logger.LogInfo(ctx, common.LogText("NOWPayments webhook order not pending, expiration ignored trade_no=%s payment_id=%d payment_status=%s client_ip=%s", ipn.OrderId, ipn.PaymentId, ipn.PaymentStatus, callerIp))
+	case err != nil:
+		logger.LogError(ctx, common.LogText("NOWPayments webhook failed to expire order trade_no=%s payment_id=%d payment_status=%s client_ip=%s error=%q", ipn.OrderId, ipn.PaymentId, ipn.PaymentStatus, callerIp, err.Error()))
+	default:
+		logger.LogInfo(ctx, common.LogText("NOWPayments top-up expired trade_no=%s payment_id=%d payment_status=%s client_ip=%s", ipn.OrderId, ipn.PaymentId, ipn.PaymentStatus, callerIp))
+	}
 }
 
 // VerifyNowPaymentsSignature implements the NOWPayments IPN signature scheme:

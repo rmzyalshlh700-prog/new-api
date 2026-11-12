@@ -44,6 +44,14 @@ const (
 	PaymentProviderBalance      = "balance"
 )
 
+// Pending-order TTLs, aligned with the gateways' own payment windows.
+// Crypto gateways (NOWPayments) hold quotes for 30 minutes; fiat gateways
+// give users 60 minutes to finish checkout.
+const (
+	TopUpCryptoPendingTTLSeconds   = 30 * 60
+	TopUpStandardPendingTTLSeconds = 60 * 60
+)
+
 var (
 	ErrPaymentMethodMismatch = errors.New("payment method mismatch")
 	ErrTopUpNotFound         = errors.New("topup not found")
@@ -837,4 +845,28 @@ func GetRecentTopUpOrdersByStatus(statuses []string, limit int) ([]TopUpOrderSum
 		Limit(limit).
 		Scan(&orders).Error
 	return orders, err
+}
+
+// ExpireStalePendingTopUps atomically transitions pending top-up orders whose
+// checkout window has lapsed to expired, so abandoned orders never stay
+// actionable in the billing history or inflate pending stats. TTLs follow the
+// gateways' own payment windows: NOWPayments (crypto) expires after 30
+// minutes, every other gateway after 60 minutes, both measured from
+// create_time. Returns the number of orders expired.
+func ExpireStalePendingTopUps(nowUnix int64) (int64, error) {
+	if DB == nil {
+		return 0, errors.New("db not initialized")
+	}
+	result := DB.Model(&TopUp{}).
+		Where("status = ? AND payment_provider = ? AND create_time <= ?",
+			common.TopUpStatusPending, PaymentProviderNowPayments, nowUnix-TopUpCryptoPendingTTLSeconds).
+		Update("status", common.TopUpStatusExpired)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	otherResult := DB.Model(&TopUp{}).
+		Where("status = ? AND (payment_provider IS NULL OR payment_provider != ?) AND create_time <= ?",
+			common.TopUpStatusPending, PaymentProviderNowPayments, nowUnix-TopUpStandardPendingTTLSeconds).
+		Update("status", common.TopUpStatusExpired)
+	return result.RowsAffected + otherResult.RowsAffected, otherResult.Error
 }

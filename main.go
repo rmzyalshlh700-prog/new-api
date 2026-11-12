@@ -138,6 +138,9 @@ func main() {
 	service.StartDailyArchiveTask()
 	service.StartLiveMetricsSampler()
 
+	// Expire stale pending top-up orders (NOWPayments 30 min, others 60 min)
+	service.StartTopUpExpirationTask()
+
 	// Report this process as a system instance so the System Info page can show
 	// all currently alive nodes in multi-instance deployments.
 	service.StartSystemInstanceReporter()
