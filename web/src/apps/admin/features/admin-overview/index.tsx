@@ -40,7 +40,6 @@ import {
 import { ActiveUsersPanel } from './components/active-users-panel'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
 import { ClientBalancesPanel } from './components/client-balances-panel'
-import { FailedRequestsPanel } from './components/failed-requests-panel'
 import { FlowPanel } from './components/flow/flow-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
@@ -353,10 +352,6 @@ export function AdminOverview() {
 
               <FadeIn delay={0.05}>
                 <PerformanceOverview />
-              </FadeIn>
-
-              <FadeIn delay={0.08}>
-                <FailedRequestsPanel />
               </FadeIn>
 
               <FadeIn delay={0.1}>
