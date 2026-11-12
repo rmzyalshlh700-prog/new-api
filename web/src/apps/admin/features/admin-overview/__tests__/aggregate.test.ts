@@ -20,17 +20,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildDailyRevenue,
-  buildHourlyActiveUsers,
   buildModelUsage,
   buildMonthlyRevenue,
   buildTodayTokenSeries,
   buildTodayUsageSparkline,
   buildUsageTrend,
-  countActiveUsers,
   sumUsage,
   sumUsageSince,
 } from '../lib/aggregate'
-import type { OverviewQuotaRow, OverviewUserRow } from '../types'
+import type { OverviewQuotaRow } from '../types'
 
 function timestampDaysAgo(days: number, hour = 12): number {
   const date = new Date()
@@ -186,25 +184,5 @@ describe('admin overview aggregation', () => {
     expect(result.points[9]?.label).toBe('09:00')
     expect(result.points[9]?.total).toBe(450)
     expect(result.points[9]?.values.other).toBe(50)
-  })
-
-  it('counts distinct active users and their hourly presence', () => {
-    const now = new Date(2026, 10, 6, 12, 30, 0)
-    const currentHourStart = new Date(now)
-    currentHourStart.setMinutes(0, 0, 0)
-    const previousHour = Math.floor(currentHourStart.getTime() / 1000) - 3600
-    const rows: OverviewUserRow[] = [
-      { username: 'alice', created_at: previousHour },
-      { username: 'alice', created_at: previousHour },
-      { username: 'bob', created_at: previousHour },
-      { username: '   ', created_at: previousHour },
-    ]
-
-    expect(countActiveUsers(rows)).toBe(2)
-
-    const points = buildHourlyActiveUsers(rows, now)
-    expect(points).toHaveLength(24)
-    expect(points[22]).toEqual({ label: '11:00', activeUsers: 2 })
-    expect(points[23]).toEqual({ label: '12:00', activeUsers: 0 })
   })
 })

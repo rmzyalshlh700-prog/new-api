@@ -21,7 +21,6 @@ import { api } from '@/shared/lib/api'
 import type {
   AdminLogStat,
   DashboardMetrics,
-  FlowQuotaDataItem,
   OverviewQuotaRow,
   OverviewUserRow,
   PaymentOrderGroup,
@@ -87,42 +86,6 @@ export async function getAdminLogStat(params: {
     data?: AdminLogStat
   }>('/api/log/stat', { params })
   return validateOverviewResponse(res.data)
-}
-
-/**
- * Total registered users. Requesting a single row keeps the payload small;
- * only `data.total` is consumed.
- */
-export async function getAdminRegisteredUserTotal() {
-  const res = await api.get<{
-    success: boolean
-    message?: string
-    data?: { total?: number }
-  }>('/api/user/', { params: { p: 1, page_size: 1 } })
-  return validateOverviewResponse(res.data)
-}
-
-/**
- * Flow (Sankey) rows grouped by user, token, group, model and channel.
- * Admin callers read every user's flow (`GET /api/data/flow`); non-admin
- * callers fall back to their own flow (`GET /api/data/flow/self`).
- */
-export async function getFlowQuotaDates(
-  params: {
-    start_timestamp: number
-    end_timestamp: number
-    default_time?: string
-    username?: string
-  },
-  isAdmin = false
-) {
-  const endpoint = isAdmin ? '/api/data/flow' : '/api/data/flow/self'
-  const res = await api.get<{
-    success: boolean
-    data?: FlowQuotaDataItem[]
-    message?: string
-  }>(endpoint, { params })
-  return res.data
 }
 
 /**

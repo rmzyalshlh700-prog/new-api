@@ -1,5 +1,4 @@
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { PaymentOrdersWidget } from '../components/payment-orders-widget'
@@ -21,16 +20,6 @@ const groups: PaymentOrderGroup[] = [
         payment_provider: 'epay',
         status: 'pending',
         create_time: 1700000000,
-      },
-      {
-        user_id: 2,
-        username: '',
-        money: 10,
-        trade_no: 'p1',
-        payment_method: 'stripe',
-        payment_provider: '',
-        status: 'pending',
-        create_time: 1699990000,
       },
     ],
   },
@@ -62,39 +51,36 @@ const groups: PaymentOrderGroup[] = [
 ]
 
 describe('payment orders widget', () => {
-  it('shows the count and amount for each status bucket', () => {
+  it('shows the aggregate count for each status bucket', () => {
     render(<PaymentOrdersWidget groups={groups} loading={false} />)
 
     expect(
-      screen.getByRole('tab', { name: 'Pending Payments' })
-    ).toHaveAttribute('aria-selected', 'true')
-    expect(
-      screen.getByRole('tab', { name: 'Completed Payments' })
+      screen.getByRole('listitem', { name: 'Pending Payments' })
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('tab', { name: 'Canceled Payments' })
+      within(
+        screen.getByRole('listitem', { name: 'Pending Payments' })
+      ).getByText('2')
+    ).toBeInTheDocument()
+    expect(
+      within(
+        screen.getByRole('listitem', { name: 'Completed Payments' })
+      ).getByText('5')
+    ).toBeInTheDocument()
+    expect(
+      within(
+        screen.getByRole('listitem', { name: 'Canceled Payments' })
+      ).getByText('0')
     ).toBeInTheDocument()
   })
 
-  it('shows the recent pending transactions for the selected bucket and switches on click', async () => {
+  it('never renders individual orders or table headers', () => {
     render(<PaymentOrdersWidget groups={groups} loading={false} />)
 
-    expect(screen.getByText('alice')).toBeInTheDocument()
-    expect(screen.getAllByText('Unknown user').length).toBeGreaterThan(0)
-
-    await userEvent.click(
-      screen.getByRole('tab', { name: 'Completed Payments' })
-    )
-    expect(screen.getByText('carol')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.queryByText('alice')).not.toBeInTheDocument()
-  })
-
-  it('shows an empty state for a bucket without recent transactions', async () => {
-    render(<PaymentOrdersWidget groups={groups} loading={false} />)
-
-    await userEvent.click(
-      screen.getByRole('tab', { name: 'Canceled Payments' })
-    )
-    expect(screen.getByText('No recent transactions')).toBeInTheDocument()
+    expect(screen.queryByText('carol')).not.toBeInTheDocument()
+    expect(screen.queryByText('Username')).not.toBeInTheDocument()
+    expect(screen.queryByText('Gateway')).not.toBeInTheDocument()
   })
 })

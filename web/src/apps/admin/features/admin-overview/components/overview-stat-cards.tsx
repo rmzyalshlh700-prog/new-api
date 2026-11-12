@@ -22,7 +22,6 @@ import {
   ArrowUpIcon,
   Coins,
   Cpu,
-  Users,
   Wallet,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -41,8 +40,6 @@ export interface OverviewStatCardsProps {
   revenueMonth: number
   tokensToday: number
   requestsToday: number
-  activeUsers: number
-  registeredUsers: number
   revenueSparkline: number[]
   requestsSparkline: number[]
   monthSparkline: number[]
@@ -53,11 +50,6 @@ export interface OverviewStatCardsProps {
 
 export function OverviewStatCards(props: OverviewStatCardsProps) {
   const { t } = useTranslation()
-  const activeRate =
-    props.registeredUsers > 0
-      ? (props.activeUsers / props.registeredUsers) * 100
-      : 0
-
   const todayVsYesterdayPct =
     props.revenueYesterday != null && props.revenueYesterday > 0
       ? ((props.revenueToday - props.revenueYesterday) /
@@ -66,7 +58,7 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
       : undefined
 
   return (
-    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5'>
+    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4'>
       <StatCardTile>
         <StatCard
           title={t('Revenue today')}
@@ -132,28 +124,6 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
           icon={Cpu}
           tone='accent-3'
           sparkline={props.tokensSparkline}
-          loading={props.loading}
-        />
-      </StatCardTile>
-
-      <StatCardTile>
-        <StatCard
-          title={t('Active users (24h)')}
-          value={formatInteger(props.activeUsers)}
-          description={t('Active users in the last 24 hours')}
-          icon={Users}
-          tone='accent-1'
-          details={[
-            {
-              label: t('Registered users'),
-              value: formatInteger(props.registeredUsers),
-            },
-            {
-              label: t('Active rate'),
-              value: formatPercent(activeRate),
-              tone: 'success',
-            },
-          ]}
           loading={props.loading}
         />
       </StatCardTile>

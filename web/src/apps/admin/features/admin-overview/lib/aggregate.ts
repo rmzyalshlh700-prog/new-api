@@ -20,7 +20,6 @@ import dayjs from '@/shared/lib/dayjs'
 
 import type {
   DailyRevenuePoint,
-  HourlyActivityPoint,
   ModelUsage,
   MonthlyRevenuePoint,
   OverviewQuotaRow,
@@ -33,7 +32,6 @@ import type {
 
 const UNKNOWN_MODEL = 'Unknown'
 const OTHER_SERIES_KEY = 'other'
-const HOURS_IN_DAY = 24
 
 /**
  * Quota and token columns are integers on the backend. Truncating here keeps
@@ -311,51 +309,6 @@ export function buildTodayUsageSparkline(
     if (hour < buckets.length) buckets[hour] += toIntegerUnits(row[field])
   }
   return buckets
-}
-
-/** Count distinct users with usage in the rows. */
-export function countActiveUsers(rows: readonly OverviewUserRow[]): number {
-  const users = new Set<string>()
-  for (const row of rows) {
-    const username = row.username?.trim()
-    if (username) users.add(username)
-  }
-  return users.size
-}
-
-/**
- * Distinct active users per hour for the trailing 24 hours, oldest first.
- */
-export function buildHourlyActiveUsers(
-  rows: readonly OverviewUserRow[],
-  now: Date = new Date()
-): HourlyActivityPoint[] {
-  const currentHour = new Date(now)
-  currentHour.setMinutes(0, 0, 0)
-  const startSeconds =
-    Math.floor(currentHour.getTime() / 1000) - (HOURS_IN_DAY - 1) * 60 * 60
-
-  const buckets = Array.from({ length: HOURS_IN_DAY }, (_, index) => ({
-    label: getHourLabel(
-      new Date((startSeconds + index * 60 * 60) * 1000).getHours()
-    ),
-    users: new Set<string>(),
-  }))
-
-  for (const row of rows) {
-    const username = row.username?.trim()
-    if (!username) continue
-    const index = Math.floor(
-      (getTimestamp(row.created_at) - startSeconds) / (60 * 60)
-    )
-    const bucket = buckets[index]
-    if (bucket) bucket.users.add(username)
-  }
-
-  return buckets.map((bucket) => ({
-    label: bucket.label,
-    activeUsers: bucket.users.size,
-  }))
 }
 
 /** Return the second-to-last daily revenue point, interpreted as "yesterday". */

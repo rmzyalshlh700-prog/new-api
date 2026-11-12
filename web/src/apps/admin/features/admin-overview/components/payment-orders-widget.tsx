@@ -16,29 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  CheckCircle2,
-  Clock,
-  CreditCard,
-  XCircle,
-} from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle2, Clock, CreditCard, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { EmptyState } from '@/shared/components/empty-state'
 import { Skeleton } from '@/shared/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/shared/components/ui/table'
 import { TitledCard } from '@/shared/components/ui/titled-card'
-import { cn } from '@/shared/lib/utils'
 import { formatCurrencyFromUSD } from '@/shared/lib/currency'
-import { formatTimestampToDate } from '@/shared/lib/format'
+import { cn } from '@/shared/lib/utils'
 
 import type { PaymentOrderGroup } from '../types'
 
@@ -52,7 +36,6 @@ interface BucketConfig {
   labelKey: string
   icon: typeof Clock
   iconClass: string
-  activeRingClass: string
   countTextClass: string
 }
 
@@ -62,7 +45,6 @@ const BUCKET_CONFIGS: BucketConfig[] = [
     labelKey: 'Pending Payments',
     icon: Clock,
     iconClass: 'text-amber-500',
-    activeRingClass: 'ring-amber-500/60 border-amber-500/60',
     countTextClass: 'text-amber-600 dark:text-amber-400',
   },
   {
@@ -70,7 +52,6 @@ const BUCKET_CONFIGS: BucketConfig[] = [
     labelKey: 'Completed Payments',
     icon: CheckCircle2,
     iconClass: 'text-success',
-    activeRingClass: 'ring-success/60 border-success/60',
     countTextClass: 'text-success',
   },
   {
@@ -78,58 +59,18 @@ const BUCKET_CONFIGS: BucketConfig[] = [
     labelKey: 'Canceled Payments',
     icon: XCircle,
     iconClass: 'text-destructive',
-    activeRingClass: 'ring-destructive/60 border-destructive/60',
     countTextClass: 'text-destructive',
   },
 ]
 
-function RecentOrdersList(props: { group: PaymentOrderGroup | null }) {
-  const { t } = useTranslation()
-
-  if (!props.group || props.group.recent.length === 0) {
-    return <EmptyState title={t('No recent transactions')} />
-  }
-
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t('Username')}</TableHead>
-          <TableHead className='text-right'>{t('Amount')}</TableHead>
-          <TableHead>{t('Gateway')}</TableHead>
-          <TableHead className='text-right'>{t('Time')}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {props.group.recent.map((order) => (
-          <TableRow key={order.trade_no}>
-            <TableCell className='font-medium'>
-              {order.username || t('Unknown user')}
-            </TableCell>
-            <TableCell className='text-right font-mono tabular-nums'>
-              {formatCurrencyFromUSD(order.money)}
-            </TableCell>
-            <TableCell>
-              {order.payment_provider || order.payment_method || '-'}
-            </TableCell>
-            <TableCell className='text-right text-muted-foreground'>
-              {formatTimestampToDate(order.create_time)}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  )
-}
-
+/**
+ * Aggregated payment order totals by status. Intentionally shows only the
+ * counts and amounts: individual recent orders are read from the payment orders
+ * page, which keeps this widget small and cheap to render.
+ */
 export function PaymentOrdersWidget(props: PaymentOrdersWidgetProps) {
   const { t } = useTranslation()
-  const [selectedKey, setSelectedKey] =
-    useState<PaymentOrderGroup['key']>('pending')
-
   const groups = props.groups ?? []
-  const selectedGroup =
-    groups.find((group) => group.key === selectedKey) ?? null
 
   return (
     <TitledCard
@@ -139,26 +80,18 @@ export function PaymentOrdersWidget(props: PaymentOrdersWidgetProps) {
     >
       <div
         className='grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3'
-        role='tablist'
+        role='list'
         aria-label={t('Payment Orders')}
       >
         {BUCKET_CONFIGS.map((config) => {
           const group = groups.find((item) => item.key === config.key)
-          const isActive = selectedKey === config.key
           const Icon = config.icon
           return (
-            <button
+            <div
               key={config.key}
-              type='button'
-              role='tab'
-              aria-selected={isActive}
+              role='listitem'
               aria-label={t(config.labelKey)}
-              onClick={() => setSelectedKey(config.key)}
-              className={cn(
-                'flex items-center gap-3 rounded-xl border bg-white/50 p-3 text-left shadow-sm transition-colors dark:bg-white/5',
-                'hover:bg-white/80 dark:hover:bg-white/10',
-                isActive && `ring-2 ${config.activeRingClass}`
-              )}
+              className='flex items-center gap-3 rounded-xl border bg-white/50 p-3 shadow-sm dark:bg-white/5'
             >
               <span
                 className={cn(
@@ -192,21 +125,9 @@ export function PaymentOrdersWidget(props: PaymentOrdersWidgetProps) {
                   </span>
                 )}
               </span>
-            </button>
+            </div>
           )
         })}
-      </div>
-
-      <div className='mt-3' role='tabpanel'>
-        {props.loading ? (
-          <div className='space-y-2'>
-            {Array.from({ length: 3 }, (_, index) => (
-              <Skeleton key={index} className='h-10 w-full' />
-            ))}
-          </div>
-        ) : (
-          <RecentOrdersList group={selectedGroup} />
-        )}
       </div>
     </TitledCard>
   )

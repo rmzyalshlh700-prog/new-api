@@ -36,15 +36,11 @@ import {
   getAdminLogStat,
   getAdminDashboardMetrics,
   getAdminQuotaRows,
-  getAdminRegisteredUserTotal,
-  getAdminUserQuotaRows,
   getPaymentOrdersStats,
   getProfitStats,
 } from './api'
-import { ActiveUsersPanel } from './components/active-users-panel'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
 import { ClientBalancesPanel } from './components/client-balances-panel'
-import { FlowPanel } from './components/flow/flow-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
 import { PerformanceOverview } from './components/performance-overview'
@@ -56,12 +52,10 @@ import { UserCharts } from './components/user-analytics'
 import { ALL_TIME_REFRESH_MS, LIVE_REFRESH_MS } from './constants'
 import {
   buildDailyRevenue,
-  buildHourlyActiveUsers,
   buildModelUsage,
   buildMonthlyRevenue,
   buildTodayUsageSparkline,
   buildTodayTokenSeries,
-  countActiveUsers,
   revenueYesterday,
   sumUsageSince,
 } from './lib/aggregate'
@@ -117,22 +111,6 @@ export function AdminOverview() {
     staleTime: LIVE_REFRESH_MS - 100,
   })
 
-  const activeUsersQuery = useQuery({
-    queryKey: ['admin-overview', 'active-users'],
-    queryFn: async () => {
-      const now = Math.floor(Date.now() / 1000)
-      return requireServerSuccess(
-        await getAdminUserQuotaRows({
-          start_timestamp: now - 24 * 3600,
-          end_timestamp: now + 3600,
-        })
-      )
-    },
-    refetchInterval: LIVE_REFRESH_MS,
-    refetchIntervalInBackground: false,
-    staleTime: LIVE_REFRESH_MS - 100,
-  })
-
   const allTimeRevenueQuery = useQuery({
     queryKey: ['admin-overview', 'all-time-revenue'],
     queryFn: async () =>
@@ -157,15 +135,6 @@ export function AdminOverview() {
         })
       )
     },
-    refetchInterval: LIVE_REFRESH_MS,
-    refetchIntervalInBackground: false,
-    staleTime: LIVE_REFRESH_MS - 100,
-  })
-
-  const registeredUsersQuery = useQuery({
-    queryKey: ['admin-overview', 'registered-users'],
-    queryFn: async () =>
-      requireServerSuccess(await getAdminRegisteredUserTotal()),
     refetchInterval: LIVE_REFRESH_MS,
     refetchIntervalInBackground: false,
     staleTime: LIVE_REFRESH_MS - 100,
@@ -199,11 +168,6 @@ export function AdminOverview() {
     () => quotaQuery.data?.data ?? [],
     [quotaQuery.data]
   )
-  const activeRows = useMemo(
-    () => activeUsersQuery.data?.data ?? [],
-    [activeUsersQuery.data]
-  )
-
   const totalsToday = useMemo(
     () => sumUsageSince(quotaRows, todayStart),
     [quotaRows, todayStart]
@@ -246,30 +210,12 @@ export function AdminOverview() {
     () => buildTodayUsageSparkline(quotaRows, todayStart, currentHour, 'count'),
     [quotaRows, todayStart, currentHour]
   )
-  const activeUserCount = useMemo(
-    () => countActiveUsers(activeRows),
-    [activeRows]
-  )
-  const hourlyActivity = useMemo(
-    () => buildHourlyActiveUsers(activeRows, now),
-    [activeRows, now]
-  )
-
-  const registeredUsers = Number(registeredUsersQuery.data?.data?.total ?? 0)
   const allTimeRevenue =
     allTimeRevenueQuery.data?.data == null
       ? null
       : Number(allTimeRevenueQuery.data.data.quota ?? 0)
-  const statsLoading =
-    quotaQuery.isLoading ||
-    activeUsersQuery.isLoading ||
-    registeredUsersQuery.isLoading
-  const essentialQueries = [
-    quotaQuery,
-    activeUsersQuery,
-    allTimeRevenueQuery,
-    registeredUsersQuery,
-  ]
+  const statsLoading = quotaQuery.isLoading
+  const essentialQueries = [quotaQuery, allTimeRevenueQuery]
   const queries = [
     ...essentialQueries,
     rateQuery,
@@ -330,8 +276,6 @@ export function AdminOverview() {
                   revenueYesterday={revenueYesterdayValue?.quota}
                   tokensToday={totalsToday.tokens}
                   requestsToday={totalsToday.requests}
-                  activeUsers={activeUserCount}
-                  registeredUsers={registeredUsers}
                   revenueSparkline={revenueSparkline}
                   requestsSparkline={requestsSparkline}
                   monthSparkline={revenueTrend.map((point) => point.quota)}
@@ -379,31 +323,18 @@ export function AdminOverview() {
                 />
               </FadeIn>
 
-              <div className='grid gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]'>
-                <FadeIn delay={0.05}>
-                  <RevenuePanel
-                    points={revenueTrend}
-                    monthlyPoints={monthlyRevenueTrend}
-                    revenueToday={totalsToday.quota}
-                    revenueMonth={totalsMonth.quota}
-                    revenueAllTime={allTimeRevenue}
-                    revenueYesterday={revenueYesterdayValue?.quota}
-                    daysElapsed={now.getDate()}
-                    loading={quotaQuery.isLoading}
-                  />
-                </FadeIn>
-                <FadeIn delay={0.1}>
-                  <ActiveUsersPanel
-                    activeUsers={activeUserCount}
-                    registeredUsers={registeredUsers}
-                    points={hourlyActivity}
-                    loading={
-                      activeUsersQuery.isLoading ||
-                      registeredUsersQuery.isLoading
-                    }
-                  />
-                </FadeIn>
-              </div>
+              <FadeIn delay={0.05}>
+                <RevenuePanel
+                  points={revenueTrend}
+                  monthlyPoints={monthlyRevenueTrend}
+                  revenueToday={totalsToday.quota}
+                  revenueMonth={totalsMonth.quota}
+                  revenueAllTime={allTimeRevenue}
+                  revenueYesterday={revenueYesterdayValue?.quota}
+                  daysElapsed={now.getDate()}
+                  loading={quotaQuery.isLoading}
+                />
+              </FadeIn>
 
               <div className='grid gap-3 sm:gap-4 xl:grid-cols-2'>
                 <FadeIn delay={0.15}>
@@ -428,9 +359,6 @@ export function AdminOverview() {
                   filters={userChartsFilters}
                   onFiltersChange={setUserChartsFilters}
                 />
-              </FadeIn>
-              <FadeIn delay={0.3}>
-                <FlowPanel />
               </FadeIn>
             </>
           )}
