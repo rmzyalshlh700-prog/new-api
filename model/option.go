@@ -69,6 +69,11 @@ func InitOptionMap() {
 	common.OptionMap["EmailProvider"] = "smtp"
 	common.OptionMap["ResendApiKey"] = ""
 	common.OptionMap["ResendFrom"] = ""
+	common.OptionMap[setting.CopilotBaseURLOptionKey] = ""
+	common.OptionMap[setting.CopilotAPIKeyOptionKey] = ""
+	common.OptionMap[setting.CopilotModelOptionKey] = ""
+	common.OptionMap[setting.CopilotEnabledToolsOptionKey] = setting.DefaultCopilotEnabledToolsJSON()
+	common.OptionMap[setting.CopilotVisibilityOptionKey] = setting.CopilotVisibilityAll
 	common.OptionMap["SMTPFrom"] = ""
 	common.OptionMap["SMTPPort"] = strconv.Itoa(common.SMTPPort)
 	common.OptionMap["SMTPAccount"] = ""
@@ -276,6 +281,9 @@ func validateOptionValue(key string, value string) error {
 	}
 	if key == "MaxTokenAutoGroups" {
 		return setting.ValidateMaxTokenAutoGroups(value)
+	}
+	if err := setting.ValidateCopilotOption(key, value); err != nil {
+		return err
 	}
 	return nil
 }

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { CopilotSettings } from '../CopilotSettings'
 import { SystemBehaviorSection } from '../general/system-behavior-section'
 import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
@@ -28,6 +29,11 @@ import type { OperationsSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
 const OPERATIONS_SECTIONS = [
+  {
+    id: 'copilot',
+    titleKey: 'Copilot',
+    build: () => <CopilotSettings />,
+  },
   {
     id: 'behavior',
     titleKey: 'System Behavior',
@@ -121,7 +127,8 @@ const OPERATIONS_SECTIONS = [
         defaultValues={{
           'maintenance_setting.enabled':
             settings['maintenance_setting.enabled'] ?? false,
-          'maintenance_setting.html': settings['maintenance_setting.html'] ?? '',
+          'maintenance_setting.html':
+            settings['maintenance_setting.html'] ?? '',
           'maintenance_setting.whitelist':
             settings['maintenance_setting.whitelist'] ?? '',
         }}

@@ -1,39 +1,42 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
-import { useTranslation } from 'react-i18next';
-import { api } from '@/shared/lib/http-client';
+import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { api } from '@/shared/lib/http-client'
+
+import type { AdminCopilotToolName } from './admin-copilot-config'
 
 export interface FinancialSummary {
-  today: Record<string, number>;
-  month: Record<string, number>;
+  today: Record<string, number>
+  month: Record<string, number>
 }
 
 export interface CopilotUser {
-  id: number;
-  username: string;
-  display_name: string;
-  email: string;
-  role: number;
-  status: number;
-  group: string;
-  quota: number;
-  used_quota: number;
-  request_count: number;
+  id: number
+  username: string
+  display_name: string
+  email: string
+  role: number
+  status: number
+  group: string
+  quota: number
+  used_quota: number
+  request_count: number
 }
 
 export interface SystemHealth {
-  cpu_usage: number;
-  memory_usage: number;
-  load1: number;
-  download_bps: number;
-  upload_bps: number;
-  latency_ms: number;
+  cpu_usage: number
+  memory_usage: number
+  load1: number
+  download_bps: number
+  upload_bps: number
+  latency_ms: number
 }
 
 interface ApiEnvelope<T> {
-  success: boolean;
-  message: string;
-  data: T;
+  success: boolean
+  message: string
+  data: T
 }
 
 /**
@@ -41,75 +44,90 @@ interface ApiEnvelope<T> {
  * lookup, system health) with CopilotKit and publishes the current page as
  * readable context so the assistant knows where the admin is looking.
  */
-export function useAdminCopilot() {
-  const { t } = useTranslation();
-  const [pageContext, setPageContext] = useState('');
+export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
+  const { t } = useTranslation()
+  const [pageContext, setPageContext] = useState('')
+  const availability = (tool: AdminCopilotToolName) =>
+    enabledTools.includes(tool) ? 'enabled' : 'disabled'
 
   useEffect(() => {
     const update = () => {
-      const { pathname, search } = window.location;
-      setPageContext(`${pathname}${search}`);
-    };
-    update();
-    window.addEventListener('popstate', update);
-    return () => window.removeEventListener('popstate', update);
-  }, []);
+      const { pathname, search } = window.location
+      setPageContext(`${pathname}${search}`)
+    }
+    update()
+    window.addEventListener('popstate', update)
+    return () => window.removeEventListener('popstate', update)
+  }, [])
 
   useCopilotReadable({
     description: t(
-      'The admin console page the user is currently viewing, including query parameters',
+      'The admin console page the user is currently viewing, including query parameters'
     ),
     value: pageContext,
-  });
+  })
 
   useCopilotAction({
     name: 'getFinancialSummary',
     description: t(
-      'Fetch the platform financial summary: today and this month revenue, cost and profit stats',
+      'Fetch the platform financial summary: today and this month revenue, cost and profit stats'
     ),
     parameters: [],
+    available: availability('getFinancialSummary'),
     handler: async () => {
-      const res = await api.get<ApiEnvelope<FinancialSummary>>('/admin/copilot/tools/financials');
-      return res.data.data;
+      const res = await api.get<ApiEnvelope<FinancialSummary>>(
+        '/api/admin/copilot/tools/financials'
+      )
+      return res.data.data
     },
-  });
+  })
 
   useCopilotAction({
     name: 'lookupUser',
     description: t(
-      'Look up platform user details by numeric id, email or username; returns one user or a list of matches',
+      'Look up platform user details by numeric id, email or username; returns one user or a list of matches'
     ),
     parameters: [
-      { name: 'id', type: 'string', description: 'Numeric user id, if known', required: false },
+      {
+        name: 'id',
+        type: 'string',
+        description: 'Numeric user id, if known',
+        required: false,
+      },
       {
         name: 'keyword',
         type: 'string',
-        description: 'Email or username search keyword, used when no id is given',
+        description:
+          'Email or username search keyword, used when no id is given',
         required: false,
       },
     ],
+    available: availability('lookupUser'),
     handler: async ({ id, keyword }) => {
-      const params = id ? { id } : { keyword };
+      const params = id ? { id } : { keyword }
       const res = await api.get<ApiEnvelope<CopilotUser | CopilotUser[]>>(
-        '/admin/copilot/tools/users',
-        { params },
-      );
-      return res.data.data;
+        '/api/admin/copilot/tools/users',
+        { params }
+      )
+      return res.data.data
     },
-  });
+  })
 
   useCopilotAction({
     name: 'getSystemHealth',
     description: t(
-      'Fetch current server health: CPU usage, memory usage, load average and network throughput',
+      'Fetch current server health: CPU usage, memory usage, load average and network throughput'
     ),
     parameters: [],
+    available: availability('getSystemHealth'),
     handler: async () => {
-      const res = await api.get<ApiEnvelope<SystemHealth>>('/admin/copilot/tools/health');
-      return res.data.data;
+      const res = await api.get<ApiEnvelope<SystemHealth>>(
+        '/api/admin/copilot/tools/health'
+      )
+      return res.data.data
     },
-  });
+  })
 
-  const context = useMemo(() => ({ page: pageContext }), [pageContext]);
-  return context;
+  const context = useMemo(() => ({ page: pageContext }), [pageContext])
+  return context
 }
