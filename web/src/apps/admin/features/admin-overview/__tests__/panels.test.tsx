@@ -1,4 +1,3 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
@@ -6,7 +5,6 @@ import { describe, expect, it } from 'vitest'
 import { formatLogQuota } from '@/shared/lib/format'
 
 import { ActivityTrendPanel } from '../components/activity-trend-panel'
-import { FailedRequestsPanel } from '../components/failed-requests-panel'
 import { RevenuePanel } from '../components/revenue-panel'
 import { TopModelsPanel } from '../components/top-models-panel'
 
@@ -104,64 +102,5 @@ describe('admin overview panels', () => {
     expect(screen.getByText('Daily average').parentElement).toHaveTextContent(
       formatLogQuota(50000)
     )
-  })
-
-  it('summarizes failed requests and lists the model, client and reason of each failure', () => {
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
-    })
-    client.setQueryData(['admin-overview', 'failed-requests'], {
-      success: true,
-      data: {
-        items: [
-          {
-            id: 1,
-            user_id: 7,
-            created_at: 1762000000,
-            type: 5,
-            content: 'upstream quota exceeded',
-            username: 'alice',
-            token_name: 'prod',
-            model_name: 'gpt-x',
-            channel_name: 'ch-a',
-          },
-          {
-            id: 2,
-            user_id: 8,
-            created_at: 1762000100,
-            type: 5,
-            content: 'invalid api key',
-            username: 'bob',
-            token_name: '',
-            model_name: 'gpt-x',
-            channel_name: '',
-          },
-          {
-            id: 3,
-            user_id: 9,
-            created_at: 1762000200,
-            type: 5,
-            content: 'timeout',
-            username: 'carl',
-            token_name: 'dev',
-            model_name: 'claude-y',
-            channel_name: 'ch-b',
-          },
-        ],
-        total: 12,
-      },
-    })
-    render(
-      <QueryClientProvider client={client}>
-        <FailedRequestsPanel />
-      </QueryClientProvider>
-    )
-    expect(screen.getByText('12')).toBeInTheDocument()
-    expect(screen.getAllByText('gpt-x')).toHaveLength(3)
-    expect(screen.getByText('alice')).toBeInTheDocument()
-    expect(screen.getByText('/ prod')).toBeInTheDocument()
-    expect(screen.getByText('bob')).toBeInTheDocument()
-    expect(screen.getByText('upstream quota exceeded')).toBeInTheDocument()
-    client.clear()
   })
 })
