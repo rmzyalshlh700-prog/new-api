@@ -50,6 +50,11 @@ import {
 
 const PAGE_SIZE = 20
 
+// Shared stable empty array: `query.data?.items ?? []` would allocate a new
+// array every render, changing the table's `data` identity and re-triggering
+// TanStack's auto-reset → an infinite render loop (tab switch freeze/WSOD).
+const EMPTY_ITEMS: never[] = []
+
 type TabProps = { range: ArchiveRange | null }
 
 export function SummaryTab({ range }: TabProps) {
@@ -210,6 +215,14 @@ function usePagedArchive<T>(
   const onPaginationChange: OnChangeFn<PaginationState> = (updater) =>
     setPagination((previous) => {
       const next = typeof updater === 'function' ? updater(previous) : updater
+      // Preserve the previous reference when nothing changed, otherwise the
+      // new object identity alone re-renders the table forever.
+      if (
+        next.pageIndex === previous.pageIndex &&
+        next.pageSize === previous.pageSize
+      ) {
+        return previous
+      }
       return next.pageSize === previous.pageSize
         ? next
         : { ...next, pageIndex: 0 }
@@ -251,12 +264,14 @@ export function LogsTab({ range }: TabProps) {
     },
   ]
   const total = query.data?.total ?? 0
+  const items = query.data?.items ?? EMPTY_ITEMS
   const { table } = useDataTable({
-    data: query.data?.items ?? [],
+    data: items,
     columns,
     pagination,
     onPaginationChange,
     manualPagination: true,
+    autoResetPageIndex: false,
     enableSorting: false,
     totalCount: total,
   })
@@ -282,12 +297,14 @@ export function PaymentsTab({ range }: TabProps) {
     getArchivePayments
   )
   const total = query.data?.total ?? 0
+  const items = query.data?.items ?? EMPTY_ITEMS
   const { table } = useDataTable({
-    data: query.data?.items ?? [],
+    data: items,
     columns,
     pagination,
     onPaginationChange,
     manualPagination: true,
+    autoResetPageIndex: false,
     enableSorting: false,
     totalCount: total,
   })
