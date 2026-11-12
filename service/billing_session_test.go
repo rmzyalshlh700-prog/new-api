@@ -28,6 +28,40 @@ func walletOnlyRelayInfo(userID, tokenID int, tokenKey string) *relaycommon.Rela
 	return info
 }
 
+// 欠费未结清时 relay 请求必须被 402 阻断；充值后请求前自动抵扣并恢复服务。
+func TestPreConsumeBillingBlocksOutstandingQuotaDebt(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	truncate(t)
+	common.BatchUpdateEnabled = false
+	common.RedisEnabled = false
+
+	user := &model.User{Username: "quota-debt-user", Quota: 0, Status: common.UserStatusEnabled}
+	require.NoError(t, model.DB.Create(user).Error)
+	token := &model.Token{UserId: user.Id, Key: "quota-debt-token", Name: "quota-debt", Status: common.TokenStatusEnabled, RemainQuota: 1_000_000}
+	require.NoError(t, model.DB.Create(token).Error)
+
+	_, err := model.RecordUserQuotaDebt(user.Id, 70)
+	require.NoError(t, err)
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	apiErr := PreConsumeBilling(ctx, 10, walletOnlyRelayInfo(user.Id, token.Id, token.Key))
+	require.NotNil(t, apiErr)
+	assert.Equal(t, types.ErrorCodeInsufficientUserQuota, apiErr.GetErrorCode())
+	assert.Equal(t, http.StatusPaymentRequired, apiErr.StatusCode)
+
+	// 充值后：先抵扣欠费，剩余余额再用于本次预扣。
+	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", user.Id).Update("quota", 100).Error)
+	ctx, _ = gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	require.Nil(t, PreConsumeBilling(ctx, 10, walletOnlyRelayInfo(user.Id, token.Id, token.Key)))
+
+	var stored model.User
+	require.NoError(t, model.DB.Select("quota", "quota_debt").First(&stored, user.Id).Error)
+	assert.Zero(t, stored.QuotaDebt)
+	assert.Equal(t, 20, stored.Quota)
+}
+
 // 每次请求都必须原子预留，不存在按缓存余额阈值跳过预扣的信任旁路：并发请求
 // 要么各自成功预留，要么返回 402，余额永远不会被扣成负数。
 func TestConcurrentPreConsumeNeverAdmitsDebtAndReservesExactlyOnce(t *testing.T) {

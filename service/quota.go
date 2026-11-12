@@ -455,7 +455,7 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 		if quota > 0 {
 			deducted, deductErr := model.SettleUserQuotaDebit(relayInfo.UserId, quota)
 			if deductErr == nil && deducted < quota {
-				common.SysError(common.LogText("wallet settlement reconciliation required: charge not covered by balance (userId=%d, requested=%d, deducted=%d)", relayInfo.UserId, quota, deducted))
+				common.SysError(common.LogText("wallet settlement shortfall recorded as quota debt (userId=%d, requested=%d, deducted=%d)", relayInfo.UserId, quota, deducted))
 			}
 			err = deductErr
 		} else {

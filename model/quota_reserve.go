@@ -159,10 +159,10 @@ func applyUserQuotaDelta(id int, delta int, directDB bool) error {
 	return persistUserQuotaDelta(id, delta)
 }
 
-// persistAppliedUserQuotaDelta 在缓存已更新后持久化同一增量：directDB 时直写数据库
-// （受余额/上限约束），否则交给批量 outbox（未启用批量时 persistUserQuotaDelta 直写）。
+// persistAppliedUserQuotaDelta 在缓存已更新后持久化同一增量：扣减与 directDB 直写
+// 数据库（受余额/上限约束），只有增额可以交给批量 outbox。
 func persistAppliedUserQuotaDelta(id int, delta int, directDB bool) error {
-	if directDB {
+	if directDB || delta < 0 {
 		return applyUserQuotaDeltaDB(id, delta)
 	}
 	return persistUserQuotaDelta(id, delta)
@@ -213,11 +213,14 @@ func cacheApplyTokenQuotaDelta(id int, key string, delta int64) (cacheQuotaResul
 	return quotaResultFromLua(result, err)
 }
 
-// persistUserQuotaDelta 把已在缓存侧预扣成功的增量落库；批量模式下入队，直写
-// 模式下用条件更新（扣减要求 quota >= ?，绝不扣成负数；用户已删除时报错，交由
-// 调用方补偿缓存）。
+// persistUserQuotaDelta 把已在缓存侧预扣成功的增量落库。
+//
+// 扣减（delta < 0）必须写穿到数据库：批量累加器只是进程内内存，进程崩溃或被
+// 重启时尚未刷新的扣减会丢失，缓存从数据库水合后就会把已消费的余额“复活”。
+// 因此只有增额可以入队，扣减始终用条件更新直写（要求 quota >= ?，绝不扣成
+// 负数；用户已删除时报错，交由调用方补偿缓存）。
 func persistUserQuotaDelta(id int, delta int) error {
-	if common.BatchUpdateEnabled {
+	if common.BatchUpdateEnabled && delta > 0 {
 		addNewRecord(BatchUpdateTypeUserQuota, id, delta)
 		return nil
 	}

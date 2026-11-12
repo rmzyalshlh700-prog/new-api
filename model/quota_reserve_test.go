@@ -81,6 +81,101 @@ func resetBatchUpdateTestState(t *testing.T) {
 	})
 }
 
+func getUserQuotaDebtFromDB(t *testing.T, id int) int64 {
+	t.Helper()
+	var user User
+	require.NoError(t, DB.Select("quota_debt").First(&user, id).Error)
+	return user.QuotaDebt
+}
+
+func disableUserCacheForDebtTest(t *testing.T) {
+	t.Helper()
+	oldRedisEnabled := common.RedisEnabled
+	common.RedisEnabled = false
+	t.Cleanup(func() { common.RedisEnabled = oldRedisEnabled })
+}
+
+// 结算差额无法被余额覆盖时必须整笔记成欠费，而不是静默丢弃；钱包余额随后在
+// 下一次请求前自动抵扣欠费。
+func TestSettleUserQuotaDebitRecordsShortfallAsDebt(t *testing.T) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	disableUserCacheForDebtTest(t)
+
+	user := createReserveTestUser(t, 30)
+	deducted, err := SettleUserQuotaDebit(user.Id, 100)
+	require.NoError(t, err)
+	assert.Zero(t, deducted, "结算扣减是整笔的：余额不足时不做部分扣减")
+	assert.Equal(t, 30, getUserQuotaFromDB(t, user.Id))
+	assert.Equal(t, int64(100), getUserQuotaDebtFromDB(t, user.Id), "未被覆盖的差额必须记账")
+
+	// 欠费与余额不会双重存在：下一次请求前先用余额抵扣欠费。
+	remaining, repaid, err := RepayUserQuotaDebt(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, int64(30), repaid)
+	assert.Equal(t, int64(70), remaining)
+	assert.Zero(t, getUserQuotaFromDB(t, user.Id))
+	assert.Equal(t, int64(70), getUserQuotaDebtFromDB(t, user.Id))
+}
+
+func TestSettleUserQuotaDebitRecordsNoDebtWhenBalanceCoversIt(t *testing.T) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	disableUserCacheForDebtTest(t)
+
+	user := createReserveTestUser(t, 100)
+	deducted, err := SettleUserQuotaDebit(user.Id, 40)
+	require.NoError(t, err)
+	assert.Equal(t, 40, deducted)
+	assert.Equal(t, 60, getUserQuotaFromDB(t, user.Id))
+	assert.Zero(t, getUserQuotaDebtFromDB(t, user.Id))
+}
+
+func TestRepayUserQuotaDebtUsesWalletBalance(t *testing.T) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	disableUserCacheForDebtTest(t)
+
+	user := createReserveTestUser(t, 0)
+	_, err := RecordUserQuotaDebt(user.Id, 70)
+	require.NoError(t, err)
+
+	remaining, repaid, err := RepayUserQuotaDebt(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, int64(70), remaining)
+	assert.Zero(t, repaid, "空余额不能凭空抵扣欠费")
+
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Update("quota", 50).Error)
+	remaining, repaid, err = RepayUserQuotaDebt(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, int64(20), remaining)
+	assert.Equal(t, int64(50), repaid)
+	assert.Zero(t, getUserQuotaFromDB(t, user.Id))
+	assert.Equal(t, int64(20), getUserQuotaDebtFromDB(t, user.Id))
+}
+
+// 扣减必须写穿数据库：即使启用了批量更新，也不能留在内存累加器里等刷新，
+// 否则进程重启后余额会从数据库水合回来。
+func TestQuotaDebitIsWrittenThroughWhenBatchUpdateEnabled(t *testing.T) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	useUserCacheMiniRedis(t)
+	common.BatchUpdateEnabled = true
+
+	user := createReserveTestUser(t, 10)
+	require.NoError(t, populateUserCache(user))
+
+	reserved, err := TryReserveUserQuota(user.Id, 8)
+	require.NoError(t, err)
+	require.True(t, reserved)
+	assert.Equal(t, 2, getUserQuotaFromDB(t, user.Id), "扣减必须立即写库，重启后不得复活")
+
+	batchUpdateLocks[BatchUpdateTypeUserQuota].Lock()
+	_, queued := batchUpdateStores[BatchUpdateTypeUserQuota][user.Id]
+	batchUpdateLocks[BatchUpdateTypeUserQuota].Unlock()
+	assert.False(t, queued, "quota 扣减不得进入内存 outbox")
+}
+
 func TestTryReserveQuotaWithoutRedis(t *testing.T) {
 	truncateTables(t)
 	resetBatchUpdateTestState(t)
@@ -120,11 +215,11 @@ func TestRedisBatchReserveNeverFallsBackToStaleDatabaseBalance(t *testing.T) {
 	reserved, err := TryReserveUserQuota(user.Id, 8)
 	require.NoError(t, err)
 	assert.True(t, reserved)
-	assert.Equal(t, 10, getUserQuotaFromDB(t, user.Id), "batch delta is not flushed yet")
+	assert.Equal(t, 2, getUserQuotaFromDB(t, user.Id), "a quota debit is written through, not queued")
 
 	reserved, err = TryReserveUserQuota(user.Id, 3)
 	require.NoError(t, err)
-	assert.False(t, reserved, "stale DB balance must not authorize a second spend")
+	assert.False(t, reserved, "the consumed balance must not authorize a second spend")
 	cachedUser, err := GetUserCache(user.Id)
 	require.NoError(t, err)
 	assert.Equal(t, 2, cachedUser.Quota)
@@ -472,8 +567,9 @@ func TestUserQuotaUpdateSyncsCacheSynchronously(t *testing.T) {
 	assert.Equal(t, 75, cached.Quota)
 }
 
-// S-03：批量模式下 Redis 优先同步扣减，增量随后进入 outbox 等待异步落库。
-func TestUserQuotaUpdateRedisFirstOutboxSecond(t *testing.T) {
+// S-03 + H-3：批量模式下扣减同步更新缓存，并立即写穿数据库；只有授信可以
+// 留给 outbox，否则崩溃重启会把已消费的余额复活。
+func TestUserQuotaDebitIsPersistedImmediatelyWhenBatching(t *testing.T) {
 	truncateTables(t)
 	resetBatchUpdateTestState(t)
 	useUserCacheMiniRedis(t)
@@ -487,10 +583,15 @@ func TestUserQuotaUpdateRedisFirstOutboxSecond(t *testing.T) {
 	cached, err := cacheGetUserBase(user.Id)
 	require.NoError(t, err)
 	assert.Equal(t, 60, cached.Quota, "the live cache must be updated synchronously")
-	assert.Equal(t, 100, getUserQuotaFromDB(t, user.Id), "the outbox delta is not flushed yet")
+	assert.Equal(t, 60, getUserQuotaFromDB(t, user.Id), "a debit must be durable before the batch flush")
+
+	batchUpdateLocks[BatchUpdateTypeUserQuota].Lock()
+	_, queued := batchUpdateStores[BatchUpdateTypeUserQuota][user.Id]
+	batchUpdateLocks[BatchUpdateTypeUserQuota].Unlock()
+	assert.False(t, queued, "a quota debit must never enter the in-memory outbox")
 
 	batchUpdate()
-	assert.Equal(t, 60, getUserQuotaFromDB(t, user.Id))
+	assert.Equal(t, 60, getUserQuotaFromDB(t, user.Id), "flushing must not deduct twice")
 }
 
 func TestRefundWalletPreConsumeCreditsExactlyOnce(t *testing.T) {
@@ -567,8 +668,10 @@ func TestBatchUpdateOutboxSurvivesApplyFailureAndReplaysExactlyOnce(t *testing.T
 	common.BatchUpdateEnabled = true
 
 	user := createReserveTestUser(t, 1000)
-	// 同一轮里既有扣减也有退还（退款/充值），净增量必须在恢复后恰好应用一次。
+	// 扣减写穿数据库，退还（退款/充值）仍走批量 outbox；恢复后每个增量必须恰好
+	// 应用一次。
 	require.NoError(t, DecreaseUserQuota(user.Id, 300, false))
+	assert.Equal(t, 700, getUserQuotaFromDB(t, user.Id), "quota 扣减必须立即写库")
 	require.NoError(t, IncreaseUserQuota(user.Id, 200, false))
 	UpdateUserUsedQuotaAndRequestCount(user.Id, 300)
 
@@ -576,11 +679,11 @@ func TestBatchUpdateOutboxSurvivesApplyFailureAndReplaysExactlyOnce(t *testing.T
 	batchUpdate()
 
 	// 目标行更新失败：内存增量已经持久化到 outbox，数据库保持不变，行等待重试。
-	assert.Equal(t, 1000, getUserQuotaFromDB(t, user.Id))
+	assert.Equal(t, 700, getUserQuotaFromDB(t, user.Id))
 	var pending []QuotaOutbox
 	require.NoError(t, DB.Where("status = ?", quotaOutboxStatusPending).Find(&pending).Error)
 	require.Len(t, pending, 1)
-	assert.EqualValues(t, -100, pending[0].QuotaDelta)
+	assert.EqualValues(t, 200, pending[0].QuotaDelta)
 	assert.EqualValues(t, 300, pending[0].UsedQuotaDelta)
 	assert.EqualValues(t, 1, pending[0].RequestCountDelta)
 	assert.Positive(t, pending[0].Attempts, "a failed apply must be recorded for retry")
@@ -616,29 +719,32 @@ func TestBatchUpdateOutboxRecoveryKeepsCacheConsistentWithDatabase(t *testing.T)
 	reserved, err := TryReserveUserQuota(user.Id, 300)
 	require.NoError(t, err)
 	require.True(t, reserved)
+	// 扣减写穿：缓存与数据库同时到达 700，重启不会让这笔消费复活。
+	assert.Equal(t, 700, getUserQuotaFromDB(t, user.Id))
 	cached, err := cacheGetUserBase(user.Id)
 	require.NoError(t, err)
 	require.Equal(t, 700, cached.Quota, "the reservation is visible in the live cache")
 
-	// flush 期间数据库故障：缓存已经是 700，数据库仍是 1000，增量保存在 outbox。
+	// 一笔授信仍走批量 outbox：flush 期间数据库故障，缓存已是 900，数据库仍是 700。
+	require.NoError(t, IncreaseUserQuota(user.Id, 200, false))
 	failing := injectUserTableUpdateFailure(t)
 	batchUpdate()
-	assert.Equal(t, 1000, getUserQuotaFromDB(t, user.Id))
+	assert.Equal(t, 700, getUserQuotaFromDB(t, user.Id))
 
 	// 缓存失效后（TTL 过期/重启），重放必须让数据库回到正确余额，随后水合的
 	// 缓存也必须一致。
 	failing.Store(false)
 	RecoverQuotaOutbox()
-	assert.Equal(t, 700, getUserQuotaFromDB(t, user.Id))
+	assert.Equal(t, 900, getUserQuotaFromDB(t, user.Id))
 
 	cacheAfter, err := cacheGetUserBase(user.Id)
 	require.NoError(t, err)
-	assert.Equal(t, 700, cacheAfter.Quota)
+	assert.Equal(t, 900, cacheAfter.Quota)
 
 	require.NoError(t, invalidateUserCache(user.Id))
 	hydrated, err := GetUserCache(user.Id)
 	require.NoError(t, err)
-	assert.Equal(t, 700, hydrated.Quota, "cache rehydration after recovery must match the database")
+	assert.Equal(t, 900, hydrated.Quota, "cache rehydration after recovery must match the database")
 }
 
 func TestOutboxRecoveryKeepsConsumeLogsAndUsedQuotaInSync(t *testing.T) {
@@ -662,6 +768,19 @@ func TestOutboxRecoveryKeepsConsumeLogsAndUsedQuotaInSync(t *testing.T) {
 		Select("COALESCE(SUM(used_quota), 0)").Scan(&usedTotal).Error)
 	assert.EqualValues(t, 300, logTotal)
 	assert.Equal(t, logTotal, usedTotal, "consume logs and accumulated used quota must reconcile after recovery")
+}
+
+// 欠费列必须能重复 AutoMigrate，且既有用户行的默认欠费为 0。
+func TestUserQuotaDebtMigrationIsIdempotent(t *testing.T) {
+	truncateTables(t)
+	disableUserCacheForDebtTest(t)
+
+	require.NoError(t, DB.AutoMigrate(&User{}))
+	require.NoError(t, DB.AutoMigrate(&User{}))
+	require.True(t, DB.Migrator().HasColumn(&User{}, "quota_debt"))
+
+	user := createReserveTestUser(t, 5)
+	assert.Zero(t, getUserQuotaDebtFromDB(t, user.Id))
 }
 
 // 启动迁移会在每次引导时运行，outbox 表必须能重复 AutoMigrate 且保留可用性。
