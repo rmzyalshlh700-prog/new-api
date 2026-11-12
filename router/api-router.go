@@ -14,6 +14,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// paymentCallbackPostOnly answers the GET registration of an Epay notify
+// endpoint with 405. Keeping the GET route registered reports the endpoint as
+// POST-only instead of silently 404ing, and no query-string payload (which
+// carries the payment signature) is ever parsed, so the signature cannot reach
+// access logs, proxy logs or browser history through this gateway.
+func paymentCallbackPostOnly(c *gin.Context) {
+	c.Header("Allow", http.MethodPost)
+	c.AbortWithStatus(http.StatusMethodNotAllowed)
+}
+
 func SetApiRouter(router *gin.Engine) {
 	apiRouter := router.Group("/api")
 	apiRouter.Use(middleware.RouteTag("api"))
@@ -89,7 +99,7 @@ func SetApiRouter(router *gin.Engine) {
 			userRoute.POST("/passkey/login/finish", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.PasskeyLoginFinish)
 			//userRoute.POST("/tokenlog", middleware.CriticalRateLimit(), controller.TokenLog)
 			userRoute.POST("/epay/notify", anonymousRequestBodyLimit, controller.EpayNotify)
-			userRoute.GET("/epay/notify", controller.EpayNotify)
+			userRoute.GET("/epay/notify", paymentCallbackPostOnly)
 			userRoute.GET("/groups", controller.GetUserGroups)
 
 			selfRoute := userRoute.Group("/")
@@ -214,7 +224,7 @@ func SetApiRouter(router *gin.Engine) {
 
 		// Subscription payment callbacks (no auth)
 		apiRouter.POST("/subscription/epay/notify", anonymousRequestBodyLimit, controller.SubscriptionEpayNotify)
-		apiRouter.GET("/subscription/epay/notify", controller.SubscriptionEpayNotify)
+		apiRouter.GET("/subscription/epay/notify", paymentCallbackPostOnly)
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", anonymousRequestBodyLimit, controller.SubscriptionEpayReturn)
 		optionRoute := apiRouter.Group("/option")

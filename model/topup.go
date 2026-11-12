@@ -312,7 +312,7 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 // multi-instance deployments) credit at most once. completionRatio scales the
 // credited quota for partially paid orders (actually_paid/pay_amount); pass 1
 // for fully finished payments.
-func RechargeNowPayments(tradeNo string, completionRatio float64, callerIp string) (alreadyDone bool, err error) {
+func RechargeNowPayments(tradeNo string, completionRatio decimal.Decimal, callerIp string) (alreadyDone bool, err error) {
 	if tradeNo == "" {
 		return false, errors.New("payment order number not provided")
 	}
@@ -338,12 +338,12 @@ func RechargeNowPayments(tradeNo string, completionRatio float64, callerIp strin
 		if topUp.Status != common.TopUpStatusPending {
 			return ErrTopUpStatusInvalid
 		}
-		if completionRatio <= 0 {
+		if !completionRatio.IsPositive() {
 			return ErrInvalidTopUpQuota
 		}
 		var quotaErr error
 		quotaToAdd, quotaErr = common.WalletQuotaFromDecimalStrict(
-			decimal.NewFromFloat(topUp.Money).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).Mul(decimal.NewFromFloat(completionRatio)),
+			decimal.NewFromFloat(topUp.Money).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).Mul(completionRatio),
 		)
 		if quotaErr != nil || quotaToAdd <= 0 {
 			return ErrInvalidTopUpQuota
@@ -366,7 +366,7 @@ func RechargeNowPayments(tradeNo string, completionRatio float64, callerIp strin
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, common.LogText("nowpayments topup"))
 
-	common.SysLog(common.LogText("NOWPayments top-up succeeded trade_no=%s user_id=%d quota_to_add=%d money=%.2f completion_ratio=%.4f", topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money, completionRatio))
+	common.SysLog(common.LogText("NOWPayments top-up succeeded trade_no=%s user_id=%d quota_to_add=%d money=%.2f completion_ratio=%s", topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money, completionRatio.String()))
 	RecordTopupLog(topUp.UserId, common.NewMessage("Online top-up succeeded, amount added: {{quota}}, payment amount: {{amount}}", map[string]any{"quota": logger.FormatQuota(quotaToAdd), "amount": fmt.Sprintf("%f", topUp.Money)}), callerIp, topUp.PaymentMethod, PaymentProviderNowPayments)
 	return false, nil
 }

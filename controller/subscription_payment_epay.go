@@ -116,25 +116,22 @@ func SubscriptionRequestEpay(c *gin.Context) {
 }
 
 func SubscriptionEpayNotify(c *gin.Context) {
-	var params map[string]string
-
-	if c.Request.Method == "POST" {
-		// POST 请求：从 POST body 解析参数
-		if err := c.Request.ParseForm(); err != nil {
-			_, _ = c.Writer.Write([]byte("fail"))
-			return
-		}
-		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.PostForm.Get(t)
-			return r
-		}, map[string]string{})
-	} else {
-		// GET 请求：从 URL Query 解析参数
-		params = lo.Reduce(lo.Keys(c.Request.URL.Query()), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.URL.Query().Get(t)
-			return r
-		}, map[string]string{})
+	// 回调参数带着签名，只允许走 POST body：GET 会把签名写进访问日志、代理
+	// 日志和浏览器历史，而且订阅发放不应由一次浏览触发。
+	if c.Request.Method != http.MethodPost {
+		c.Header("Allow", http.MethodPost)
+		c.AbortWithStatus(http.StatusMethodNotAllowed)
+		return
 	}
+
+	if err := c.Request.ParseForm(); err != nil {
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
+	}
+	params := lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
+		r[t] = c.Request.PostForm.Get(t)
+		return r
+	}, map[string]string{})
 
 	if len(params) == 0 {
 		_, _ = c.Writer.Write([]byte("fail"))

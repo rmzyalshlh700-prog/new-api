@@ -33,14 +33,11 @@ func generateCreemSignature(payload string, secret string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// 验证Creem webhook签名
+// 验证Creem webhook签名。签名在任何模式下都必须校验：测试模式只切换 Creem
+// 的 API 端点，绝不能成为跳过验签、接受伪造回调的开关。
 func verifyCreemSignature(payload string, signature string, secret string) bool {
 	if secret == "" {
 		logger.LogWarn(context.Background(), common.LogText("Creem webhook secret is not configured test_mode=%t", setting.CreemTestMode))
-		if setting.CreemTestMode {
-			logger.LogInfo(context.Background(), common.LogText("Creem webhook signature check skipped reason=test_mode"))
-			return true
-		}
 		return false
 	}
 

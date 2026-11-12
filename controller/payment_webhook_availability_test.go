@@ -232,14 +232,15 @@ func TestEpayCallbacksVerifyBeforeSettlement(t *testing.T) {
 		pendingBody      string
 		rejectedLocation string
 		pendingLocation  string
+		postOnly         bool
 	}{
 		{
 			name: "topup notify", path: "/api/user/epay/notify", handler: EpayNotify,
-			status: http.StatusOK, rejectedBody: "fail", pendingBody: "success",
+			status: http.StatusOK, rejectedBody: "fail", pendingBody: "success", postOnly: true,
 		},
 		{
 			name: "subscription notify", path: "/api/subscription/epay/notify", handler: SubscriptionEpayNotify,
-			status: http.StatusOK, rejectedBody: "fail", pendingBody: "fail",
+			status: http.StatusOK, rejectedBody: "fail", pendingBody: "fail", postOnly: true,
 		},
 		{
 			name: "subscription return", path: "/api/subscription/epay/return", handler: SubscriptionEpayReturn,
@@ -254,6 +255,10 @@ func TestEpayCallbacksVerifyBeforeSettlement(t *testing.T) {
 	}
 	for _, endpoint := range endpoints {
 		for _, method := range []string{http.MethodGet, http.MethodPost} {
+			if method == http.MethodGet && endpoint.postOnly {
+				// Asserted separately below: notify endpoints accept POST only.
+				continue
+			}
 			for _, tc := range cases {
 				t.Run(endpoint.name+"/"+method+"/"+tc.name, func(t *testing.T) {
 					params := url.Values{
@@ -283,7 +288,46 @@ func TestEpayCallbacksVerifyBeforeSettlement(t *testing.T) {
 				})
 			}
 		}
+		if endpoint.postOnly {
+			t.Run(endpoint.name+"/GET is rejected", func(t *testing.T) {
+				params := url.Values{
+					"pid": {"epay_id"}, "type": {"alipay"}, "money": {"1.00"},
+					"name": {"item"}, "out_trade_no": {"order"},
+					"trade_status": {epay.StatusTradeSuccess}, "sign_type": {"MD5"},
+					"sign": {"irrelevant"},
+				}
+				request := httptest.NewRequest(http.MethodGet, endpoint.path+"?"+params.Encode(), nil)
+				recorder := httptest.NewRecorder()
+				router.ServeHTTP(recorder, request)
+				assert.Equal(t, http.StatusMethodNotAllowed, recorder.Code,
+					"a GET callback would leak its signature into logs and browser history")
+				assert.Equal(t, http.MethodPost, recorder.Header().Get("Allow"))
+			})
+		}
 	}
+}
+
+// Creem webhook signatures are verified in every mode: test mode only selects
+// the Creem API endpoint, so an unsigned or badly signed callback must never be
+// accepted there.
+func TestCreemWebhookSignatureIsRequiredInTestMode(t *testing.T) {
+	originalSecret, originalTestMode := setting.CreemWebhookSecret, setting.CreemTestMode
+	t.Cleanup(func() {
+		setting.CreemWebhookSecret, setting.CreemTestMode = originalSecret, originalTestMode
+	})
+
+	const payload = `{"id":"evt_1","eventType":"checkout.completed"}`
+	validSignature := generateCreemSignature(payload, "creem-secret")
+
+	setting.CreemTestMode = true
+	setting.CreemWebhookSecret = "creem-secret"
+	assert.True(t, verifyCreemSignature(payload, validSignature, setting.CreemWebhookSecret))
+	assert.False(t, verifyCreemSignature(payload, "deadbeef", setting.CreemWebhookSecret))
+	assert.False(t, verifyCreemSignature(payload, "", setting.CreemWebhookSecret))
+
+	setting.CreemWebhookSecret = ""
+	assert.False(t, verifyCreemSignature(payload, validSignature, setting.CreemWebhookSecret),
+		"test mode must not accept a callback when no secret is configured")
 }
 
 func TestPaymentWebhookLogsExcludeRawPayloadsAndSignatures(t *testing.T) {

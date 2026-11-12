@@ -53,7 +53,8 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		common.ApiErrorT(c, "CreemProductId is not configured for this plan")
 		return
 	}
-	if setting.CreemWebhookSecret == "" && !setting.CreemTestMode {
+	// 没有 webhook secret 的订单永远无法通过验签，任何模式下都不该创建。
+	if setting.CreemWebhookSecret == "" {
 		common.ApiErrorT(c, "Creem webhook is not configured")
 		return
 	}

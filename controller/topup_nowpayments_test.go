@@ -133,6 +133,44 @@ func TestNowPaymentsWebhookEndpoint(t *testing.T) {
 		assert.Equal(t, 10*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 9))
 	})
 
+	t.Run("partially paid keeps the exact decimal ratio", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 10, "np_order_partial_thirds", 30)
+		payload := `{"payment_id":4,"payment_status":"partially_paid","order_id":"np_order_partial_thirds","pay_amount":3,"actually_paid":1}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		// 30 * QuotaPerUnit * 1/3 must settle to the full third (10 * QuotaPerUnit):
+		// the ratio is carried as a decimal end to end instead of being flattened
+		// to a float64 before the quota product.
+		assert.Equal(t, 10*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 10))
+	})
+
+	t.Run("partially paid without a usable amount credits nothing", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 11, "np_order_partial_zero", 20)
+		payload := `{"payment_id":5,"payment_status":"partially_paid","order_id":"np_order_partial_zero","pay_amount":0.5,"actually_paid":0}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, 0, getNowPaymentsUserQuota(t, db, 11))
+		topUp := model.GetTopUpByTradeNo("np_order_partial_zero")
+		require.NotNil(t, topUp)
+		assert.Equal(t, common.TopUpStatusPending, topUp.Status)
+	})
+
+	t.Run("callback without payment_id rejected with 400", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 12, "np_order_no_payment_id", 20)
+		payload := `{"payment_status":"finished","order_id":"np_order_no_payment_id","pay_amount":0.5,"actually_paid":0.5}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		topUp := model.GetTopUpByTradeNo("np_order_no_payment_id")
+		require.NotNil(t, topUp)
+		assert.Equal(t, common.TopUpStatusPending, topUp.Status, "an untraceable callback must not settle the order")
+		assert.Equal(t, 0, getNowPaymentsUserQuota(t, db, 12))
+	})
+
 	t.Run("invalid signature rejected with 401", func(t *testing.T) {
 		payload := `{"payment_id":1,"payment_status":"finished","order_id":"np_x"}`
 		rec := postNowPaymentsWebhook(t, payload, "deadbeef")

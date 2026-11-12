@@ -348,18 +348,34 @@ func NowPaymentsWebhook(c *gin.Context) {
 		return
 	}
 
+	// 结算必须能追溯到网关侧的支付流水号：缺少 payment_id 的 IPN 无法与订单
+	// 对账，也无法在重放/撞单时定位来源，直接拒绝。
+	if ipn.PaymentId <= 0 {
+		logger.LogWarn(ctx, common.LogText("NOWPayments webhook rejected reason=missing_payment_id order_id=%s payment_status=%s client_ip=%s", ipn.OrderId, ipn.PaymentStatus, c.ClientIP()))
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
 	logger.LogInfo(ctx, common.LogText("NOWPayments webhook signature verified payment_id=%d order_id=%s payment_status=%s client_ip=%s path=%q", ipn.PaymentId, ipn.OrderId, ipn.PaymentStatus, c.ClientIP(), c.Request.RequestURI))
 
 	switch ipn.PaymentStatus {
 	case "finished":
-		nowPaymentsFulfillOrder(ctx, ipn, 1.0, c.ClientIP())
+		nowPaymentsFulfillOrder(ctx, ipn, decimal.NewFromInt(1), c.ClientIP())
 	case "partially_paid":
-		ratio := 1.0
+		// 按实际支付的比例结算，比例全程用 decimal 计算：先转 float64 会把
+		// 1/3 这类比例舍入后再乘额度，既会多给额度也会少给额度。缺少可用金额
+		// 时比例保持 0，宁可不结算也不能凭空发放额度。
+		ratio := decimal.Zero
 		if ipn.PayAmount.IsPositive() {
-			computed, _ := ipn.ActuallyPaid.Div(ipn.PayAmount).Float64()
-			if computed > 0 {
-				ratio = min(computed, 1.0)
+			ratio = decimal.Min(ipn.ActuallyPaid.Div(ipn.PayAmount), decimal.NewFromInt(1))
+			if !ratio.IsPositive() {
+				ratio = decimal.Zero
 			}
+		}
+		if !ratio.IsPositive() {
+			logger.LogWarn(ctx, common.LogText("NOWPayments webhook rejected reason=no_payment_ratio payment_id=%d order_id=%s pay_amount=%s actually_paid=%s client_ip=%s", ipn.PaymentId, ipn.OrderId, ipn.PayAmount.String(), ipn.ActuallyPaid.String(), c.ClientIP()))
+			c.Status(http.StatusOK)
+			return
 		}
 		nowPaymentsFulfillOrder(ctx, ipn, ratio, c.ClientIP())
 	default:
@@ -369,32 +385,39 @@ func NowPaymentsWebhook(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func nowPaymentsFulfillOrder(ctx context.Context, ipn nowPaymentsIpnPayload, completionRatio float64, callerIp string) {
+// nowPaymentsFulfillOrder settles one IPN against its pending order. Every
+// outcome logs the gateway payment_id next to the order id so a replayed or
+// colliding callback can be traced back to the payment that caused it.
+func nowPaymentsFulfillOrder(ctx context.Context, ipn nowPaymentsIpnPayload, completionRatio decimal.Decimal, callerIp string) {
 	LockOrder(ipn.OrderId)
 	defer UnlockOrder(ipn.OrderId)
 
 	alreadyDone, err := model.RechargeNowPayments(ipn.OrderId, completionRatio, callerIp)
 	if errors.Is(err, model.ErrTopUpNotFound) {
-		logger.LogWarn(ctx, common.LogText("NOWPayments webhook order not found trade_no=%s client_ip=%s", ipn.OrderId, callerIp))
+		logger.LogWarn(ctx, common.LogText("NOWPayments webhook order not found trade_no=%s payment_id=%d client_ip=%s", ipn.OrderId, ipn.PaymentId, callerIp))
 		return
 	}
 	if errors.Is(err, model.ErrPaymentMethodMismatch) {
-		logger.LogWarn(ctx, common.LogText("NOWPayments webhook order payment gateway mismatch trade_no=%s client_ip=%s", ipn.OrderId, callerIp))
+		logger.LogWarn(ctx, common.LogText("NOWPayments webhook order payment gateway mismatch trade_no=%s payment_id=%d client_ip=%s", ipn.OrderId, ipn.PaymentId, callerIp))
 		return
 	}
 	if errors.Is(err, model.ErrTopUpStatusInvalid) {
-		logger.LogInfo(ctx, common.LogText("NOWPayments webhook order not pending, ignored trade_no=%s status_invalid client_ip=%s", ipn.OrderId, callerIp))
+		logger.LogInfo(ctx, common.LogText("NOWPayments webhook order not pending, ignored trade_no=%s payment_id=%d status_invalid client_ip=%s", ipn.OrderId, ipn.PaymentId, callerIp))
+		return
+	}
+	if errors.Is(err, model.ErrInvalidTopUpQuota) {
+		logger.LogWarn(ctx, common.LogText("NOWPayments webhook order has no creditable quota trade_no=%s payment_id=%d completion_ratio=%s client_ip=%s", ipn.OrderId, ipn.PaymentId, completionRatio.String(), callerIp))
 		return
 	}
 	if err != nil {
-		logger.LogError(ctx, common.LogText("NOWPayments top-up processing failed trade_no=%s client_ip=%s error=%q", ipn.OrderId, callerIp, err.Error()))
+		logger.LogError(ctx, common.LogText("NOWPayments top-up processing failed trade_no=%s payment_id=%d client_ip=%s error=%q", ipn.OrderId, ipn.PaymentId, callerIp, err.Error()))
 		return
 	}
 	if alreadyDone {
-		logger.LogInfo(ctx, common.LogText("NOWPayments top-up already completed, idempotent callback ignored trade_no=%s client_ip=%s", ipn.OrderId, callerIp))
+		logger.LogInfo(ctx, common.LogText("NOWPayments top-up already completed, idempotent callback ignored trade_no=%s payment_id=%d client_ip=%s", ipn.OrderId, ipn.PaymentId, callerIp))
 		return
 	}
-	logger.LogInfo(ctx, common.LogText("NOWPayments top-up succeeded trade_no=%s payment_id=%d payment_status=%s completion_ratio=%.4f client_ip=%s", ipn.OrderId, ipn.PaymentId, ipn.PaymentStatus, completionRatio, callerIp))
+	logger.LogInfo(ctx, common.LogText("NOWPayments top-up succeeded trade_no=%s payment_id=%d payment_status=%s completion_ratio=%s client_ip=%s", ipn.OrderId, ipn.PaymentId, ipn.PaymentStatus, completionRatio.String(), callerIp))
 }
 
 // VerifyNowPaymentsSignature implements the NOWPayments IPN signature scheme:

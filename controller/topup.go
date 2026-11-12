@@ -408,33 +408,32 @@ func UnlockOrder(tradeNo string) {
 }
 
 func EpayNotify(c *gin.Context) {
+	// 回调参数带着签名，只允许走 POST body：GET 会把签名写进访问日志、代理
+	// 日志和浏览器历史，而且报文中继不应由一次浏览触发结算。
+	if c.Request.Method != http.MethodPost {
+		c.Header("Allow", http.MethodPost)
+		logger.LogWarn(c.Request.Context(), common.LogText("Epay webhook rejected reason=method_not_allowed method=%s path=%q client_ip=%s", c.Request.Method, c.Request.RequestURI, c.ClientIP()))
+		c.AbortWithStatus(http.StatusMethodNotAllowed)
+		return
+	}
+
 	if !isEpayWebhookEnabled() {
 		logger.LogWarn(c.Request.Context(), common.LogText("Epay webhook rejected reason=webhook_disabled path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
 
-	var params map[string]string
-
-	if c.Request.Method == "POST" {
-		// POST 请求：从 POST body 解析参数。先限制体积，支付回调不需要无界请求体。
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxPaymentWebhookBodyBytes)
-		if err := c.Request.ParseForm(); err != nil {
-			logger.LogError(c.Request.Context(), common.LogText("Epay webhook failed to parse POST form path=%q client_ip=%s error=%q", c.Request.RequestURI, c.ClientIP(), err.Error()))
-			_, _ = c.Writer.Write([]byte("fail"))
-			return
-		}
-		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.PostForm.Get(t)
-			return r
-		}, map[string]string{})
-	} else {
-		// GET 请求：从 URL Query 解析参数
-		params = lo.Reduce(lo.Keys(c.Request.URL.Query()), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.URL.Query().Get(t)
-			return r
-		}, map[string]string{})
+	// 支付回调只需要请求体，先限制体积。
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxPaymentWebhookBodyBytes)
+	if err := c.Request.ParseForm(); err != nil {
+		logger.LogError(c.Request.Context(), common.LogText("Epay webhook failed to parse POST form path=%q client_ip=%s error=%q", c.Request.RequestURI, c.ClientIP(), err.Error()))
+		_, _ = c.Writer.Write([]byte("fail"))
+		return
 	}
+	params := lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
+		r[t] = c.Request.PostForm.Get(t)
+		return r
+	}, map[string]string{})
 	// 回调参数包含签名，可能还包含买家信息，只记录元数据。
 	logger.LogInfo(c.Request.Context(), common.LogText("Epay webhook received request path=%q client_ip=%s method=%s param_count=%d", c.Request.RequestURI, c.ClientIP(), c.Request.Method, len(params)))
 
