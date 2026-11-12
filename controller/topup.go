@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -600,4 +601,71 @@ func AdminCompleteTopUp(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, nil)
+}
+
+type TopUpOrdersStatsGroup struct {
+	Key      string                    `json:"key"`
+	Statuses []string                  `json:"statuses"`
+	Count    int64                     `json:"count"`
+	Amount   float64                   `json:"amount"`
+	Recent   []model.TopUpOrderSummary `json:"recent"`
+}
+
+// GetTopUpOrdersStats serves the admin dashboard payment orders overview:
+// per-status count/amount aggregates plus the most recent orders per bucket.
+func GetTopUpOrdersStats(c *gin.Context) {
+	buckets := []struct {
+		key      string
+		statuses []string
+	}{
+		{key: "pending", statuses: []string{common.TopUpStatusPending}},
+		{key: "completed", statuses: []string{common.TopUpStatusSuccess}},
+		{key: "failed", statuses: []string{common.TopUpStatusFailed, common.TopUpStatusExpired}},
+	}
+
+	statusStats, err := model.GetTopUpOrderStatusCounts()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	statsByKey := make(map[string]*model.TopUpOrderStatusStats, len(statusStats))
+	for i := range statusStats {
+		stat := statusStats[i]
+		for _, bucket := range buckets {
+			if slices.Contains(bucket.statuses, stat.Status) {
+				agg, ok := statsByKey[bucket.key]
+				if !ok {
+					agg = &model.TopUpOrderStatusStats{Status: bucket.key}
+					statsByKey[bucket.key] = agg
+				}
+				agg.Count += stat.Count
+				agg.Amount += stat.Amount
+			}
+		}
+	}
+
+	recentLimit := 5
+	groups := make([]TopUpOrdersStatsGroup, 0, len(buckets))
+	for _, bucket := range buckets {
+		group := TopUpOrdersStatsGroup{
+			Key:      bucket.key,
+			Statuses: bucket.statuses,
+		}
+		if agg, ok := statsByKey[bucket.key]; ok {
+			group.Count = agg.Count
+			group.Amount = agg.Amount
+		}
+		recent, recentErr := model.GetRecentTopUpOrdersByStatus(bucket.statuses, recentLimit)
+		if recentErr != nil {
+			common.ApiError(c, recentErr)
+			return
+		}
+		if recent == nil {
+			recent = []model.TopUpOrderSummary{}
+		}
+		group.Recent = recent
+		groups = append(groups, group)
+	}
+
+	common.ApiSuccess(c, groups)
 }

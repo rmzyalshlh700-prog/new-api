@@ -238,3 +238,22 @@ export interface ProcessedFlowData {
   flow: DashboardFlowGraph
   filterOptions: FlowFilterOptions
 }
+
+export interface PaymentOrderSummary {
+  user_id: number
+  username: string
+  money: number
+  trade_no: string
+  payment_method: string
+  payment_provider: string
+  status: string
+  create_time: number
+}
+
+export interface PaymentOrderGroup {
+  key: 'pending' | 'completed' | 'failed'
+  statuses: string[]
+  count: number
+  amount: number
+  recent: PaymentOrderSummary[]
+}

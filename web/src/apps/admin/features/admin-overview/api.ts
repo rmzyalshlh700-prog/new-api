@@ -23,6 +23,7 @@ import type {
   FlowQuotaDataItem,
   OverviewQuotaRow,
   OverviewUserRow,
+  PaymentOrderGroup,
 } from './types'
 
 function validateOverviewResponse<
@@ -120,4 +121,17 @@ export async function getFlowQuotaDates(
     message?: string
   }>(endpoint, { params })
   return res.data
+}
+
+/**
+ * Payment orders overview grouped by status, with the most recent orders per
+ * bucket. Admin-only (`GET /api/topup/orders_stats`).
+ */
+export async function getPaymentOrdersStats() {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: PaymentOrderGroup[]
+  }>('/api/topup/orders_stats')
+  return validateOverviewResponse(res.data)
 }

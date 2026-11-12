@@ -34,6 +34,7 @@ import {
   getAdminQuotaRows,
   getAdminRegisteredUserTotal,
   getAdminUserQuotaRows,
+  getPaymentOrdersStats,
 } from './api'
 import { ActiveUsersPanel } from './components/active-users-panel'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
@@ -41,6 +42,7 @@ import { ClientBalancesPanel } from './components/client-balances-panel'
 import { FailedRequestsPanel } from './components/failed-requests-panel'
 import { FlowPanel } from './components/flow/flow-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
+import { PaymentOrdersWidget } from './components/payment-orders-widget'
 import { PerformanceOverview } from './components/performance-overview'
 import { RevenuePanel } from './components/revenue-panel'
 import { TokenUsagePanel } from './components/token-usage-panel'
@@ -164,6 +166,15 @@ export function AdminOverview() {
     staleTime: LIVE_REFRESH_MS - 100,
   })
 
+  const paymentOrdersQuery = useQuery({
+    queryKey: ['admin-overview', 'payment-orders'],
+    queryFn: async () =>
+      requireServerSuccess(await getPaymentOrdersStats()),
+    refetchInterval: LIVE_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    staleTime: LIVE_REFRESH_MS - 100,
+  })
+
   const quotaRows = useMemo(
     () => quotaQuery.data?.data ?? [],
     [quotaQuery.data]
@@ -239,7 +250,7 @@ export function AdminOverview() {
     allTimeRevenueQuery,
     registeredUsersQuery,
   ]
-  const queries = [...essentialQueries, rateQuery]
+  const queries = [...essentialQueries, rateQuery, paymentOrdersQuery]
   const hasError = queries.some((query) => query.isError)
   const hasMissingData = essentialQueries.some(
     (query) => query.isError && query.data == null
@@ -303,6 +314,13 @@ export function AdminOverview() {
                     (point) => point.total
                   )}
                   loading={statsLoading}
+                />
+              </FadeIn>
+
+              <FadeIn delay={0.02}>
+                <PaymentOrdersWidget
+                  groups={paymentOrdersQuery.data?.data}
+                  loading={paymentOrdersQuery.isLoading}
                 />
               </FadeIn>
 
