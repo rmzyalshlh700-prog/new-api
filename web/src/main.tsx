@@ -22,6 +22,7 @@ import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { installBuildMetadata } from '@/shared/lib/build-metadata'
+import { installChunkLoadRecovery } from '@/shared/lib/chunk-load-recovery'
 import { applyFaviconToDom } from '@/shared/lib/dom-utils'
 import '@/shared/lib/dayjs'
 import { initializeFrontendCache } from '@/shared/lib/frontend-cache'
@@ -29,12 +30,12 @@ import { registerMaintenanceRedirect } from '@/shared/lib/maintenance-redirect'
 import { createAppQueryClient } from '@/shared/lib/query-client'
 import { readCachedStatus, statusQueryOptions } from '@/shared/lib/status-query'
 
+// Generated Routes
+import { routeTree } from './routeTree.gen'
 import { DirectionProvider } from './shared/context/direction-provider'
 import { FontProvider } from './shared/context/font-provider'
 import { ThemeProvider } from './shared/context/theme-provider'
 import { i18nReady } from './shared/i18n/config'
-// Generated Routes
-import { routeTree } from './routeTree.gen'
 
 // Styles
 import './shared/styles/index.css'
@@ -43,6 +44,9 @@ import './shared/styles/index.css'
 // VChart theme is driven by our ThemeProvider (html.light/html.dark) via per-chart `theme` prop.
 initializeFrontendCache()
 installBuildMetadata()
+// A deployment replaces the hashed chunks, so an open tab can fail to load a
+// later chunk. Recover once by reloading to fetch the new index.html.
+installChunkLoadRecovery()
 
 const queryClient = createAppQueryClient(() => {
   void router.navigate({ to: '/500' })

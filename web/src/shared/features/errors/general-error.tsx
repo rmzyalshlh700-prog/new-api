@@ -21,6 +21,10 @@ import { useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/shared/components/ui/button'
+import {
+  attemptChunkReload,
+  isChunkLoadError,
+} from '@/shared/lib/chunk-load-recovery'
 import { cn } from '@/shared/lib/utils'
 
 const FEEDBACK_URL = 'https://github.com/QuantumNous/new-api/issues'
@@ -47,25 +51,11 @@ export function GeneralError({
   const navigate = useNavigate()
   const { history } = useRouter()
   useEffect(() => {
-    if (
-      !(error instanceof Error) ||
-      (error.name !== 'ChunkLoadError' &&
-        !/^Loading (CSS )?chunk .+ failed\./.test(error.message))
-    ) {
-      return
-    }
-
     // Recover only when the failed route is displayed, never on intent preload.
-    // Keep the marker across reloads so a persistent failure shows this page.
-    try {
-      const key = `tanstack_router_reload:${error.message}`
-      if (sessionStorage.getItem(key)) return
-      sessionStorage.setItem(key, '1')
-    } catch {
-      // Without a persistent marker, reloading could loop indefinitely.
-      return
-    }
-    window.location.reload()
+    // The session flag is shared with the document-level listener so a broken
+    // chunk can never trigger two reloads for the same tab.
+    if (!isChunkLoadError(error)) return
+    attemptChunkReload()
   }, [error])
 
   const status = getHttpStatus(error)
@@ -73,14 +63,13 @@ export function GeneralError({
   // The emoticon is pinned left-to-right so it never lands on the wrong side
   // of the sentence in right-to-left locales (F-4); the translated message
   // keeps its existing key, so no locale file changes are needed.
-  const title: ReactNode = isRateLimited
-    ? t('Too many requests')
-    : (
-        <span>
-          {t('Oops! Something went wrong')}{' '}
-          <span dir='ltr'>:')</span>
-        </span>
-      )
+  const title: ReactNode = isRateLimited ? (
+    t('Too many requests')
+  ) : (
+    <span>
+      {t('Oops! Something went wrong')} <span dir='ltr'>:')</span>
+    </span>
+  )
   const description = isRateLimited
     ? t('Please wait a moment before trying again.')
     : t('Please try again later.')
