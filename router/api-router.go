@@ -401,6 +401,8 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/metrics", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAdminDashboardMetrics)
 		// Net profit (revenue - upstream cost) for the dashboard profit card.
 		apiRouter.GET("/admin/profit_stats", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetProfitStats)
+		// Full configuration backup download (admin console > Backup).
+		apiRouter.GET("/admin/backup/export", middleware.AdminAuth(), controller.ExportSystemBackup)
 		dataRoute.GET("/users", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetQuotaDatesByUser)
 		dataRoute.GET("/self", middleware.UserAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetUserQuotaDates)
 		dataRoute.GET("/flow", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAllFlowQuotaDates)
