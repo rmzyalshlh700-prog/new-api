@@ -7620,6 +7620,9 @@
     "Upload trend (last 60s)": "Upload trend (last 60s)",
     "Load average": "Load average",
     "Live": "Live",
-    "Connecting...": "Connecting..."
+    "Connecting...": "Connecting...",
+    "Exporting…": "导出中…",
+    "This section failed to load": "此板块加载失败",
+    "Please try again or pick a different date range.": "请重试或选择其他日期范围。"
   }
 }

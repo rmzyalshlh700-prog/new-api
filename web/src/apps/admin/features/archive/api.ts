@@ -84,10 +84,19 @@ export async function exportArchiveDay(date: string): Promise<void> {
     params: { date, format: 'csv' },
     responseType: 'blob',
   })
-  const url = URL.createObjectURL(response.data as Blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `archive-${date}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+  const blob = response.data as Blob
+  // An error page returned as JSON instead of the CSV blob must not produce
+  // a corrupted download; surface it as a normal API failure instead.
+  if (!(blob instanceof Blob) || blob.size === 0) {
+    throw new Error('Failed to export archive')
+  }
+  const url = URL.createObjectURL(blob)
+  try {
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `archive-${date}.csv`
+    link.click()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }

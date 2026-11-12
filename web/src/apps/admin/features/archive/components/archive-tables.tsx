@@ -74,8 +74,14 @@ export function SummaryTab({ range }: TabProps) {
     setExporting(date)
     try {
       await exportArchiveDay(date)
-    } catch {
-      toast.error(t('Failed to export archive'))
+    } catch (error) {
+      // Never let an export failure escape the handler: the row stays
+      // interactive and the user sees a toast instead of a crash.
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : t('Failed to export archive')
+      toast.error(message)
     } finally {
       setExporting(null)
     }
@@ -87,38 +93,43 @@ export function SummaryTab({ range }: TabProps) {
       header: t('Date'),
       meta: { mobileTitle: true },
       cell: ({ row }) => (
-        <span className='font-mono tabular-nums'>{row.original.date}</span>
+        <span className='font-mono tabular-nums'>
+          {row.original.date ?? '-'}
+        </span>
       ),
     },
     {
       accessorKey: 'total_revenue',
       header: t('Revenue'),
-      cell: ({ row }) => formatLogQuota(row.original.total_revenue),
+      cell: ({ row }) => formatLogQuota(row.original.total_revenue ?? 0),
     },
     {
       accessorKey: 'total_cost',
       header: t('Cost'),
-      cell: ({ row }) => formatLogQuota(row.original.total_cost),
+      cell: ({ row }) => formatLogQuota(row.original.total_cost ?? 0),
     },
     {
       accessorKey: 'total_tokens',
       header: t('Tokens'),
-      cell: ({ row }) => formatNumber(row.original.total_tokens, locale),
+      cell: ({ row }) =>
+        formatNumber(row.original.total_tokens ?? 0, locale),
     },
     {
       accessorKey: 'total_requests',
       header: t('Requests'),
-      cell: ({ row }) => formatNumber(row.original.total_requests, locale),
+      cell: ({ row }) =>
+        formatNumber(row.original.total_requests ?? 0, locale),
     },
     {
       accessorKey: 'new_users',
       header: t('New Users'),
-      cell: ({ row }) => formatNumber(row.original.new_users, locale),
+      cell: ({ row }) => formatNumber(row.original.new_users ?? 0, locale),
     },
     {
       accessorKey: 'top_up_amount',
       header: t('Top-up Amount'),
-      cell: ({ row }) => formatNumber(row.original.top_up_amount, locale),
+      cell: ({ row }) =>
+        formatNumber(row.original.top_up_amount ?? 0, locale),
     },
     {
       id: 'export',
@@ -127,11 +138,17 @@ export function SummaryTab({ range }: TabProps) {
         <Button
           size='sm'
           className='gap-1.5'
-          disabled={exporting === row.original.date}
+          disabled={
+            (exporting !== null && exporting !== row.original.date) ||
+            isFetching ||
+            isLoading
+          }
           onClick={() => handleExport(row.original.date)}
         >
           <Download className='size-4' aria-hidden='true' />
-          {t('Export Day Data')}
+          {exporting === row.original.date
+            ? t('Exporting…')
+            : t('Export Day Data')}
         </Button>
       ),
     },
@@ -213,7 +230,7 @@ export function LogsTab({ range }: TabProps) {
       accessorKey: 'created_at',
       header: t('Time'),
       meta: { mobileTitle: true },
-      cell: ({ row }) => formatTimestampToDate(row.original.created_at),
+      cell: ({ row }) => formatTimestampToDate(row.original.created_at ?? 0),
     },
     { accessorKey: 'username', header: t('Username') },
     { accessorKey: 'model_name', header: t('Model') },
@@ -222,14 +239,15 @@ export function LogsTab({ range }: TabProps) {
       header: t('Tokens'),
       cell: ({ row }) =>
         formatNumber(
-          row.original.prompt_tokens + row.original.completion_tokens,
+          (row.original.prompt_tokens ?? 0) +
+            (row.original.completion_tokens ?? 0),
           locale
         ),
     },
     {
       accessorKey: 'quota',
       header: t('Quota'),
-      cell: ({ row }) => formatLogQuota(row.original.quota),
+      cell: ({ row }) => formatLogQuota(row.original.quota ?? 0),
     },
   ]
   const total = query.data?.total ?? 0

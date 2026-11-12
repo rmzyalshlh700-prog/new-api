@@ -7620,6 +7620,9 @@
     "Upload trend (last 60s)": "Upload trend (last 60s)",
     "Load average": "Load average",
     "Live": "Live",
-    "Connecting...": "Connecting..."
+    "Connecting...": "Connecting...",
+    "Exporting…": "Экспорт…",
+    "This section failed to load": "Не удалось загрузить этот раздел",
+    "Please try again or pick a different date range.": "Попробуйте снова или выберите другой диапазон дат."
   }
 }

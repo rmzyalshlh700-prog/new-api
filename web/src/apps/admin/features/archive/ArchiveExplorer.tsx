@@ -21,6 +21,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SummaryTab, LogsTab, PaymentsTab } from './components/archive-tables'
+import { TabErrorBoundary } from './components/tab-error-boundary'
 import type { ArchiveRange } from './api'
 import { DatePicker } from '@/shared/components/date-picker'
 import { Button } from '@/shared/components/ui/button'
@@ -82,6 +83,9 @@ export function ArchiveExplorer() {
         </Button>
       </div>
 
+      {/* Each tab panel is isolated: a crash in one tab shows a recoverable
+          fallback inside the card instead of blanking the whole page. The
+          outer boundary is the last line of defence for the filter bar. */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value='summaries'>{t('Daily Summaries')}</TabsTrigger>
@@ -89,13 +93,19 @@ export function ArchiveExplorer() {
           <TabsTrigger value='payments'>{t('Payment Logs')}</TabsTrigger>
         </TabsList>
         <TabsContent value='summaries'>
-          <SummaryTab range={range} />
+          <TabErrorBoundary>
+            <SummaryTab range={range} />
+          </TabErrorBoundary>
         </TabsContent>
         <TabsContent value='logs'>
-          <LogsTab range={range} />
+          <TabErrorBoundary>
+            <LogsTab range={range} />
+          </TabErrorBoundary>
         </TabsContent>
         <TabsContent value='payments'>
-          <PaymentsTab range={range} />
+          <TabErrorBoundary>
+            <PaymentsTab range={range} />
+          </TabErrorBoundary>
         </TabsContent>
       </Tabs>
     </div>

@@ -7620,6 +7620,9 @@
     "Upload trend (last 60s)": "اتجاه الرفع (آخر 60 ثانية)",
     "Load average": "متوسط الحمل",
     "Live": "مباشر",
-    "Connecting...": "جارٍ الاتصال..."
+    "Connecting...": "جارٍ الاتصال...",
+    "Exporting…": "جارٍ التصدير…",
+    "This section failed to load": "فشل تحميل هذا القسم",
+    "Please try again or pick a different date range.": "يرجى المحاولة مجددًا أو اختيار نطاق تاريخ آخر."
   }
 }

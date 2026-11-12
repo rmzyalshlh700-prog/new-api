@@ -7620,6 +7620,9 @@
     "Upload trend (last 60s)": "Upload trend (last 60s)",
     "Load average": "Load average",
     "Live": "Live",
-    "Connecting...": "Connecting..."
+    "Connecting...": "Connecting...",
+    "Exporting…": "Đang xuất…",
+    "This section failed to load": "Không thể tải mục này",
+    "Please try again or pick a different date range.": "Vui lòng thử lại hoặc chọn khoảng ngày khác."
   }
 }

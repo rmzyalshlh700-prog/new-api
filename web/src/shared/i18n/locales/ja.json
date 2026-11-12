@@ -7620,6 +7620,9 @@
     "Upload trend (last 60s)": "Upload trend (last 60s)",
     "Load average": "Load average",
     "Live": "Live",
-    "Connecting...": "Connecting..."
+    "Connecting...": "Connecting...",
+    "Exporting…": "エクスポート中…",
+    "This section failed to load": "このセクションの読み込みに失敗しました",
+    "Please try again or pick a different date range.": "再試行するか、別の期間を選択してください。"
   }
 }
