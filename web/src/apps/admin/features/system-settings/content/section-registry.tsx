@@ -21,6 +21,7 @@ import { createSectionRegistry } from '../utils/section-registry'
 import { AnnouncementsSection } from './announcements-section'
 import { ApiInfoSection } from './api-info-section'
 import { ChatSettingsSection } from './chat-settings-section'
+import { ContactLinksSection } from './contact-links-section'
 import { DashboardSection } from './dashboard-section'
 import { DrawingSettingsSection } from './drawing-settings-section'
 import { FAQSection } from './faq-section'
@@ -62,6 +63,11 @@ const CONTENT_SECTIONS = [
         data={settings['console_setting.announcements']}
       />
     ),
+  },
+  {
+    id: 'contact-links',
+    titleKey: 'Contact & Social Links',
+    build: () => <ContactLinksSection />,
   },
   {
     id: 'api-info',
