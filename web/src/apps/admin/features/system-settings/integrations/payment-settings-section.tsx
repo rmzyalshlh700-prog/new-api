@@ -63,6 +63,7 @@ import { useUpdateOption } from '../hooks/use-update-option'
 import { safeNumberFieldProps } from '../utils/numeric-field'
 import { AmountDiscountVisualEditor } from './amount-discount-visual-editor'
 import { AmountOptionsVisualEditor } from './amount-options-visual-editor'
+import { CopyButton } from '@/shared/components/copy-button'
 import { CreemProductsVisualEditor } from './creem-products-visual-editor'
 import { PaymentMethodsVisualEditor } from './payment-methods-visual-editor'
 import {
@@ -162,6 +163,10 @@ const paymentSchema = z.object({
       })
     }
   }),
+  NowPaymentsApiKey: z.string(),
+  NowPaymentsIpnSecret: z.string(),
+  NowPaymentsUnitPrice: z.coerce.number().min(0),
+  NowPaymentsMinTopUp: z.coerce.number().min(0),
   WaffoEnabled: z.boolean(),
   WaffoApiKey: z.string(),
   WaffoPrivateKey: z.string(),
@@ -440,6 +445,10 @@ export function PaymentSettingsSection({
       CreemWebhookSecret: values.CreemWebhookSecret.trim(),
       CreemTestMode: values.CreemTestMode,
       CreemProducts: values.CreemProducts.trim(),
+      NowPaymentsApiKey: values.NowPaymentsApiKey.trim(),
+      NowPaymentsIpnSecret: values.NowPaymentsIpnSecret.trim(),
+      NowPaymentsUnitPrice: values.NowPaymentsUnitPrice,
+      NowPaymentsMinTopUp: values.NowPaymentsMinTopUp,
       WaffoEnabled: values.WaffoEnabled,
       WaffoSandbox: values.WaffoSandbox,
       WaffoMerchantId: values.WaffoMerchantId.trim(),
@@ -485,6 +494,10 @@ export function PaymentSettingsSection({
       CreemWebhookSecret: initialRef.current.CreemWebhookSecret.trim(),
       CreemTestMode: initialRef.current.CreemTestMode,
       CreemProducts: initialRef.current.CreemProducts.trim(),
+      NowPaymentsApiKey: initialRef.current.NowPaymentsApiKey.trim(),
+      NowPaymentsIpnSecret: initialRef.current.NowPaymentsIpnSecret.trim(),
+      NowPaymentsUnitPrice: initialRef.current.NowPaymentsUnitPrice,
+      NowPaymentsMinTopUp: initialRef.current.NowPaymentsMinTopUp,
       WaffoEnabled: initialRef.current.WaffoEnabled,
       WaffoSandbox: initialRef.current.WaffoSandbox,
       WaffoMerchantId: initialRef.current.WaffoMerchantId.trim(),
@@ -630,6 +643,40 @@ export function PaymentSettingsSection({
       normalizeJsonForComparison(initial.CreemProducts)
     ) {
       updates.push({ key: 'CreemProducts', value: sanitized.CreemProducts })
+    }
+
+    if (
+      sanitized.NowPaymentsApiKey &&
+      sanitized.NowPaymentsApiKey !== initial.NowPaymentsApiKey
+    ) {
+      updates.push({
+        key: 'NowPaymentsApiKey',
+        value: sanitized.NowPaymentsApiKey,
+      })
+    }
+
+    if (
+      sanitized.NowPaymentsIpnSecret &&
+      sanitized.NowPaymentsIpnSecret !== initial.NowPaymentsIpnSecret
+    ) {
+      updates.push({
+        key: 'NowPaymentsIpnSecret',
+        value: sanitized.NowPaymentsIpnSecret,
+      })
+    }
+
+    if (sanitized.NowPaymentsUnitPrice !== initial.NowPaymentsUnitPrice) {
+      updates.push({
+        key: 'NowPaymentsUnitPrice',
+        value: sanitized.NowPaymentsUnitPrice,
+      })
+    }
+
+    if (sanitized.NowPaymentsMinTopUp !== initial.NowPaymentsMinTopUp) {
+      updates.push({
+        key: 'NowPaymentsMinTopUp',
+        value: sanitized.NowPaymentsMinTopUp,
+      })
     }
 
     if (sanitized.WaffoEnabled !== initial.WaffoEnabled) {
@@ -888,6 +935,7 @@ export function PaymentSettingsSection({
                 <TabsTrigger value='general'>{t('General')}</TabsTrigger>
                 <TabsTrigger value='epay'>Epay</TabsTrigger>
                 <TabsTrigger value='stripe'>{t('Stripe')}</TabsTrigger>
+                <TabsTrigger value='nowpayments'>NOWPayments</TabsTrigger>
                 <TabsTrigger value='creem'>Creem</TabsTrigger>
                 <TabsTrigger value='waffo-pancake'>Waffo Pancake</TabsTrigger>
                 <TabsTrigger value='waffo'>Waffo</TabsTrigger>
@@ -1449,6 +1497,168 @@ export function PaymentSettingsSection({
                     )}
                   />
                 </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value='nowpayments' className={paymentTabContentClassName}>
+              <div className='space-y-4'>
+                <div>
+                  <h3 className='text-lg font-medium'>{t('NOWPayments Gateway')}</h3>
+                  <p className='text-muted-foreground text-sm'>
+                    {t('Configuration for NOWPayments crypto payment integration')}
+                  </p>
+                </div>
+
+                <div className='rounded-md bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100'>
+                  <p className='mb-2 font-medium'>
+                    {t('Webhook Configuration:')}
+                  </p>
+                  <ul className='list-inside list-disc space-y-1'>
+                    <li>
+                      {t('Webhook URL:')}{' '}
+                      <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
+                        {'<ServerAddress>/api/webhooks/nowpayments'}
+                      </code>
+                    </li>
+                    <li>
+                      {t(
+                        'Copy this URL into the NOWPayments dashboard IPN callback settings'
+                      )}
+                    </li>
+                    <li>
+                      {t('Configure at:')}{' '}
+                      <a
+                        href='https://nowpayments.io'
+                        target='_blank'
+                        rel='noreferrer'
+                        className='underline hover:no-underline'
+                      >
+                        {t('NOWPayments Dashboard')}
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name='NowPaymentsApiKey'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('API Key')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='password'
+                          placeholder={t('NOWPayments API key')}
+                          autoComplete='new-password'
+                          {...field}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'NOWPayments API key (leave blank unless updating)'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='NowPaymentsIpnSecret'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('IPN Secret')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='password'
+                          placeholder={t('NOWPayments IPN secret')}
+                          autoComplete='new-password'
+                          {...field}
+                          onChange={(event) =>
+                            field.onChange(event.target.value)
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'IPN signing secret used to verify webhook signatures via HMAC-SHA512 (leave blank unless updating)'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className='grid gap-6 md:grid-cols-2'>
+                  <FormField
+                    control={form.control}
+                    name='NowPaymentsUnitPrice'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {t('Unit price (USD)')}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            step='0.01'
+                            min={0}
+                            {...safeNumberFieldProps(field)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Price per unit charged in USD via crypto')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='NowPaymentsMinTopUp'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Minimum top-up (USD)')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            step='0.01'
+                            min={0}
+                            {...safeNumberFieldProps(field)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Minimum recharge amount in USD')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormItem>
+                  <FormLabel>{t('Webhook URL (copy to NOWPayments)')}</FormLabel>
+                  <div className='flex items-center gap-2'>
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/api/webhooks/nowpayments`}
+                      className='font-mono text-sm'
+                    />
+                    <CopyButton
+                      value={`${window.location.origin}/api/webhooks/nowpayments`}
+                    />
+                  </div>
+                  <FormDescription>
+                    {t(
+                      'Absolute webhook endpoint; configure it as the IPN callback URL in the NOWPayments dashboard'
+                    )}
+                  </FormDescription>
+                </FormItem>
               </div>
             </TabsContent>
 

@@ -25,14 +25,17 @@ import { handleServerError } from '@/shared/lib/handle-server-error'
 import {
   calculateAmount,
   calculateStripeAmount,
+  calculateNowPaymentsAmount,
   calculateWaffoAmount,
   calculateWaffoPancakeAmount,
   requestPayment,
   requestStripePayment,
+  requestNowPaymentsPayment,
   isApiSuccess,
 } from '../api'
 import {
   isStripePayment,
+  isNowPaymentsPayment,
   isWaffoPayment,
   isWaffoPancakePayment,
   submitPaymentForm,
@@ -48,6 +51,7 @@ type AmountCalculator = (request: AmountRequest) => Promise<AmountResponse>
 export interface PaymentAmountCalculators {
   regular: AmountCalculator
   stripe: AmountCalculator
+  nowpayments: AmountCalculator
   waffo: AmountCalculator
   waffoPancake: AmountCalculator
 }
@@ -55,6 +59,7 @@ export interface PaymentAmountCalculators {
 const defaultPaymentAmountCalculators: PaymentAmountCalculators = {
   regular: calculateAmount,
   stripe: calculateStripeAmount,
+  nowpayments: calculateNowPaymentsAmount,
   waffo: calculateWaffoAmount,
   waffoPancake: calculateWaffoPancakeAmount,
 }
@@ -67,6 +72,8 @@ export async function requestPaymentAmount(
   let calculator = calculators.regular
   if (isStripePayment(paymentType)) {
     calculator = calculators.stripe
+  } else if (isNowPaymentsPayment(paymentType)) {
+    calculator = calculators.nowpayments
   } else if (isWaffoPayment(paymentType)) {
     calculator = calculators.waffo
   } else if (isWaffoPancakePayment(paymentType)) {
@@ -114,6 +121,7 @@ export function usePayment() {
         setProcessing(true)
 
         const isStripe = isStripePayment(paymentType)
+        const isNowPayments = isNowPaymentsPayment(paymentType)
         const amount = Math.floor(topupAmount)
 
         const response = isStripe
@@ -121,18 +129,23 @@ export function usePayment() {
               amount,
               payment_method: 'stripe',
             })
-          : await requestPayment({
-              amount,
-              payment_method: paymentType,
-            })
+          : isNowPayments
+            ? await requestNowPaymentsPayment({
+                amount,
+                payment_method: 'nowpayments',
+              })
+            : await requestPayment({
+                amount,
+                payment_method: paymentType,
+              })
 
         if (!isApiSuccess(response)) {
           handleServerError(response, i18next.t('Payment request failed'))
           return false
         }
 
-        // Handle Stripe payment
-        if (isStripe && response.data?.pay_link) {
+        // Handle hosted-checkout payments (Stripe / NOWPayments)
+        if ((isStripe || isNowPayments) && response.data?.pay_link) {
           window.open(response.data.pay_link as string, '_blank')
           toast.success(i18next.t('Redirecting to payment page...'))
           return true

@@ -33,6 +33,10 @@ describe('payment amount routing', () => {
         calls.push('stripe')
         return { success: true, data: '2' }
       },
+      nowpayments: async () => {
+        calls.push('nowpayments')
+        return { success: true, data: '2' }
+      },
       waffo: async (request) => {
         calls.push(`waffo:${request.amount}`)
         return { success: true, data: '18.75' }

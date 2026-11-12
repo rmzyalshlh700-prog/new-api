@@ -64,6 +64,7 @@ func SetApiRouter(router *gin.Engine) {
 
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)
 		apiRouter.POST("/creem/webhook", anonymousRequestBodyLimit, controller.CreemWebhook)
+		apiRouter.POST("/webhooks/nowpayments", anonymousRequestBodyLimit, controller.NowPaymentsWebhook)
 		apiRouter.POST("/waffo/webhook", anonymousRequestBodyLimit, controller.WaffoWebhook)
 		// :env separates test vs prod URLs so the operator can register each
 		// in Pancake's matching webhook slot; handler enforces env match.
@@ -128,6 +129,8 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), middleware.RequireVisibleSection("wallet"), controller.RequestStripePay)
 				selfRoute.POST("/stripe/amount", middleware.RequireVisibleSection("wallet"), controller.RequestStripeAmount)
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), middleware.RequireVisibleSection("wallet"), controller.RequestCreemPay)
+				selfRoute.POST("/nowpayments/amount", middleware.RequireVisibleSection("wallet"), controller.RequestNowPaymentsAmount)
+				selfRoute.POST("/nowpayments/pay", middleware.CriticalRateLimit(), middleware.RequireVisibleSection("wallet"), controller.RequestNowPaymentsPay)
 				selfRoute.POST("/waffo/amount", middleware.RequireVisibleSection("wallet"), controller.RequestWaffoAmount)
 				selfRoute.POST("/waffo/pay", middleware.CriticalRateLimit(), middleware.RequireVisibleSection("wallet"), controller.RequestWaffoPay)
 				selfRoute.POST("/waffo-pancake/amount", middleware.RequireVisibleSection("wallet"), controller.RequestWaffoPancakeAmount)
