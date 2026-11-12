@@ -66,3 +66,60 @@ func TestGetAdminDashboardMetrics(t *testing.T) {
 	// Only today's error logs count.
 	assert.Equal(t, int64(1), body.Data.FailedRequestsToday)
 }
+
+// TestGetProfitStats verifies net profit is consume revenue minus upstream cost
+// for today, the current month and all time, and that non-consume logs never
+// count as revenue.
+func TestGetProfitStats(t *testing.T) {
+	confirmPaymentComplianceForTest(t)
+	setupNowPaymentsWebhookDB(t)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/api/admin/profit_stats", GetProfitStats)
+
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Unix()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Unix()
+	today := startOfDay + 60
+	previousMonth := startOfMonth - 24*3600
+
+	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 1, Type: model.LogTypeConsume, CreatedAt: today, Quota: 1000, UpstreamCost: 600}).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 2, Type: model.LogTypeConsume, CreatedAt: previousMonth, Quota: 300, UpstreamCost: 50}).Error)
+	// A consuming log earlier this month that is not today. Skipped when the run
+	// happens on the first day of a month, where it would also be "today".
+	monthRevenue, monthCost := int64(1000), int64(600)
+	if startOfMonth < startOfDay {
+		require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 1, Type: model.LogTypeConsume, CreatedAt: startOfMonth, Quota: 500, UpstreamCost: 100}).Error)
+		monthRevenue += 500
+		monthCost += 100
+	}
+	// Top-up logs are not revenue.
+	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 2, Type: model.LogTypeTopup, CreatedAt: today, Quota: 9999}).Error)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/profit_stats", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	type profitBucket struct {
+		Revenue int64 `json:"revenue_quota"`
+		Cost    int64 `json:"upstream_cost_quota"`
+		Profit  int64 `json:"net_profit_quota"`
+	}
+	var body struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Today   profitBucket `json:"today"`
+			Month   profitBucket `json:"month"`
+			AllTime profitBucket `json:"all_time"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.True(t, body.Success)
+
+	assert.Equal(t, profitBucket{Revenue: 1000, Cost: 600, Profit: 400}, body.Data.Today)
+	assert.Equal(t, profitBucket{Revenue: monthRevenue, Cost: monthCost, Profit: monthRevenue - monthCost}, body.Data.Month)
+	assert.Equal(t, profitBucket{Revenue: monthRevenue + 300, Cost: monthCost + 50, Profit: monthRevenue + 250 - monthCost}, body.Data.AllTime)
+}

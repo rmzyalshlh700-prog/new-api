@@ -57,15 +57,19 @@ func sanitizeClickHouseLikePattern(input string) (string, error) {
 }
 
 type Log struct {
-	Id                int    `json:"id" gorm:"index:idx_created_at_id,priority:2;index:idx_user_id_id,priority:2"`
-	UserId            int    `json:"user_id" gorm:"index;index:idx_user_id_id,priority:1"`
-	CreatedAt         int64  `json:"created_at" gorm:"bigint;index:idx_created_at_id,priority:1;index:idx_created_at_type;index:idx_logs_channel_created_at,priority:2"`
-	Type              int    `json:"type" gorm:"index:idx_created_at_type"`
-	Content           string `json:"content"`
-	Username          string `json:"username" gorm:"index;index:index_username_model_name,priority:2;default:''"`
-	TokenName         string `json:"token_name" gorm:"index;default:''"`
-	ModelName         string `json:"model_name" gorm:"index;index:index_username_model_name,priority:1;default:''"`
-	Quota             int    `json:"quota" gorm:"default:0"`
+	Id        int    `json:"id" gorm:"index:idx_created_at_id,priority:2;index:idx_user_id_id,priority:2"`
+	UserId    int    `json:"user_id" gorm:"index;index:idx_user_id_id,priority:1"`
+	CreatedAt int64  `json:"created_at" gorm:"bigint;index:idx_created_at_id,priority:1;index:idx_created_at_type;index:idx_logs_channel_created_at,priority:2"`
+	Type      int    `json:"type" gorm:"index:idx_created_at_type"`
+	Content   string `json:"content"`
+	Username  string `json:"username" gorm:"index;index:index_username_model_name,priority:2;default:''"`
+	TokenName string `json:"token_name" gorm:"index;default:''"`
+	ModelName string `json:"model_name" gorm:"index;index:index_username_model_name,priority:1;default:''"`
+	Quota     int    `json:"quota" gorm:"default:0"`
+	// UpstreamCost is the provider's base cost for this request in quota units:
+	// the same bill priced without the group ratio markup. Revenue (Quota) minus
+	// UpstreamCost is the platform's net profit for the request.
+	UpstreamCost      int64  `json:"upstream_cost" gorm:"default:0"`
 	PromptTokens      int    `json:"prompt_tokens" gorm:"default:0"`
 	CompletionTokens  int    `json:"completion_tokens" gorm:"default:0"`
 	UseTime           int    `json:"use_time" gorm:"default:0"`
@@ -330,6 +334,7 @@ type RecordConsumeLogParams struct {
 	ModelName        string            `json:"model_name"`
 	TokenName        string            `json:"token_name"`
 	Quota            int               `json:"quota"`
+	UpstreamCost     int64             `json:"upstream_cost"`
 	Content          []*common.Message `json:"content"`
 	TokenId          int               `json:"token_id"`
 	UseTimeSeconds   int               `json:"use_time_seconds"`
@@ -368,6 +373,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		TokenName:        params.TokenName,
 		ModelName:        params.ModelName,
 		Quota:            params.Quota,
+		UpstreamCost:     params.UpstreamCost,
 		ChannelId:        params.ChannelId,
 		TokenId:          params.TokenId,
 		UseTime:          params.UseTimeSeconds,

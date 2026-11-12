@@ -1,3 +1,10 @@
+import {
+  Activity,
+  AlertTriangle,
+  TrendingUp,
+  Users,
+  Wallet,
+} from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,17 +24,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
-import { Activity, AlertTriangle, Users, Wallet } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { StatCard } from '@/apps/client/features/dashboard/components/ui/stat-card'
 import { formatInteger, formatQuota } from '@/shared/lib/format'
 
-import type { DashboardMetrics } from '../types'
+import type { DashboardMetrics, ProfitStats } from '../types'
 
 export interface PlatformMetricsCardsProps {
   metrics: DashboardMetrics | undefined
   loading: boolean
+  profit?: ProfitStats
+  profitLoading?: boolean
+  profitError?: boolean
 }
 
 /**
@@ -48,7 +57,7 @@ export function PlatformMetricsCards(props: PlatformMetricsCardsProps) {
   const metrics = props.metrics
 
   return (
-    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4'>
+    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5'>
       <StatCardTile>
         <StatCard
           title={t('Total Registered Users')}
@@ -87,6 +96,28 @@ export function PlatformMetricsCards(props: PlatformMetricsCardsProps) {
           icon={AlertTriangle}
           iconTone='destructive'
           loading={props.loading}
+        />
+      </StatCardTile>
+      <StatCardTile>
+        <StatCard
+          title={t('Net Profit')}
+          value={
+            props.profit
+              ? formatQuota(props.profit.all_time.net_profit_quota)
+              : '—'
+          }
+          description={
+            props.profit
+              ? t('Today: {{today}} · This month: {{month}}', {
+                  today: formatQuota(props.profit.today.net_profit_quota),
+                  month: formatQuota(props.profit.month.net_profit_quota),
+                })
+              : t('Revenue minus upstream provider cost')
+          }
+          icon={TrendingUp}
+          iconTone='success'
+          loading={props.profitLoading ?? false}
+          error={props.profitError}
         />
       </StatCardTile>
     </div>

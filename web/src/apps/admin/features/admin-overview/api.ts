@@ -25,6 +25,7 @@ import type {
   OverviewQuotaRow,
   OverviewUserRow,
   PaymentOrderGroup,
+  ProfitStats,
 } from './types'
 
 function validateOverviewResponse<
@@ -148,5 +149,19 @@ export async function getAdminDashboardMetrics() {
     message?: string
     data?: DashboardMetrics
   }>('/api/data/metrics')
+  return validateOverviewResponse(res.data)
+}
+
+/**
+ * Net profit (user revenue minus upstream provider cost) for today, this month
+ * and all time. Admin-only (`GET /api/admin/profit_stats`), aggregated by the
+ * backend in a single pass over the consume logs.
+ */
+export async function getProfitStats() {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: ProfitStats
+  }>('/api/admin/profit_stats')
   return validateOverviewResponse(res.data)
 }

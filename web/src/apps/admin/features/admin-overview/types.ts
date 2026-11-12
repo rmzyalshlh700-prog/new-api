@@ -264,3 +264,16 @@ export interface DashboardMetrics {
   active_visitors_today: number
   failed_requests_today: number
 }
+
+/** One reporting window of `GET /api/admin/profit_stats`, in quota units. */
+export interface ProfitStatsBucket {
+  revenue_quota: number
+  upstream_cost_quota: number
+  net_profit_quota: number
+}
+
+export interface ProfitStats {
+  today: ProfitStatsBucket
+  month: ProfitStatsBucket
+  all_time: ProfitStatsBucket
+}

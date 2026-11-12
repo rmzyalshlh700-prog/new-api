@@ -78,12 +78,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/shared/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/shared/components/ui/tabs'
 import { toIntlLocale } from '@/shared/i18n/languages'
 import { formatNumber } from '@/shared/lib/format'
 
 import { safeJsonParse } from '../utils/json-parser'
 import { GroupSpecialUsableRulesEditor } from './group-special-usable-editor'
+import { RatioMarginCalculator } from './margin-calculator'
 
 export type GroupSettingsSection =
   | 'pricing'
@@ -625,6 +631,14 @@ function GroupPricingTable({
               </InputGroupAddon>
             )}
           </InputGroup>
+          <RatioMarginCalculator
+            groups={rows.map((row) => ({
+              id: row._id,
+              name: row.name,
+              ratio: row.ratio,
+            }))}
+            onChange={(id, ratio) => updateRow(id, 'ratio', ratio)}
+          />
           <StaticDataTable
             tableClassName='min-w-[760px]'
             tableProps={{ 'aria-label': t('Pricing groups') }}

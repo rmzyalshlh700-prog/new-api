@@ -555,6 +555,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		IsStream:         relayInfo.IsStream,
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
+		UpstreamCost:     UpstreamCostFromQuota(summary.Quota, relayInfo.PriceData.GroupRatioInfo.GroupRatio),
 	})
 	relayInfo.PerformanceOutputTokens = int64(summary.CompletionTokens)
 }

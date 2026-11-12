@@ -20,12 +20,15 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  getDefaultDays,
+  getSavedGranularity,
+} from '@/apps/client/features/dashboard/lib'
+import type { UserChartsFilters } from '@/apps/client/features/dashboard/types'
 import { SectionPageLayout } from '@/shared/components/layout'
 import { FadeIn } from '@/shared/components/page-transition'
 import { Alert, AlertDescription } from '@/shared/components/ui/alert'
 import { Button } from '@/shared/components/ui/button'
-import { getDefaultDays, getSavedGranularity } from '@/apps/client/features/dashboard/lib'
-import type { UserChartsFilters } from '@/apps/client/features/dashboard/types'
 import { requireServerSuccess } from '@/shared/lib/server-error-message'
 import { getStartOfDay } from '@/shared/lib/time'
 
@@ -36,6 +39,7 @@ import {
   getAdminRegisteredUserTotal,
   getAdminUserQuotaRows,
   getPaymentOrdersStats,
+  getProfitStats,
 } from './api'
 import { ActiveUsersPanel } from './components/active-users-panel'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
@@ -43,8 +47,8 @@ import { ClientBalancesPanel } from './components/client-balances-panel'
 import { FlowPanel } from './components/flow/flow-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
-import { PlatformMetricsCards } from './components/platform-metrics-cards'
 import { PerformanceOverview } from './components/performance-overview'
+import { PlatformMetricsCards } from './components/platform-metrics-cards'
 import { RevenuePanel } from './components/revenue-panel'
 import { TokenUsagePanel } from './components/token-usage-panel'
 import { TopModelsPanel } from './components/top-models-panel'
@@ -169,8 +173,7 @@ export function AdminOverview() {
 
   const paymentOrdersQuery = useQuery({
     queryKey: ['admin-overview', 'payment-orders'],
-    queryFn: async () =>
-      requireServerSuccess(await getPaymentOrdersStats()),
+    queryFn: async () => requireServerSuccess(await getPaymentOrdersStats()),
     refetchInterval: LIVE_REFRESH_MS,
     refetchIntervalInBackground: false,
     staleTime: LIVE_REFRESH_MS - 100,
@@ -178,8 +181,15 @@ export function AdminOverview() {
 
   const platformMetricsQuery = useQuery({
     queryKey: ['admin-overview', 'platform-metrics'],
-    queryFn: async () =>
-      requireServerSuccess(await getAdminDashboardMetrics()),
+    queryFn: async () => requireServerSuccess(await getAdminDashboardMetrics()),
+    refetchInterval: LIVE_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    staleTime: LIVE_REFRESH_MS - 100,
+  })
+
+  const profitStatsQuery = useQuery({
+    queryKey: ['admin-overview', 'profit-stats'],
+    queryFn: async () => requireServerSuccess(await getProfitStats()),
     refetchInterval: LIVE_REFRESH_MS,
     refetchIntervalInBackground: false,
     staleTime: LIVE_REFRESH_MS - 100,
@@ -336,6 +346,9 @@ export function AdminOverview() {
                 <PlatformMetricsCards
                   metrics={platformMetricsQuery.data?.data}
                   loading={platformMetricsQuery.isLoading}
+                  profit={profitStatsQuery.data?.data}
+                  profitLoading={profitStatsQuery.isLoading}
+                  profitError={profitStatsQuery.isError}
                 />
               </FadeIn>
 

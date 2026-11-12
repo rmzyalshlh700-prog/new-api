@@ -260,7 +260,27 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		IsStream:         relayInfo.IsStream,
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
+		UpstreamCost:     UpstreamCostFromQuota(quota, relayInfo.PriceData.GroupRatioInfo.GroupRatio),
 	})
+}
+
+// UpstreamCostFromQuota converts the amount charged to the client into the
+// provider's base cost by removing the group ratio markup. The group ratio is
+// the only multiplier separating the retail price from the base price, so
+// dividing it back yields the cost of the same usage at base price without
+// re-deriving the whole bill. Free groups (ratio 0) have no derivable base
+// cost and record no upstream cost.
+func UpstreamCostFromQuota(quota int, groupRatio float64) int64 {
+	if quota <= 0 {
+		return 0
+	}
+	if groupRatio <= 0 {
+		return 0
+	}
+	if groupRatio == 1 {
+		return int64(quota)
+	}
+	return int64(common.QuotaRound(float64(quota) / groupRatio))
 }
 
 func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData) int {
@@ -399,6 +419,7 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 		IsStream:         relayInfo.IsStream,
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
+		UpstreamCost:     UpstreamCostFromQuota(quota, relayInfo.PriceData.GroupRatioInfo.GroupRatio),
 	})
 	relayInfo.PerformanceOutputTokens = int64(usage.CompletionTokens)
 }

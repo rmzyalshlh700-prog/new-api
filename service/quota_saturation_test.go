@@ -138,3 +138,19 @@ func TestPreConsumeBillingRejectsNegativeQuotaBeforeDeduction(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
 	require.Nil(t, info.Billing)
 }
+
+// TestUpstreamCostFromQuota removes the group ratio markup so profit tracking
+// records the provider's base cost for the same usage.
+func TestUpstreamCostFromQuota(t *testing.T) {
+	// Nothing charged, nothing to derive.
+	require.EqualValues(t, 0, UpstreamCostFromQuota(0, 2))
+	require.EqualValues(t, 0, UpstreamCostFromQuota(-10, 2))
+	// Base price group: the charge is the cost.
+	require.EqualValues(t, 500, UpstreamCostFromQuota(500, 1))
+	// Discount group: cost exceeds revenue, so profit can be negative.
+	require.EqualValues(t, 625, UpstreamCostFromQuota(500, 0.8))
+	// Markup group: the charge divided by the markup is the base cost.
+	require.EqualValues(t, 500, UpstreamCostFromQuota(1000, 2))
+	// Free groups have no derivable base cost.
+	require.EqualValues(t, 0, UpstreamCostFromQuota(500, 0))
+}

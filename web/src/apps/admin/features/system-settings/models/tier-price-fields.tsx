@@ -43,6 +43,8 @@ import {
 } from '@/shared/features/pricing/lib/tier-expr'
 import { cn } from '@/shared/lib/utils'
 
+import { MarginCalculator } from './margin-calculator'
+
 const PRICE_VARS = BILLING_EXTRA_VARS.map((variable) => ({
   ...variable,
   key: variable.key as VisualPrice['variable'],
@@ -216,6 +218,12 @@ export function TierPriceFields(props: TierPriceFieldsProps) {
   return (
     <>
       {billingControl}
+      <MarginCalculator
+        inputPrice={props.prices.p ?? 0}
+        outputPrice={props.prices.c ?? 0}
+        symbol={props.currency.symbol}
+        onChange={(variable, value) => props.onChange(variable, value)}
+      />
       <div className='space-y-2'>
         <div className='flex items-center justify-between gap-3'>
           <Label className='text-sm font-semibold'>{t('Token prices')}</Label>

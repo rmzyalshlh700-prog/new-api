@@ -399,6 +399,8 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAllQuotaDates)
 		dataRoute.GET("/metrics", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAdminDashboardMetrics)
+		// Net profit (revenue - upstream cost) for the dashboard profit card.
+		apiRouter.GET("/admin/profit_stats", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetProfitStats)
 		dataRoute.GET("/users", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetQuotaDatesByUser)
 		dataRoute.GET("/self", middleware.UserAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetUserQuotaDates)
 		dataRoute.GET("/flow", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAllFlowQuotaDates)
