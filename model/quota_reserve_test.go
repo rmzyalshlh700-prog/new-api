@@ -81,77 +81,31 @@ func resetBatchUpdateTestState(t *testing.T) {
 	})
 }
 
-func getUserQuotaDebtFromDB(t *testing.T, id int) int64 {
-	t.Helper()
-	var user User
-	require.NoError(t, DB.Select("quota_debt").First(&user, id).Error)
-	return user.QuotaDebt
-}
-
-func disableUserCacheForDebtTest(t *testing.T) {
+func disableUserCacheForSettleTest(t *testing.T) {
 	t.Helper()
 	oldRedisEnabled := common.RedisEnabled
 	common.RedisEnabled = false
 	t.Cleanup(func() { common.RedisEnabled = oldRedisEnabled })
 }
 
-// 结算差额无法被余额覆盖时必须整笔记成欠费，而不是静默丢弃；钱包余额随后在
-// 下一次请求前自动抵扣欠费。
-func TestSettleUserQuotaDebitRecordsShortfallAsDebt(t *testing.T) {
+// 结算差额无法被余额覆盖时只记录对账错误：余额不能被扣成负数，也不会留下任何
+// 欠费账目——用户模型已经没有欠费列，钱包永远不为负。
+func TestSettleUserQuotaDebitNeverOverdrawsOrRecordsDebt(t *testing.T) {
 	truncateTables(t)
 	resetBatchUpdateTestState(t)
-	disableUserCacheForDebtTest(t)
+	disableUserCacheForSettleTest(t)
 
 	user := createReserveTestUser(t, 30)
 	deducted, err := SettleUserQuotaDebit(user.Id, 100)
 	require.NoError(t, err)
-	assert.Zero(t, deducted, "结算扣减是整笔的：余额不足时不做部分扣减")
+	assert.Zero(t, deducted, "余额不足时不做部分扣减")
 	assert.Equal(t, 30, getUserQuotaFromDB(t, user.Id))
-	assert.Equal(t, int64(100), getUserQuotaDebtFromDB(t, user.Id), "未被覆盖的差额必须记账")
 
-	// 欠费与余额不会双重存在：下一次请求前先用余额抵扣欠费。
-	remaining, repaid, err := RepayUserQuotaDebt(user.Id)
+	deducted, err = SettleUserQuotaDebit(user.Id, 20)
 	require.NoError(t, err)
-	assert.Equal(t, int64(30), repaid)
-	assert.Equal(t, int64(70), remaining)
-	assert.Zero(t, getUserQuotaFromDB(t, user.Id))
-	assert.Equal(t, int64(70), getUserQuotaDebtFromDB(t, user.Id))
-}
-
-func TestSettleUserQuotaDebitRecordsNoDebtWhenBalanceCoversIt(t *testing.T) {
-	truncateTables(t)
-	resetBatchUpdateTestState(t)
-	disableUserCacheForDebtTest(t)
-
-	user := createReserveTestUser(t, 100)
-	deducted, err := SettleUserQuotaDebit(user.Id, 40)
-	require.NoError(t, err)
-	assert.Equal(t, 40, deducted)
-	assert.Equal(t, 60, getUserQuotaFromDB(t, user.Id))
-	assert.Zero(t, getUserQuotaDebtFromDB(t, user.Id))
-}
-
-func TestRepayUserQuotaDebtUsesWalletBalance(t *testing.T) {
-	truncateTables(t)
-	resetBatchUpdateTestState(t)
-	disableUserCacheForDebtTest(t)
-
-	user := createReserveTestUser(t, 0)
-	_, err := RecordUserQuotaDebt(user.Id, 70)
-	require.NoError(t, err)
-
-	remaining, repaid, err := RepayUserQuotaDebt(user.Id)
-	require.NoError(t, err)
-	assert.Equal(t, int64(70), remaining)
-	assert.Zero(t, repaid, "空余额不能凭空抵扣欠费")
-
-	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Update("quota", 50).Error)
-	remaining, repaid, err = RepayUserQuotaDebt(user.Id)
-	require.NoError(t, err)
-	assert.Equal(t, int64(20), remaining)
-	assert.Equal(t, int64(50), repaid)
-	assert.Zero(t, getUserQuotaFromDB(t, user.Id))
-	assert.Equal(t, int64(20), getUserQuotaDebtFromDB(t, user.Id))
+	assert.Equal(t, 20, deducted)
+	assert.Equal(t, 10, getUserQuotaFromDB(t, user.Id))
+	assert.False(t, DB.Migrator().HasColumn(&User{}, "quota_debt"), "欠费列必须被彻底移除")
 }
 
 // 扣减必须写穿数据库：即使启用了批量更新，也不能留在内存累加器里等刷新，
@@ -770,17 +724,15 @@ func TestOutboxRecoveryKeepsConsumeLogsAndUsedQuotaInSync(t *testing.T) {
 	assert.Equal(t, logTotal, usedTotal, "consume logs and accumulated used quota must reconcile after recovery")
 }
 
-// 欠费列必须能重复 AutoMigrate，且既有用户行的默认欠费为 0。
-func TestUserQuotaDebtMigrationIsIdempotent(t *testing.T) {
+// 旧的 users.quota_debt 列（曾用于结算欠费）必须在升级时被删除，重复执行安全。
+func TestMigrationDropsLegacyQuotaDebtColumn(t *testing.T) {
 	truncateTables(t)
-	disableUserCacheForDebtTest(t)
-
-	require.NoError(t, DB.AutoMigrate(&User{}))
-	require.NoError(t, DB.AutoMigrate(&User{}))
+	require.NoError(t, DB.Exec("ALTER TABLE users ADD COLUMN quota_debt bigint NOT NULL DEFAULT 0").Error)
 	require.True(t, DB.Migrator().HasColumn(&User{}, "quota_debt"))
 
-	user := createReserveTestUser(t, 5)
-	assert.Zero(t, getUserQuotaDebtFromDB(t, user.Id))
+	dropLegacyQuotaDebtColumn(DB)
+	dropLegacyQuotaDebtColumn(DB)
+	assert.False(t, DB.Migrator().HasColumn(&User{}, "quota_debt"))
 }
 
 // 启动迁移会在每次引导时运行，outbox 表必须能重复 AutoMigrate 且保留可用性。

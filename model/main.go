@@ -382,6 +382,7 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	dropLegacyQuotaDebtColumn(DB)
 	if err := InitializeUserAuthVersions(); err != nil {
 		return err
 	}
@@ -402,6 +403,27 @@ func migrateDB() error {
 	}
 	ensurePerformanceIndexes(DB, "main database", mainDatabaseIndexes)
 	return nil
+}
+
+// dropLegacyQuotaDebtColumn removes users.quota_debt, which an earlier release
+// used as an unsettled-settlement ledger. Balances are never allowed to go
+// negative and requests now reserve their maximum possible cost upfront, so the
+// ledger no longer exists. The guard keeps restarts and fresh installs no-ops.
+func dropLegacyQuotaDebtColumn(db *gorm.DB) {
+	if db == nil || !db.Migrator().HasColumn(&User{}, "quota_debt") {
+		return
+	}
+	// GORM 的 SQLite 迁移器对删除列是空操作，所以直接按方言执行 DDL：
+	// 三种数据库都支持 ALTER TABLE ... DROP COLUMN，只是标识符引号不同。
+	ddl := "ALTER TABLE `users` DROP COLUMN `quota_debt`"
+	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+		ddl = `ALTER TABLE "users" DROP COLUMN "quota_debt"`
+	}
+	if err := db.Exec(ddl).Error; err != nil {
+		common.SysError(common.LogText("failed to drop legacy users.quota_debt column: %s", err.Error()))
+		return
+	}
+	common.SysLog(common.LogText("dropped legacy users.quota_debt column"))
 }
 
 func migrateLOGDB() error {

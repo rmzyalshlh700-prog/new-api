@@ -177,6 +177,10 @@ type RelayInfo struct {
 	// ImageQuotaBeforeGroup is the frozen legacy estimate before request ratios.
 	ImageRequestCount     int
 	ImageQuotaBeforeGroup float64
+	// ReserveOutputTokens marks a relay format that generates completion tokens,
+	// so the upfront reservation covers a maximum output budget even when the
+	// client sends no max_tokens.
+	ReserveOutputTokens bool
 
 	Request dto.Request
 

@@ -142,6 +142,16 @@ var QuotaRemindThreshold = 1000
 // use quota_setting.pre_consume_multiplier and the estimated input cost.
 var PreConsumedQuota = 500
 
+// PreConsumeMaxOutputTokens is the output-token budget reserved upfront for a
+// request that does not declare max_tokens / max_completion_tokens /
+// max_output_tokens. The reservation must cover the worst case, because the
+// wallet is never allowed to go negative at settlement.
+var PreConsumeMaxOutputTokens = 8192
+
+// PreConsumeMaxOutputTokensByModel overrides that budget per model name so a
+// model with a larger hard output limit is still fully reserved.
+var PreConsumeMaxOutputTokensByModel = map[string]int{}
+
 var RetryTimes = 0
 
 //var RootUserEmail = ""

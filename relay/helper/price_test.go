@@ -139,11 +139,11 @@ func TestModelPriceHelperTieredInputPreConsumeMultiplier(t *testing.T) {
 		expected   int
 	}{
 		{"default uses only input", "default", 1000, 0, 1, 1500},
-		{"explicit output limit does not increase reservation", "default", 1000, 100, 1, 1500},
+		{"explicit output limit reserves its worst-case cost", "default", 1000, 100, 1, 2250},
 		{"fraction below one", "default", 1000, 0, 0.5, 750},
 		{"fraction above one preserves context tier", "default", 1000, 0, 2.5, 3750},
 		{"small input has no token floor", "default", 100, 0, 1, 150},
-		{"zero input", "default", 0, 100, 1, 0},
+		{"zero input still reserves output cost", "default", 0, 100, 1, 750},
 		{"free group", "free", 1000, 0, 2.5, 0},
 	}
 
@@ -778,7 +778,7 @@ func TestInputPreConsumeMultiplierLegacyAndRequestPrices(t *testing.T) {
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 			info := &relaycommon.RelayInfo{OriginModelName: tc.model, UserGroup: "default", UsingGroup: "default", BillingRequestInput: &billingexpr.RequestInput{}}
-			price, err := ModelPriceHelper(ctx, info, tc.prompt, &types.TokenCountMeta{MaxTokens: 10000})
+			price, err := ModelPriceHelper(ctx, info, tc.prompt, &types.TokenCountMeta{})
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, price.QuotaToPreConsume)
 			if tc.model == "image-input-policy" {
@@ -802,3 +802,62 @@ func (s *priceTestReservation) GetPreConsumedQuota() int { return s.held }
 func (s *priceTestReservation) Reserve(quota int) error  { s.held = max(s.held, quota); return nil }
 
 func (s *priceTestReservation) ReserveBeforeSubmit(quota int) error { return s.Reserve(quota) }
+
+// 预扣必须覆盖最坏情况：输入成本 + 最大可能输出的成本。否则实际用量超过预留
+// 的差额会因钱包不可为负而收不回来（pay-as-you-go 收入漏损）。
+func TestPreConsumeReservesMaximumWorstCaseCost(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previous := config.GlobalConfig.ExportAllConfigs()
+	previousRatios, previousPrices := ratio_setting.ModelRatio2JSONString(), ratio_setting.ModelPrice2JSONString()
+	previousCompletion := ratio_setting.CompletionRatio2JSONString()
+	previousOutputLimit := common.PreConsumeMaxOutputTokens
+	previousModelLimits := common.PreConsumeMaxOutputTokensByModel
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(previous))
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(previousRatios))
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(previousPrices))
+		require.NoError(t, ratio_setting.UpdateCompletionRatioByJSONString(previousCompletion))
+		common.PreConsumeMaxOutputTokens = previousOutputLimit
+		common.PreConsumeMaxOutputTokensByModel = previousModelLimits
+	})
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"strict-reserve-model":2}`))
+	require.NoError(t, ratio_setting.UpdateCompletionRatioByJSONString(`{"strict-reserve-model":3}`))
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"group_ratio_setting.group_ratio": `{"default":1}`,
+	}))
+	common.PreConsumeMaxOutputTokens = 1000
+	common.PreConsumeMaxOutputTokensByModel = map[string]int{}
+
+	relayInfo := func(reserveOutput bool) *relaycommon.RelayInfo {
+		return &relaycommon.RelayInfo{
+			OriginModelName:     "strict-reserve-model",
+			UserGroup:           "default",
+			UsingGroup:          "default",
+			ReserveOutputTokens: reserveOutput,
+		}
+	}
+	priceFor := func(t *testing.T, info *relaycommon.RelayInfo, maxTokens int) int {
+		t.Helper()
+		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		price, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{MaxTokens: maxTokens})
+		require.NoError(t, err)
+		return price.QuotaToPreConsume
+	}
+
+	// 额度 = (输入 token + 输出 token × completionRatio) × modelRatio × groupRatio
+	//     = (1000 + 输出 × 3) × 2
+	t.Run("declared max_tokens covers prompt and output", func(t *testing.T) {
+		assert.Equal(t, 3200, priceFor(t, relayInfo(true), 200))
+	})
+	t.Run("hard output limit covers an unspecified max_tokens", func(t *testing.T) {
+		assert.Equal(t, 8000, priceFor(t, relayInfo(true), 0))
+	})
+	t.Run("per-model hard output limit overrides the default", func(t *testing.T) {
+		common.PreConsumeMaxOutputTokensByModel = map[string]int{"strict-reserve-model": 2000}
+		assert.Equal(t, 14000, priceFor(t, relayInfo(true), 0))
+	})
+	t.Run("format without completion output reserves no output cost", func(t *testing.T) {
+		assert.Equal(t, 2000, priceFor(t, relayInfo(false), 0))
+	})
+}

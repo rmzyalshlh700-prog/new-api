@@ -451,11 +451,11 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 		}
 	} else {
 		// Wallet：结算扣费使用条件更新，不允许把余额扣成负数；无法覆盖的差额
-		// 不再记账为欠费，记录对账错误。
+		// 只记录对账错误，不记账为欠费。
 		if quota > 0 {
 			deducted, deductErr := model.SettleUserQuotaDebit(relayInfo.UserId, quota)
 			if deductErr == nil && deducted < quota {
-				common.SysError(common.LogText("wallet settlement shortfall recorded as quota debt (userId=%d, requested=%d, deducted=%d)", relayInfo.UserId, quota, deducted))
+				common.SysError(common.LogText("wallet settlement not covered by balance (userId=%d, requested=%d, deducted=%d)", relayInfo.UserId, quota, deducted))
 			}
 			err = deductErr
 		} else {

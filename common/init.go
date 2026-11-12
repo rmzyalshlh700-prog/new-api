@@ -189,6 +189,9 @@ func InitEnv() {
 	RelayRateLimitNum = GetEnvOrDefault("RELAY_RATE_LIMIT", 1800)
 	RelayRateLimitUserNum = GetEnvOrDefault("RELAY_RATE_LIMIT_USER", 1200)
 	RelayRateLimitDuration = int64(GetEnvOrDefault("RELAY_RATE_LIMIT_DURATION", 60))
+
+	PreConsumeMaxOutputTokens = GetEnvOrDefault("PRE_CONSUME_MAX_OUTPUT_TOKENS", 8192)
+	initPreConsumeMaxOutputTokensByModel()
 	initConstantEnv()
 }
 
@@ -227,6 +230,28 @@ func positiveUserSessionEnv(name string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+// initPreConsumeMaxOutputTokensByModel parses the optional per-model output
+// budgets the upfront reservation uses when a request declares no max_tokens.
+// Invalid JSON is reported and ignored so a typo cannot stop the gateway.
+func initPreConsumeMaxOutputTokensByModel() {
+	raw := GetEnvOrDefaultString("PRE_CONSUME_MAX_OUTPUT_TOKENS_BY_MODEL", "")
+	if raw == "" {
+		return
+	}
+	parsed := map[string]int{}
+	if err := Unmarshal([]byte(raw), &parsed); err != nil {
+		SysError(LogText("invalid PRE_CONSUME_MAX_OUTPUT_TOKENS_BY_MODEL: %s", err.Error()))
+		return
+	}
+	limits := make(map[string]int, len(parsed))
+	for modelName, limit := range parsed {
+		if limit > 0 {
+			limits[modelName] = limit
+		}
+	}
+	PreConsumeMaxOutputTokensByModel = limits
 }
 
 func initConstantEnv() {

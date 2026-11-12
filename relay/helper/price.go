@@ -75,7 +75,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 
 	// Check if this model uses tiered_expr billing
 	if billing_setting.GetBillingMode(billingModelName) == billing_setting.BillingModeTieredExpr {
-		return modelPriceHelperTiered(c, info, billingModelName, promptTokens, groupRatioInfo)
+		return modelPriceHelperTiered(c, info, billingModelName, promptTokens, meta, groupRatioInfo)
 	}
 
 	var preConsumedQuota int
@@ -119,6 +119,13 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		audioRatio = ratio_setting.GetAudioRatio(billingModelName)
 		audioCompletionRatio = ratio_setting.GetAudioCompletionRatio(billingModelName)
 		ratio := modelRatio * groupRatioInfo.GroupRatio
+		// 预留必须覆盖最坏情况：输入成本之外再加上最大可能输出的成本。输入
+		// 部分按 preConsumeMultiplier 预留（管理员用它调节输入预估），输出部分
+		// 按请求声明的 max_tokens 或模型硬性输出上限全额预留，否则实际用量一旦
+		// 超过预留，差额在“余额不可为负”的约束下就无法收回。
+		if outputTokens := reservedOutputTokens(info, billingModelName, meta); outputTokens > 0 {
+			preConsumedTokens += float64(outputTokens) * max(completionRatio, audioCompletionRatio)
+		}
 		quota, err := common.QuotaFromFloatStrict(preConsumedTokens * ratio)
 		if err != nil {
 			return hosttypes.PriceData{}, err
@@ -341,7 +348,7 @@ func resolveBillingModelName(origin string) string {
 	return matched
 }
 
-func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billingModelName string, promptTokens int, groupRatioInfo hosttypes.GroupRatioInfo) (hosttypes.PriceData, error) {
+func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billingModelName string, promptTokens int, meta *types.TokenCountMeta, groupRatioInfo hosttypes.GroupRatioInfo) (hosttypes.PriceData, error) {
 	exprStr, ok := billing_setting.GetBillingExpr(billingModelName)
 	if !ok {
 		return hosttypes.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", billingModelName)
@@ -402,12 +409,30 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 		return hosttypes.PriceData{}, fmt.Errorf("model %s tiered expr run failed: %w", billingModelName, err)
 	}
 
+	// 预留必须覆盖最坏情况：先用表达式算出输出成本的上界，再与输入成本相加。
+	// 输入部分的成本受 preConsumeMultiplier 调节，输出部分必须全额预留，否则
+	// 实际用量超过预留的差额在“余额不可为负”的约束下无法收回。
+	outputTokens := reservedOutputTokens(info, billingModelName, meta)
+	outputCost := 0.0
+	if outputTokens > 0 {
+		maxCost, _, maxErr := billingexpr.RunExprByHashWithRequest(exprStr, exprHash, billingexpr.TokenParams{
+			P:   float64(promptTokens),
+			C:   float64(outputTokens),
+			Len: float64(promptTokens),
+		}, requestInput)
+		if maxErr != nil {
+			return hosttypes.PriceData{}, fmt.Errorf("model %s tiered expr run failed: %w", billingModelName, maxErr)
+		}
+		outputCost = max(maxCost-rawCost, 0)
+	}
+
 	// Expression coefficients are $/1M tokens prices; convert to quota the same way per-call billing does.
 	quotaBeforeGroup := rawCost / 1_000_000 * common.QuotaPerUnit
 	// Scale the reservation, preserving the expression's context-length tier
 	// and leaving actual settlement and fixed request prices unchanged.
 	if trace.BillingUnit != billingexpr.BillingUnitRequest {
 		quotaBeforeGroup *= preConsumeMultiplier
+		quotaBeforeGroup += outputCost / 1_000_000 * common.QuotaPerUnit
 	}
 	preConsumedQuota, err := billingexpr.QuotaRoundStrict(quotaBeforeGroup * groupRatioInfo.GroupRatio)
 	if err != nil {
@@ -430,7 +455,7 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 		ExprHash:                  exprHash,
 		GroupRatio:                groupRatioInfo.GroupRatio,
 		EstimatedPromptTokens:     promptTokens,
-		EstimatedCompletionTokens: 0,
+		EstimatedCompletionTokens: outputTokens,
 		PreConsumeMultiplier:      preConsumeMultiplier,
 		EstimatedQuotaBeforeGroup: quotaBeforeGroup,
 		EstimatedQuotaAfterGroup:  preConsumedQuota,
@@ -453,4 +478,25 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, billing
 
 	info.PriceData = priceData
 	return priceData, nil
+}
+
+// reservedOutputTokens is the output-token budget the upfront reservation must
+// cover: the client's own max_tokens (or max_completion_tokens /
+// max_output_tokens) when it declares one, otherwise the model's hard output
+// limit. Formats that never generate completions reserve nothing extra.
+//
+// The reservation is the only quota an upstream provider is trusted with, and
+// the wallet is never allowed to go negative, so an under-reserved output
+// budget would leak revenue that could no longer be collected at settlement.
+func reservedOutputTokens(info *relaycommon.RelayInfo, billingModelName string, meta *types.TokenCountMeta) int {
+	if meta != nil && meta.MaxTokens > 0 {
+		return meta.MaxTokens
+	}
+	if info == nil || !info.ReserveOutputTokens {
+		return 0
+	}
+	if limit := common.PreConsumeMaxOutputTokensByModel[billingModelName]; limit > 0 {
+		return limit
+	}
+	return max(common.PreConsumeMaxOutputTokens, 0)
 }

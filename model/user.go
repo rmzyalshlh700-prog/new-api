@@ -77,45 +77,41 @@ func resolveUserSortOptions(sortOptions []UserSortOptions) UserSortOptions {
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
 type User struct {
-	Id                   int     `json:"id"`
-	Username             string  `json:"username" gorm:"unique;index" validate:"max=20"`
-	Password             string  `json:"password" gorm:"not null;" validate:"min=8,max=128"`
-	HasPassword          bool    `json:"-" gorm:"-:all"`
-	OriginalPassword     string  `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
-	DisplayName          string  `json:"display_name" gorm:"index" validate:"max=20"`
-	Role                 int     `json:"role" gorm:"type:int;default:1"`   // admin, common
-	Status               int     `json:"status" gorm:"type:int;default:1"` // enabled, disabled
-	Email                string  `json:"email" gorm:"index" validate:"max=50"`
-	GitHubId             string  `json:"github_id" gorm:"column:github_id;index"`
-	DiscordId            string  `json:"discord_id" gorm:"column:discord_id;index"`
-	OidcId               string  `json:"oidc_id" gorm:"column:oidc_id;index"`
-	WeChatId             string  `json:"wechat_id" gorm:"column:wechat_id;index"`
-	TelegramId           string  `json:"telegram_id" gorm:"column:telegram_id;index"`
-	VerificationCode     string  `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
-	AccessToken          *string `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
-	AccessTokenCreatedAt *int64  `json:"-" gorm:"type:bigint;column:access_token_created_at"`    // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
-	Quota                int     `json:"quota" gorm:"type:int;default:0"`
-	// QuotaDebt is the unsettled remainder of a settlement charge the wallet
-	// could not cover. It is billed, not forgiven: while it is positive the user
-	// cannot start new relay requests.
-	QuotaDebt        int64                      `json:"quota_debt" gorm:"type:bigint;not null;default:0;column:quota_debt"`
-	UsedQuota        int                        `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
-	RequestCount     int                        `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group            string                     `json:"group" gorm:"type:varchar(64);default:'default'"`
-	AffCode          string                     `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
-	AffCount         int                        `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
-	AffQuota         int                        `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
-	AffHistoryQuota  int                        `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
-	InviterId        int                        `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
-	DeletedAt        gorm.DeletedAt             `gorm:"index"`
-	LinuxDOId        string                     `json:"linux_do_id" gorm:"column:linux_do_id;index"`
-	Setting          string                     `json:"setting" gorm:"type:text;column:setting"`
-	Remark           string                     `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
-	StripeCustomer   string                     `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
-	CreatedAt        int64                      `json:"created_at" gorm:"autoCreateTime;column:created_at"`
-	LastLoginAt      int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
-	AuthVersion      int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
-	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
+	Id                   int                        `json:"id"`
+	Username             string                     `json:"username" gorm:"unique;index" validate:"max=20"`
+	Password             string                     `json:"password" gorm:"not null;" validate:"min=8,max=128"`
+	HasPassword          bool                       `json:"-" gorm:"-:all"`
+	OriginalPassword     string                     `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
+	DisplayName          string                     `json:"display_name" gorm:"index" validate:"max=20"`
+	Role                 int                        `json:"role" gorm:"type:int;default:1"`   // admin, common
+	Status               int                        `json:"status" gorm:"type:int;default:1"` // enabled, disabled
+	Email                string                     `json:"email" gorm:"index" validate:"max=50"`
+	GitHubId             string                     `json:"github_id" gorm:"column:github_id;index"`
+	DiscordId            string                     `json:"discord_id" gorm:"column:discord_id;index"`
+	OidcId               string                     `json:"oidc_id" gorm:"column:oidc_id;index"`
+	WeChatId             string                     `json:"wechat_id" gorm:"column:wechat_id;index"`
+	TelegramId           string                     `json:"telegram_id" gorm:"column:telegram_id;index"`
+	VerificationCode     string                     `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
+	AccessToken          *string                    `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
+	AccessTokenCreatedAt *int64                     `json:"-" gorm:"type:bigint;column:access_token_created_at"`    // Deprecated: 旧版面板访问令牌，仅在升级后的过渡期内使用；删除 users.access_token 列时一并移除。
+	Quota                int                        `json:"quota" gorm:"type:int;default:0"`
+	UsedQuota            int                        `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
+	RequestCount         int                        `json:"request_count" gorm:"type:int;default:0;"`               // request number
+	Group                string                     `json:"group" gorm:"type:varchar(64);default:'default'"`
+	AffCode              string                     `json:"aff_code" gorm:"type:varchar(32);column:aff_code;uniqueIndex"`
+	AffCount             int                        `json:"aff_count" gorm:"type:int;default:0;column:aff_count"`
+	AffQuota             int                        `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
+	AffHistoryQuota      int                        `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
+	InviterId            int                        `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
+	DeletedAt            gorm.DeletedAt             `gorm:"index"`
+	LinuxDOId            string                     `json:"linux_do_id" gorm:"column:linux_do_id;index"`
+	Setting              string                     `json:"setting" gorm:"type:text;column:setting"`
+	Remark               string                     `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
+	StripeCustomer       string                     `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
+	CreatedAt            int64                      `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+	LastLoginAt          int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
+	AuthVersion          int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
+	AdminPermissions     map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
 	// VisibleSections is the administrator-controlled list of console sections a
 	// user may see. It is persisted inside the existing `setting` JSON text
 	// column (dto.UserSetting.VisibleSections), so no schema migration is needed.
@@ -1491,12 +1487,11 @@ func DecreaseUserQuota(id int, quota int, db bool) (err error) {
 // SettleUserQuotaDebit debits a settlement charge from the wallet with a single
 // conditional update, so the stored balance never goes below zero.
 //
-// Every request reserves its estimated cost atomically before reaching the
-// upstream (see TryReserveUserQuota), so a positive settlement charge is the
-// amount by which actual usage exceeded the reservation. The charge is deducted
-// only when the balance still covers it; the uncovered remainder is persisted as
-// user quota debt (see RecordUserQuotaDebt) instead of being written off, and it
-// blocks new relay requests until the wallet repays it. It returns the amount
+// Every request reserves its maximum possible cost before reaching the upstream
+// (see helper.ModelPriceHelper), so a positive settlement charge means actual
+// usage exceeded the reservation. The charge is deducted only while the balance
+// covers it; the uncovered remainder is logged for reconciliation. The wallet
+// never carries a negative balance or a debt ledger, and it returns the amount
 // actually deducted so the caller can tell how much was covered.
 //
 // The deduction is applied to the live Redis balance first (atomic
@@ -1519,10 +1514,7 @@ func SettleUserQuotaDebit(id int, quota int) (int, error) {
 			}
 		}
 		if err == nil && result == cacheQuotaInsufficient {
-			// 余额不足以覆盖结算差额：差额持久化为欠费，不再静默丢弃。
-			if _, recordErr := recordSettlementShortfall(id, quota, 0); recordErr != nil {
-				return 0, recordErr
-			}
+			common.SysError(common.LogText("wallet settlement not covered by balance (userId=%d requested=%d deducted=0)", id, quota))
 			return 0, nil
 		}
 		if err == nil && result == cacheQuotaOK {
@@ -1539,8 +1531,8 @@ func SettleUserQuotaDebit(id int, quota int) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if _, recordErr := recordSettlementShortfall(id, quota, deducted); recordErr != nil {
-		return deducted, recordErr
+	if deducted < quota {
+		common.SysError(common.LogText("wallet settlement not covered by balance (userId=%d requested=%d deducted=%d)", id, quota, deducted))
 	}
 	if deducted == 0 {
 		return 0, nil
@@ -1551,8 +1543,8 @@ func SettleUserQuotaDebit(id int, quota int) (int, error) {
 	return deducted, nil
 }
 
-// settleUserQuotaDebitDB 用条件更新扣减结算差额，余额不足时不做部分扣减，
-// 返回 0 由 SettleUserQuotaDebit 把差额记为欠费；用户不存在返回 gorm.ErrRecordNotFound。
+// settleUserQuotaDebitDB 用条件更新扣减结算差额，余额不足时不做部分扣减并返回 0；
+// 用户不存在返回 gorm.ErrRecordNotFound。
 func settleUserQuotaDebitDB(id int, quota int) (int, error) {
 	result := DB.Model(&User{}).
 		Where("id = ? AND quota >= ?", id, quota).

@@ -340,36 +340,11 @@ func (s *BillingSession) syncRelayInfo() {
 // NewBillingSession 工厂 — 根据计费偏好创建会话并处理回退
 // ---------------------------------------------------------------------------
 
-// settleQuotaDebtBeforeService 在服务新请求前先用钱包余额结清欠费，仍有欠费时
-// 拒绝请求（402）。结算差额是已经发生的上游消耗，欠费未清时继续消费会把它
-// 变成免费额度，因此在唯一的 relay 计费入口处阻断。
-func settleQuotaDebtBeforeService(c *gin.Context, userId int) *types.NewAPIError {
-	remaining, repaid, err := model.RepayUserQuotaDebt(userId)
-	if err != nil {
-		return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
-	}
-	if repaid > 0 {
-		logger.LogInfo(c, common.LogText("user %d repaid %s of quota debt from wallet balance, remaining debt: %s",
-			userId, logger.FormatQuota(int(repaid)), logger.FormatQuota(int(remaining))))
-	}
-	if remaining <= 0 {
-		return nil
-	}
-	return types.NewErrorWithStatusCode(
-		errors.New(i18n.T(c, i18n.MsgQuotaDebtOutstanding, map[string]any{"Remaining": logger.FormatQuota(int(remaining))})),
-		types.ErrorCodeInsufficientUserQuota, http.StatusPaymentRequired,
-		types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
-}
-
 // NewBillingSession 根据用户计费偏好创建 BillingSession，处理 subscription_first / wallet_first 的回退。
 func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preConsumedQuota int) (*BillingSession, *types.NewAPIError) {
 	if relayInfo == nil {
 		return nil, types.NewError(fmt.Errorf("relayInfo is nil"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
-	if apiErr := settleQuotaDebtBeforeService(c, relayInfo.UserId); apiErr != nil {
-		return nil, apiErr
-	}
-
 	pref := common.NormalizeBillingPreference(relayInfo.UserSetting.BillingPreference)
 
 	// 钱包路径需要先检查用户额度
