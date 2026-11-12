@@ -795,3 +795,46 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 
 	return nil
 }
+
+type TopUpOrderStatusStats struct {
+	Status string  `json:"status"`
+	Count  int64   `json:"count"`
+	Amount float64 `json:"amount"`
+}
+
+type TopUpOrderSummary struct {
+	UserId          int     `json:"user_id"`
+	Username        string  `json:"username"`
+	Money           float64 `json:"money"`
+	TradeNo         string  `json:"trade_no"`
+	PaymentMethod   string  `json:"payment_method"`
+	PaymentProvider string  `json:"payment_provider"`
+	Status          string  `json:"status"`
+	CreateTime      int64   `json:"create_time"`
+}
+
+// GetTopUpOrderStatusCounts aggregates top-up orders with a single GROUP BY
+// status query, compatible with SQLite, MySQL and PostgreSQL.
+func GetTopUpOrderStatusCounts() ([]TopUpOrderStatusStats, error) {
+	var stats []TopUpOrderStatusStats
+	err := DB.Model(&TopUp{}).
+		Select("status, COUNT(*) as count, COALESCE(SUM(money), 0) as amount").
+		Group("status").
+		Scan(&stats).Error
+	return stats, err
+}
+
+// GetRecentTopUpOrdersByStatus returns the most recent orders for a status
+// bucket, joined with the users table for the username display.
+func GetRecentTopUpOrdersByStatus(statuses []string, limit int) ([]TopUpOrderSummary, error) {
+	var orders []TopUpOrderSummary
+	err := DB.Model(&TopUp{}).
+		Select("top_ups.user_id, users.username, top_ups.money, top_ups.trade_no, "+
+			"top_ups.payment_method, top_ups.payment_provider, top_ups.status, top_ups.create_time").
+		Joins("LEFT JOIN users ON users.id = top_ups.user_id").
+		Where("top_ups.status IN ?", statuses).
+		Order("top_ups.create_time DESC").
+		Limit(limit).
+		Scan(&orders).Error
+	return orders, err
+}
