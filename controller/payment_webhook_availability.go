@@ -28,6 +28,22 @@ func isStripeWebhookEnabled() bool {
 	return isStripeTopUpEnabled()
 }
 
+func isNowPaymentsTopUpEnabled() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	return strings.TrimSpace(setting.NowPaymentsApiKey) != "" &&
+		strings.TrimSpace(setting.NowPaymentsIpnSecret) != ""
+}
+
+func isNowPaymentsWebhookConfigured() bool {
+	return strings.TrimSpace(setting.NowPaymentsIpnSecret) != ""
+}
+
+func isNowPaymentsWebhookEnabled() bool {
+	return isNowPaymentsTopUpEnabled()
+}
+
 func isCreemTopUpEnabled() bool {
 	if !isPaymentComplianceConfirmed() {
 		return false

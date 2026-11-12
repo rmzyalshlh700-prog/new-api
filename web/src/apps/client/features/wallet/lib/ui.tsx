@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { CreditCard, Landmark } from 'lucide-react'
+import { Bitcoin, CreditCard, Landmark } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { IconAlipay, IconWeChat, IconStripe } from '@/shared/assets/brand-icons'
@@ -117,6 +117,13 @@ export function getPaymentIcon(
         <IconStripe
           className={className}
           style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.STRIPE] }}
+        />
+      )
+    case PAYMENT_TYPES.NOWPAYMENTS:
+      return (
+        <Bitcoin
+          className={className}
+          style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.NOWPAYMENTS] }}
         />
       )
     case PAYMENT_TYPES.CREEM:
