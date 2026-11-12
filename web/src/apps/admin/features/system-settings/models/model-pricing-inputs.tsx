@@ -19,6 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  SettingsControlGroup,
+  SettingsSwitchField,
+} from '@/shared/components/settings/settings-form-layout'
 import { InputGroup, InputGroupAddon } from '@/shared/components/ui/input-group'
 import {
   USD_PRICING_CURRENCY,
@@ -27,10 +31,36 @@ import {
 import { PricingAmountInput } from '@/shared/features/model-pricing/pricing-amount-input'
 import { cn } from '@/shared/lib/utils'
 
-import {
-  SettingsControlGroup,
-  SettingsSwitchField,
-} from '@/shared/components/settings/settings-form-layout'
+import { MarginCalculator } from './margin-calculator'
+
+/**
+ * Margin calculator for the per-token price editor used by global model pricing
+ * and channel pricing. The final prices are written straight into the form's
+ * token price state; the output lane is only written when that lane is enabled,
+ * because a disabled lane is omitted on save.
+ */
+export function MarginPriceCalculator(props: {
+  currency?: PricingCurrency
+  inputPrice: string
+  outputPrice: string
+  outputEnabled: boolean
+  onChange: (lane: 'p' | 'c', value: string) => void
+}) {
+  return (
+    <MarginCalculator
+      inputPrice={props.inputPrice}
+      outputPrice={props.outputPrice}
+      symbol={(props.currency ?? USD_PRICING_CURRENCY).symbol}
+      onChange={(lane, value) => {
+        if (lane === 'p') {
+          props.onChange('p', value)
+        } else if (props.outputEnabled) {
+          props.onChange('c', value)
+        }
+      }}
+    />
+  )
+}
 
 export function PriceInput(props: {
   currency?: PricingCurrency

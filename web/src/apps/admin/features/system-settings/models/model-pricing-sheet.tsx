@@ -116,7 +116,11 @@ import {
   type ModelRatioData,
   type PricingMode,
 } from './model-pricing-core'
-import { PriceInput, PriceLane } from './model-pricing-inputs'
+import {
+  MarginPriceCalculator,
+  PriceInput,
+  PriceLane,
+} from './model-pricing-inputs'
 import { formatPricingNumber } from './pricing-format'
 import { TaskPluginPricingEditor } from './task-plugin-pricing-editor'
 import { TaskUsagePricingEditor } from './task-usage-pricing-editor'
@@ -1073,6 +1077,19 @@ export const ModelPricingEditorPanel = forwardRef<
                           'Unset legacy prices use the billing engine defaults.'
                         )}
                       </p>
+                      <MarginPriceCalculator
+                        currency={currency}
+                        inputPrice={promptPrice}
+                        outputPrice={lanePrices.completion}
+                        outputEnabled={laneEnabled.completion}
+                        onChange={(lane, value) => {
+                          if (lane === 'p') {
+                            handlePromptPriceChange(value)
+                          } else {
+                            handleLanePriceChange('completion', value)
+                          }
+                        }}
+                      />
                       <div
                         className={cn(
                           'grid min-w-0 gap-3',

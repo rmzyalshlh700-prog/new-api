@@ -57,6 +57,7 @@ export const SETTINGS_BILLING_DEFAULT_SECTION = 'quota'
 export const SETTINGS_CONTENT_SECTION_IDS = [
   'dashboard',
   'announcements',
+  'contact-links',
   'api-info',
   'faq',
   'uptime-kuma',

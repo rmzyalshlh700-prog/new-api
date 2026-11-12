@@ -108,6 +108,17 @@ func redisFixedWindowTake(ctx context.Context, key string, maxRequestNum int, du
 	return allowedValue == 1, count, ttlSeconds, nil
 }
 
+// logRateLimitFailure records a limiter backend failure. A canceled request
+// context means the client went away (dead link, closed tab, superseded
+// navigation), so it is debug noise rather than an error worth alerting on.
+func logRateLimitFailure(ctx context.Context, err error, message string) {
+	if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		logger.LogDebug(ctx, "%s", message)
+		return
+	}
+	logger.LogError(ctx, message)
+}
+
 func redisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, mark string) {
 	allowed, _, ttlSeconds, err := redisFixedWindowTake(
 		c.Request.Context(),
@@ -116,7 +127,7 @@ func redisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, mark st
 		duration,
 	)
 	if err != nil {
-		logger.LogError(c.Request.Context(), common.LogText("rate limit check failed (mark=%s): %v", mark, err))
+		logRateLimitFailure(c.Request.Context(), err, common.LogText("rate limit check failed (mark=%s): %v", mark, err))
 		c.Status(http.StatusInternalServerError)
 		c.Abort()
 		return
@@ -251,7 +262,7 @@ func userRateLimitFactory(maxRequestNum int, duration int64, mark string) func(c
 func userRedisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, key string) {
 	allowed, _, ttlSeconds, err := redisFixedWindowTake(c.Request.Context(), key, maxRequestNum, duration)
 	if err != nil {
-		logger.LogError(c.Request.Context(), common.LogText("rate limit check failed (key=%s): %v", key, err))
+		logRateLimitFailure(c.Request.Context(), err, common.LogText("rate limit check failed (key=%s): %v", key, err))
 		c.Status(http.StatusInternalServerError)
 		c.Abort()
 		return
@@ -322,7 +333,7 @@ func relayRedisBudgetTake(c *gin.Context, key string, maxRequestNum int, window 
 	}
 	allowed, _, ttlSeconds, err := redisFixedWindowTake(c.Request.Context(), key, maxRequestNum, window)
 	if err != nil {
-		logger.LogError(c.Request.Context(), common.LogText("relay rate limit check failed (key=%s): %v", key, err))
+		logRateLimitFailure(c.Request.Context(), err, common.LogText("relay rate limit check failed (key=%s): %v", key, err))
 		c.Status(http.StatusInternalServerError)
 		c.Abort()
 		return false
