@@ -24,6 +24,10 @@ import {
   SidebarRail,
   SidebarResizeHandle,
 } from '@/shared/components/ui/sidebar'
+import {
+  SidebarContactLinks,
+} from '@/shared/components/contact/contact-links'
+import { CONTACT_LINK_POSITIONS } from '@/shared/components/contact/contact-links-data'
 import { useLayout } from '@/shared/context/layout-provider'
 
 import type { NavGroup } from '../types'
@@ -47,11 +51,13 @@ export function AppSidebar(props: AppSidebarProps) {
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
       <SidebarContent className='py-2'>
+        <SidebarContactLinks position={CONTACT_LINK_POSITIONS.sidebarTop} />
         <div className='flex flex-col'>
           {props.navGroups.map((group) => (
             <NavGroupView key={group.id || group.title} {...group} />
           ))}
         </div>
+        <SidebarContactLinks position={CONTACT_LINK_POSITIONS.sidebarBottom} />
       </SidebarContent>
 
       <SidebarResizeHandle label={t('Resize sidebar')} />

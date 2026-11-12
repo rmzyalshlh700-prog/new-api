@@ -341,6 +341,16 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			paymentLogRoute.GET("/logs", controller.GetAdminPaymentLogs)
 		}
+		contactLinkRoute := apiRouter.Group("/admin/contact_links")
+		contactLinkRoute.Use(middleware.AdminAuth())
+		contactLinkRoute.Use(middleware.RequireVisibleSection("system_settings"))
+		{
+			contactLinkRoute.GET("/", controller.GetContactLinksAdmin)
+			contactLinkRoute.POST("/", controller.AddContactLink)
+			contactLinkRoute.PUT("/", controller.UpdateContactLink)
+			contactLinkRoute.DELETE("/:id", controller.DeleteContactLink)
+		}
+		apiRouter.GET("/public/contact_links", middleware.DisableCache(), controller.GetPublicContactLinks)
 
 		handlePermissionRoute(apiRouter.Group("", middleware.DisableCache(), middleware.AdminAuth(), middleware.RequireVisibleSection("audit_logs")), http.MethodGet, "/audit", authz.AuditRead, controller.GetAdminAuditLogs)
 		apiRouter.GET("/audit/self", middleware.DisableCache(), middleware.UserAuth(), middleware.RequireVisibleSection("audit_logs"), controller.GetSelfAuditLogs)

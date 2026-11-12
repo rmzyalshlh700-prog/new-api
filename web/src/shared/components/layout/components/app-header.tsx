@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { ConfigDrawer } from '@/shared/components/config-drawer'
+import { HeaderContactLinks } from '@/shared/components/contact/contact-links'
 import { LanguageSwitcher } from '@/shared/components/language-switcher'
 import { NotificationPopover } from '@/shared/components/notification-popover'
 import { ProfileDropdown } from '@/shared/components/profile-dropdown'
@@ -151,6 +152,7 @@ export function AppHeader({
               loading={notifications.loading}
             />
           )}
+          <HeaderContactLinks />
           <LanguageSwitcher />
           {showConfigDrawer && <ConfigDrawer />}
           {showProfileDropdown && <ProfileDropdown portalContext={portal} />}
