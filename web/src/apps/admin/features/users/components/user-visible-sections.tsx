@@ -39,6 +39,7 @@ const SECTION_LABEL_KEYS: Record<SidebarSection, string> = {
   wallet: 'Wallet',
   profile: 'Profile',
   security: 'Security & Access',
+  support_tickets: 'Support',
   channels: 'Channels',
   models: 'Models',
   users: 'Users',

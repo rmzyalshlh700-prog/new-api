@@ -250,6 +250,7 @@ var userVisibleSectionKeys = []string{
 	"system_settings",
 	"system_info",
 	"task_plugins",
+	"support_tickets",
 }
 
 var userVisibleSectionSet = func() map[string]struct{} {

@@ -106,4 +106,6 @@ export type TopNavLink = {
 export type SidebarBadges = {
   /** Task models whose price needs attention, on the entries leading to model pricing */
   modelPricing?: string
+  /** Unread support-ticket messages, on the entries leading to support tickets */
+  supportTickets?: string
 }

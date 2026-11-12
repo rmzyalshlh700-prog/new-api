@@ -21,6 +21,7 @@ import { parseCurrencyDisplayType } from '@/shared/lib/currency'
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
+import { SupportSettingsSection } from '../general/support-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
@@ -201,6 +202,17 @@ const BILLING_SECTIONS = [
           enabled: settings['checkin_setting.enabled'],
           minQuota: settings['checkin_setting.min_quota'],
           maxQuota: settings['checkin_setting.max_quota'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'support',
+    titleKey: 'Support Tickets',
+    build: (settings: BillingSettings) => (
+      <SupportSettingsSection
+        defaultValues={{
+          enabled: settings['support_setting.enabled'],
         }}
       />
     ),

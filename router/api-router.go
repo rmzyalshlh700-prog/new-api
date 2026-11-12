@@ -162,6 +162,13 @@ func SetApiRouter(router *gin.Engine) {
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
 				selfRoute.DELETE("/oauth/bindings/:provider_id", controller.UnbindCustomOAuth)
+
+				// Support tickets
+				selfRoute.GET("/support/tickets", middleware.RequireVisibleSection("support_tickets"), controller.GetUserTickets)
+				selfRoute.POST("/support/tickets", middleware.RequireVisibleSection("support_tickets"), controller.CreateUserTicket)
+				selfRoute.GET("/support/tickets/:id/messages", middleware.RequireVisibleSection("support_tickets"), controller.GetUserTicketMessages)
+				selfRoute.POST("/support/tickets/:id/messages", middleware.RequireVisibleSection("support_tickets"), controller.CreateUserTicketMessage)
+				selfRoute.GET("/support/unread_count", middleware.RequireVisibleSection("support_tickets"), controller.GetUserTicketUnreadCount)
 			}
 
 			adminRoute := userRoute.Group("/")
@@ -186,6 +193,17 @@ func SetApiRouter(router *gin.Engine) {
 				// Admin 2FA routes
 				adminRoute.GET("/2fa/stats", controller.Admin2FAStats)
 				adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)
+			}
+
+			supportAdminRoute := userRoute.Group("/support/admin")
+			supportAdminRoute.Use(middleware.AdminAuth())
+			supportAdminRoute.Use(middleware.RequireVisibleSection("support_tickets"))
+			{
+				supportAdminRoute.GET("/tickets", controller.AdminGetTickets)
+				supportAdminRoute.GET("/tickets/:id/messages", controller.AdminGetTicketMessages)
+				supportAdminRoute.POST("/tickets/:id/messages", controller.AdminReplyTicket)
+				supportAdminRoute.PUT("/tickets/:id/status", controller.AdminUpdateTicketStatus)
+				supportAdminRoute.GET("/unread_count", controller.AdminGetUnreadCount)
 			}
 		}
 

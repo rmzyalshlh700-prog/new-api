@@ -43,6 +43,7 @@ export const SIDEBAR_SECTIONS = [
   'system_settings',
   'system_info',
   'task_plugins',
+  'support_tickets',
 ] as const
 
 export type SidebarSection = (typeof SIDEBAR_SECTIONS)[number]
@@ -76,6 +77,8 @@ const URL_SECTION_PREFIXES: { prefix: string; section: SidebarSection }[] = [
   { prefix: '/admin/system-settings', section: 'system_settings' },
   { prefix: '/admin/system-info', section: 'system_info' },
   { prefix: '/admin/task-plugins', section: 'task_plugins' },
+  { prefix: '/admin/support-tickets', section: 'support_tickets' },
+  { prefix: '/app/support', section: 'support_tickets' },
 ]
 
 /** Resolve a sidebar URL to its section key, or undefined when unmapped. */
@@ -120,6 +123,7 @@ const CLIENT_SECTION_HOME_PATHS: { section: SidebarSection; path: string }[] = [
   { section: 'wallet', path: '/app/wallet' },
   { section: 'profile', path: '/app/profile' },
   { section: 'security', path: '/app/security' },
+  { section: 'support_tickets', path: '/app/support' },
 ]
 
 /** First client route the account is allowed to open, or null when none is. */

@@ -379,6 +379,8 @@ func migrateDB() error {
 		&UserAccessToken{},
 		&QuotaOutbox{},
 		&DailyArchive{},
+		&Ticket{},
+		&TicketMessage{},
 	)
 	if err != nil {
 		return err

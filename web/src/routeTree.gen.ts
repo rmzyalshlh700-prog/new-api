@@ -33,6 +33,7 @@ import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppChat2linkRouteImport } from './routes/app/chat2link'
+import { Route as AppSupportRouteImport } from './routes/app/support'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
 import { Route as PricingIndexRouteImport } from './routes/pricing/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
@@ -43,6 +44,7 @@ import { Route as AdminAdminArchiveRouteImport } from './routes/_admin/admin/arc
 import { Route as AdminAdminBackupRouteImport } from './routes/_admin/admin/backup'
 import { Route as AdminAdminOverviewRouteImport } from './routes/_admin/admin/overview'
 import { Route as AdminAdminPaymentsRouteImport } from './routes/_admin/admin/payments'
+import { Route as AdminAdminSupportTicketsRouteImport } from './routes/_admin/admin/support-tickets'
 import { Route as AdminAdminSystemSettingsRouteRouteImport } from './routes/_admin/admin/system-settings/route'
 import { Route as AppChatChatIdRouteImport } from './routes/app/chat/$chatId'
 import { Route as AppKeysIndexRouteImport } from './routes/app/keys/index'
@@ -200,6 +202,11 @@ const AppChat2linkRoute = AppChat2linkRouteImport.update({
   path: '/chat2link',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppSupportRoute = AppSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const OauthProviderRoute = OauthProviderRouteImport.update({
   id: '/oauth/$provider',
   path: '/oauth/$provider',
@@ -250,6 +257,12 @@ const AdminAdminPaymentsRoute = AdminAdminPaymentsRouteImport.update({
   path: '/admin/payments',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminAdminSupportTicketsRoute =
+  AdminAdminSupportTicketsRouteImport.update({
+    id: '/admin/support-tickets',
+    path: '/admin/support-tickets',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
 const AdminAdminSystemSettingsRouteRoute =
   AdminAdminSystemSettingsRouteRouteImport.update({
     id: '/admin/system-settings',
@@ -485,6 +498,7 @@ export interface FileRoutesByFullPath {
   '/503': typeof errors503Route
   '/admin/login': typeof AdminLoginRoute
   '/app/chat2link': typeof AppChat2linkRoute
+  '/app/support': typeof AppSupportRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/app/': typeof AppIndexRoute
@@ -497,6 +511,7 @@ export interface FileRoutesByFullPath {
   '/admin/backup': typeof AdminAdminBackupRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
+  '/admin/support-tickets': typeof AdminAdminSupportTicketsRoute
   '/app/chat/$chatId': typeof AppChatChatIdRoute
   '/app/usage-logs/$section': typeof AppUsageLogsSectionRoute
   '/app/workspace/$section': typeof AppWorkspaceSectionRoute
@@ -556,6 +571,7 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/admin/login': typeof AdminLoginRoute
   '/app/chat2link': typeof AppChat2linkRoute
+  '/app/support': typeof AppSupportRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about': typeof AboutIndexRoute
   '/app': typeof AppIndexRoute
@@ -567,6 +583,7 @@ export interface FileRoutesByTo {
   '/admin/backup': typeof AdminAdminBackupRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
+  '/admin/support-tickets': typeof AdminAdminSupportTicketsRoute
   '/app/chat/$chatId': typeof AppChatChatIdRoute
   '/app/usage-logs/$section': typeof AppUsageLogsSectionRoute
   '/app/workspace/$section': typeof AppWorkspaceSectionRoute
@@ -630,6 +647,7 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/admin/login': typeof AdminLoginRoute
   '/app/chat2link': typeof AppChat2linkRoute
+  '/app/support': typeof AppSupportRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/app/': typeof AppIndexRoute
@@ -642,6 +660,7 @@ export interface FileRoutesById {
   '/_admin/admin/backup': typeof AdminAdminBackupRoute
   '/_admin/admin/overview': typeof AdminAdminOverviewRoute
   '/_admin/admin/payments': typeof AdminAdminPaymentsRoute
+  '/_admin/admin/support-tickets': typeof AdminAdminSupportTicketsRoute
   '/app/chat/$chatId': typeof AppChatChatIdRoute
   '/app/usage-logs/$section': typeof AppUsageLogsSectionRoute
   '/app/workspace/$section': typeof AppWorkspaceSectionRoute
@@ -704,6 +723,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/admin/login'
     | '/app/chat2link'
+    | '/app/support'
     | '/oauth/$provider'
     | '/about/'
     | '/app/'
@@ -716,6 +736,7 @@ export interface FileRouteTypes {
     | '/admin/backup'
     | '/admin/overview'
     | '/admin/payments'
+    | '/admin/support-tickets'
     | '/app/chat/$chatId'
     | '/app/usage-logs/$section'
     | '/app/workspace/$section'
@@ -775,6 +796,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/admin/login'
     | '/app/chat2link'
+    | '/app/support'
     | '/oauth/$provider'
     | '/about'
     | '/app'
@@ -786,6 +808,7 @@ export interface FileRouteTypes {
     | '/admin/backup'
     | '/admin/overview'
     | '/admin/payments'
+    | '/admin/support-tickets'
     | '/app/chat/$chatId'
     | '/app/usage-logs/$section'
     | '/app/workspace/$section'
@@ -848,6 +871,7 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/admin/login'
     | '/app/chat2link'
+    | '/app/support'
     | '/oauth/$provider'
     | '/about/'
     | '/app/'
@@ -860,6 +884,7 @@ export interface FileRouteTypes {
     | '/_admin/admin/backup'
     | '/_admin/admin/overview'
     | '/_admin/admin/payments'
+    | '/_admin/admin/support-tickets'
     | '/app/chat/$chatId'
     | '/app/usage-logs/$section'
     | '/app/workspace/$section'
@@ -1092,6 +1117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChat2linkRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/support': {
+      id: '/app/support'
+      path: '/support'
+      fullPath: '/app/support'
+      preLoaderRoute: typeof AppSupportRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/oauth/$provider': {
       id: '/oauth/$provider'
       path: '/oauth/$provider'
@@ -1160,6 +1192,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/payments'
       fullPath: '/admin/payments'
       preLoaderRoute: typeof AdminAdminPaymentsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_admin/admin/support-tickets': {
+      id: '/_admin/admin/support-tickets'
+      path: '/admin/support-tickets'
+      fullPath: '/admin/support-tickets'
+      preLoaderRoute: typeof AdminAdminSupportTicketsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_admin/admin/system-settings': {
@@ -1527,6 +1566,7 @@ interface AdminRouteRouteChildren {
   AdminAdminBackupRoute: typeof AdminAdminBackupRoute
   AdminAdminOverviewRoute: typeof AdminAdminOverviewRoute
   AdminAdminPaymentsRoute: typeof AdminAdminPaymentsRoute
+  AdminAdminSupportTicketsRoute: typeof AdminAdminSupportTicketsRoute
   AdminAdminIndexRoute: typeof AdminAdminIndexRoute
   AdminAdminModelsSectionRoute: typeof AdminAdminModelsSectionRoute
   AdminAdminAuditLogsIndexRoute: typeof AdminAdminAuditLogsIndexRoute
@@ -1546,6 +1586,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAdminBackupRoute: AdminAdminBackupRoute,
   AdminAdminOverviewRoute: AdminAdminOverviewRoute,
   AdminAdminPaymentsRoute: AdminAdminPaymentsRoute,
+  AdminAdminSupportTicketsRoute: AdminAdminSupportTicketsRoute,
   AdminAdminIndexRoute: AdminAdminIndexRoute,
   AdminAdminModelsSectionRoute: AdminAdminModelsSectionRoute,
   AdminAdminAuditLogsIndexRoute: AdminAdminAuditLogsIndexRoute,
@@ -1564,6 +1605,7 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
 
 interface AppRouteRouteChildren {
   AppChat2linkRoute: typeof AppChat2linkRoute
+  AppSupportRoute: typeof AppSupportRoute
   AppIndexRoute: typeof AppIndexRoute
   AppChatChatIdRoute: typeof AppChatChatIdRoute
   AppUsageLogsSectionRoute: typeof AppUsageLogsSectionRoute
@@ -1579,6 +1621,7 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppChat2linkRoute: AppChat2linkRoute,
+  AppSupportRoute: AppSupportRoute,
   AppIndexRoute: AppIndexRoute,
   AppChatChatIdRoute: AppChatChatIdRoute,
   AppUsageLogsSectionRoute: AppUsageLogsSectionRoute,

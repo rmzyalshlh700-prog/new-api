@@ -22,6 +22,7 @@ import {
   ClipboardList,
   DatabaseBackup,
   Gauge,
+  LifeBuoy,
   PlugZap,
   Radio,
   Receipt,
@@ -33,6 +34,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { useModelPricingIssueBadge } from '@/apps/admin/features/model-pricing/pricing-issues'
+import { useSupportUnreadBadge } from '@/apps/admin/features/support-tickets/use-support-unread-badge'
 import { getSystemSettingsSectionNavItems } from '@/apps/admin/features/system-settings/nav'
 import type {
   SidebarBadges,
@@ -48,7 +50,10 @@ import { ROLE } from '@/shared/lib/roles'
  */
 export function useAdminSidebarData(): SidebarData {
   const { t } = useTranslation()
-  const badges: SidebarBadges = { modelPricing: useModelPricingIssueBadge() }
+  const badges: SidebarBadges = {
+    modelPricing: useModelPricingIssueBadge(),
+    supportTickets: useSupportUnreadBadge(),
+  }
   const settings = getSystemSettingsSectionNavItems(t, badges)
 
   return {
@@ -85,6 +90,13 @@ export function useAdminSidebarData(): SidebarData {
             url: '/admin/payments',
             icon: Receipt,
             requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Support Tickets'),
+            url: '/admin/support-tickets',
+            icon: LifeBuoy,
+            requiredRole: ROLE.ADMIN,
+            badge: badges.supportTickets,
           },
         ],
       },
