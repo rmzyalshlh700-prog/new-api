@@ -257,3 +257,10 @@ export interface PaymentOrderGroup {
   amount: number
   recent: PaymentOrderSummary[]
 }
+
+export interface DashboardMetrics {
+  registered_users: number
+  total_liabilities_quota: number
+  active_visitors_today: number
+  failed_requests_today: number
+}

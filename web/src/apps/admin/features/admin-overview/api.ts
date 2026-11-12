@@ -20,6 +20,7 @@ import { api } from '@/shared/lib/api'
 
 import type {
   AdminLogStat,
+  DashboardMetrics,
   FlowQuotaDataItem,
   OverviewQuotaRow,
   OverviewUserRow,
@@ -133,5 +134,19 @@ export async function getPaymentOrdersStats() {
     message?: string
     data?: PaymentOrderGroup[]
   }>('/api/topup/orders_stats')
+  return validateOverviewResponse(res.data)
+}
+
+/**
+ * Platform-wide metrics for the admin dashboard: total registered users,
+ * total user liabilities (sum of balances), today's active visitors and
+ * today's failed API requests. Admin-only (`GET /api/data/metrics`).
+ */
+export async function getAdminDashboardMetrics() {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: DashboardMetrics
+  }>('/api/data/metrics')
   return validateOverviewResponse(res.data)
 }
