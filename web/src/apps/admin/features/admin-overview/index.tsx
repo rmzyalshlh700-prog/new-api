@@ -31,6 +31,7 @@ import { getStartOfDay } from '@/shared/lib/time'
 
 import {
   getAdminLogStat,
+  getAdminDashboardMetrics,
   getAdminQuotaRows,
   getAdminRegisteredUserTotal,
   getAdminUserQuotaRows,
@@ -43,6 +44,7 @@ import { FailedRequestsPanel } from './components/failed-requests-panel'
 import { FlowPanel } from './components/flow/flow-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
+import { PlatformMetricsCards } from './components/platform-metrics-cards'
 import { PerformanceOverview } from './components/performance-overview'
 import { RevenuePanel } from './components/revenue-panel'
 import { TokenUsagePanel } from './components/token-usage-panel'
@@ -175,6 +177,15 @@ export function AdminOverview() {
     staleTime: LIVE_REFRESH_MS - 100,
   })
 
+  const platformMetricsQuery = useQuery({
+    queryKey: ['admin-overview', 'platform-metrics'],
+    queryFn: async () =>
+      requireServerSuccess(await getAdminDashboardMetrics()),
+    refetchInterval: LIVE_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    staleTime: LIVE_REFRESH_MS - 100,
+  })
+
   const quotaRows = useMemo(
     () => quotaQuery.data?.data ?? [],
     [quotaQuery.data]
@@ -250,7 +261,12 @@ export function AdminOverview() {
     allTimeRevenueQuery,
     registeredUsersQuery,
   ]
-  const queries = [...essentialQueries, rateQuery, paymentOrdersQuery]
+  const queries = [
+    ...essentialQueries,
+    rateQuery,
+    paymentOrdersQuery,
+    platformMetricsQuery,
+  ]
   const hasError = queries.some((query) => query.isError)
   const hasMissingData = essentialQueries.some(
     (query) => query.isError && query.data == null
@@ -314,6 +330,13 @@ export function AdminOverview() {
                     (point) => point.total
                   )}
                   loading={statsLoading}
+                />
+              </FadeIn>
+
+              <FadeIn delay={0.02}>
+                <PlatformMetricsCards
+                  metrics={platformMetricsQuery.data?.data}
+                  loading={platformMetricsQuery.isLoading}
                 />
               </FadeIn>
 
