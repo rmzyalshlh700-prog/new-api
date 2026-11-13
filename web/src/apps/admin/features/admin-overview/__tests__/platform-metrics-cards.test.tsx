@@ -12,11 +12,11 @@ const metrics: DashboardMetrics = {
 }
 
 describe('platform metrics cards', () => {
-  it('renders all four metric cards with their values', () => {
+  it('renders the metric cards with their values', () => {
     render(<PlatformMetricsCards metrics={metrics} loading={false} />)
 
     expect(screen.getByText('Total Registered Users')).toBeInTheDocument()
-    expect(screen.getByText('Total Customer Balances')).toBeInTheDocument()
+    expect(screen.queryByText('Total Customer Balances')).not.toBeInTheDocument()
     expect(screen.getByText("Today's Active Visitors")).toBeInTheDocument()
     expect(screen.getByText('Failed Requests Today')).toBeInTheDocument()
 

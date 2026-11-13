@@ -1,5 +1,5 @@
 import { Activity } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
@@ -17,7 +17,7 @@ import { formatCompactNumber, formatInteger } from '@/shared/lib/format'
 import { buildUsageTrend } from '../lib/aggregate'
 import type { OverviewQuotaRow } from '../types'
 
-export function ActivityTrendPanel({
+export const ActivityTrendPanel = memo(function ActivityTrendPanel({
   rows,
   now,
   loading,
@@ -152,4 +152,4 @@ export function ActivityTrendPanel({
       </div>
     </TitledCard>
   )
-}
+})

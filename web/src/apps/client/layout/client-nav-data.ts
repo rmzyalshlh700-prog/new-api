@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
-  Box,
   FileText,
   FlaskConical,
   Key,
@@ -35,8 +34,8 @@ import type { SidebarData } from '@/shared/components/layout/types'
 
 /**
  * Navigation for the client portal, ordered as:
- * Dashboard → API Keys → Models → Usage Logs → Wallet → Profile →
- * Security & Access → Chat.
+ * Dashboard → API Keys → Usage Logs → Wallet → Profile →
+ * Security & Access → Playground → Chat.
  *
  * Deliberately contains no administrative entries: the admin console is a
  * separate portal with its own layout, routes and bundle.
@@ -59,11 +58,6 @@ export function useClientSidebarData(): SidebarData {
             title: t('API Keys'),
             url: '/app/keys',
             icon: Key,
-          },
-          {
-            title: t('Models'),
-            url: '/pricing',
-            icon: Box,
           },
           {
             title: t('Usage Logs'),

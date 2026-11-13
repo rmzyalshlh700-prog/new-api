@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Cpu } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
@@ -52,7 +52,9 @@ export interface TokenUsagePanelProps {
   loading: boolean
 }
 
-export function TokenUsagePanel(props: TokenUsagePanelProps) {
+export const TokenUsagePanel = memo(function TokenUsagePanel(
+  props: TokenUsagePanelProps
+) {
   const { t } = useTranslation()
   const chartData = props.points.map((point) => ({
     label: point.label,
@@ -180,4 +182,4 @@ export function TokenUsagePanel(props: TokenUsagePanelProps) {
       <div className='h-64 w-full'>{chartContent}</div>
     </TitledCard>
   )
-}
+})

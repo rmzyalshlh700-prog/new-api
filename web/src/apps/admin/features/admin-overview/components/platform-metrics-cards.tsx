@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   TrendingUp,
   Users,
-  Wallet,
 } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
@@ -57,7 +56,7 @@ export function PlatformMetricsCards(props: PlatformMetricsCardsProps) {
   const metrics = props.metrics
 
   return (
-    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5'>
+    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4'>
       <StatCardTile>
         <StatCard
           title={t('Total Registered Users')}
@@ -65,16 +64,6 @@ export function PlatformMetricsCards(props: PlatformMetricsCardsProps) {
           description={t('Registered users on the platform')}
           icon={Users}
           iconTone='chart-2'
-          loading={props.loading}
-        />
-      </StatCardTile>
-      <StatCardTile>
-        <StatCard
-          title={t('Total Customer Balances')}
-          value={metrics ? formatQuota(metrics.total_liabilities_quota) : '—'}
-          description={t('Sum of all user balances (platform liability)')}
-          icon={Wallet}
-          iconTone='chart-3'
           loading={props.loading}
         />
       </StatCardTile>

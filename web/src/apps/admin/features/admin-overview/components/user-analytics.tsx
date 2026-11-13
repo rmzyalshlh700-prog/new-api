@@ -61,11 +61,6 @@ const USER_CHARTS: {
     labelKey: 'User Consumption Ranking',
     specKey: 'spec_user_rank',
   },
-  {
-    value: 'trend',
-    labelKey: 'User Consumption Trend',
-    specKey: 'spec_user_trend',
-  },
 ]
 
 const TOP_USER_LIMIT_OPTIONS = [5, 10, 20, 50]
@@ -164,7 +159,7 @@ export function UserCharts(props: UserChartsProps) {
   return (
     <TitledCard
       title={t('User Analytics')}
-      description={t('Consumption ranking and trend across all users')}
+      description={t('Consumption ranking across all users')}
       icon={<Users />}
       iconTone='info'
     >

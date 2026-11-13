@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Trophy } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Progress } from '@/shared/components/ui/progress'
@@ -44,7 +44,9 @@ export interface TopModelsPanelProps {
   loading: boolean
 }
 
-export function TopModelsPanel(props: TopModelsPanelProps) {
+export const TopModelsPanel = memo(function TopModelsPanel(
+  props: TopModelsPanelProps
+) {
   const { t } = useTranslation()
   const maxTokens = props.models.reduce(
     (max, model) => Math.max(max, model.tokens),
@@ -131,4 +133,4 @@ export function TopModelsPanel(props: TopModelsPanelProps) {
       {content}
     </TitledCard>
   )
-}
+})

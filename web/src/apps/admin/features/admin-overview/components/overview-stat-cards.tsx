@@ -64,14 +64,9 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
           title={t('Revenue today')}
           value={formatLogQuota(props.revenueToday)}
           description={
-            <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-              <span className='text-muted-foreground/60'>
-                {t('This month')}: {formatLogQuota(props.revenueMonth)}
-              </span>
-              {todayVsYesterdayPct !== undefined && (
-                <YesterdayTrend percent={todayVsYesterdayPct} />
-              )}
-            </div>
+            todayVsYesterdayPct !== undefined ? (
+              <YesterdayTrend percent={todayVsYesterdayPct} />
+            ) : undefined
           }
           icon={Wallet}
           tone='accent-1'
@@ -85,16 +80,6 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
         <StatCard
           title={t('Revenue this month')}
           value={formatLogQuota(props.revenueMonth)}
-          description={
-            <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-              <span className='text-muted-foreground/60'>
-                {t('Today')}: {formatLogQuota(props.revenueToday)}
-              </span>
-              {todayVsYesterdayPct !== undefined && (
-                <YesterdayTrend percent={todayVsYesterdayPct} />
-              )}
-            </div>
-          }
           icon={Coins}
           tone='accent-2'
           sparkline={props.monthSparkline}
@@ -107,7 +92,6 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
         <StatCard
           title={t('Requests')}
           value={formatInteger(props.requestsToday)}
-          description={t('Today')}
           icon={Activity}
           tone='accent-1'
           sparkline={props.requestsSparkline}
@@ -120,7 +104,6 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
         <StatCard
           title={t('Tokens today')}
           value={formatCompactNumber(props.tokensToday)}
-          description={`${t('Requests')}: ${formatInteger(props.requestsToday)}`}
           icon={Cpu}
           tone='accent-3'
           sparkline={props.tokensSparkline}

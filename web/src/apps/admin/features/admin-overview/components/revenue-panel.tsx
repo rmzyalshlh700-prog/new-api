@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { ArrowDownIcon, ArrowUpIcon, CircleDollarSign } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
@@ -61,7 +61,9 @@ export interface RevenuePanelProps {
 
 const MONTHS_SHOWN = 2
 
-export function RevenuePanel(props: RevenuePanelProps) {
+export const RevenuePanel = memo(function RevenuePanel(
+  props: RevenuePanelProps
+) {
   const { t } = useTranslation()
   const [view, setView] = useState<ChartView>('daily')
   const hasData =
@@ -178,7 +180,7 @@ export function RevenuePanel(props: RevenuePanelProps) {
       </div>
     </TitledCard>
   )
-}
+})
 
 function RevenueTrend(props: { delta: number; percent?: number }) {
   const isPositive = props.delta >= 0

@@ -41,7 +41,6 @@ import {
 } from './api'
 import { WidgetErrorBoundary } from './components/widget-error-boundary'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
-import { ClientBalancesPanel } from './components/client-balances-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
 import { PerformanceOverview } from './components/performance-overview'
@@ -311,21 +310,6 @@ export function AdminOverview() {
                 </WidgetErrorBoundary>
               </FadeIn>
 
-              <FadeIn delay={0.02}>
-                <WidgetErrorBoundary>
-                  <PaymentOrdersWidget
-                    groups={paymentOrdersQuery.data?.data}
-                    loading={paymentOrdersQuery.isLoading}
-                  />
-                </WidgetErrorBoundary>
-              </FadeIn>
-
-              <FadeIn delay={0.02}>
-                <WidgetErrorBoundary>
-                  <ClientBalancesPanel />
-                </WidgetErrorBoundary>
-              </FadeIn>
-
               <FadeIn delay={0.05}>
                 <WidgetErrorBoundary>
                   <PerformanceOverview />
@@ -361,7 +345,7 @@ export function AdminOverview() {
                 </WidgetErrorBoundary>
               </FadeIn>
 
-              <div className='grid gap-3 sm:gap-4 xl:grid-cols-2'>
+              <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3'>
                 <FadeIn delay={0.15}>
                   <WidgetErrorBoundary>
                     <TokenUsagePanel
@@ -379,6 +363,14 @@ export function AdminOverview() {
                       models={topModels}
                       totalTokens={totalModelTokens}
                       loading={quotaQuery.isLoading}
+                    />
+                  </WidgetErrorBoundary>
+                </FadeIn>
+                <FadeIn delay={0.22} className='lg:col-span-2 xl:col-span-1'>
+                  <WidgetErrorBoundary>
+                    <PaymentOrdersWidget
+                      groups={paymentOrdersQuery.data?.data}
+                      loading={paymentOrdersQuery.isLoading}
                     />
                   </WidgetErrorBoundary>
                 </FadeIn>
