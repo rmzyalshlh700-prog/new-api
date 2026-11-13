@@ -30,15 +30,12 @@ import {
   Image,
   Library,
   LifeBuoy,
-  type LucideIcon,
   Mail,
-  MessageCircle,
   MessagesSquare,
   Newspaper,
   Package,
   Play,
   Rocket,
-  Send,
   Settings,
   Share2,
   ShoppingBag,
@@ -49,6 +46,9 @@ import {
   Webhook,
   Zap,
 } from 'lucide-react'
+import type { ComponentType } from 'react'
+
+import { BrandIcons } from './brand-icons'
 
 export const CONTACT_LINK_POSITIONS = {
   sidebarBottom: 'sidebar_bottom',
@@ -70,12 +70,42 @@ export interface ContactLink {
 }
 
 /**
- * Curated icon registry shared by the admin icon picker and the client
- * renderer. Icon names are stable identifiers stored in the backend.
+ * Icon component accepted by the contact-link renderer. Both lucide icons and
+ * the colourful brand wrappers are sized through `className`.
  */
-export const CONTACT_LINK_ICONS: { name: string; icon: LucideIcon; label: string }[] = [
-  { name: 'send', icon: Send, label: 'Telegram' },
-  { name: 'message-circle', icon: MessageCircle, label: 'Discord' },
+export type ContactLinkIcon = ComponentType<{ className?: string }>
+
+export interface ContactLinkIconEntry {
+  name: string
+  icon: ContactLinkIcon
+  label: string
+}
+
+/**
+ * Curated icon registry shared by the admin icon picker and the client
+ * renderer. Icon names are stable identifiers stored in the backend, so the
+ * legacy lucide names (`send`, `message-circle`) stay valid even though they
+ * now render their colourful brand glyph.
+ */
+export const CONTACT_LINK_ICONS: ContactLinkIconEntry[] = [
+  { name: 'send', icon: BrandIcons.telegram, label: 'Telegram' },
+  { name: 'message-circle', icon: BrandIcons.discord, label: 'Discord' },
+  { name: 'whatsapp', icon: BrandIcons.whatsapp, label: 'WhatsApp' },
+  { name: 'github', icon: BrandIcons.github, label: 'GitHub' },
+  { name: 'twitter', icon: BrandIcons.twitter, label: 'Twitter' },
+  { name: 'youtube', icon: BrandIcons.youtube, label: 'YouTube' },
+  { name: 'instagram', icon: BrandIcons.instagram, label: 'Instagram' },
+  { name: 'facebook', icon: BrandIcons.facebook, label: 'Facebook' },
+  { name: 'linkedin', icon: BrandIcons.linkedin, label: 'LinkedIn' },
+  { name: 'reddit', icon: BrandIcons.reddit, label: 'Reddit' },
+  { name: 'tiktok', icon: BrandIcons.tiktok, label: 'TikTok' },
+  { name: 'medium', icon: BrandIcons.medium, label: 'Medium' },
+  { name: 'spotify', icon: BrandIcons.spotify, label: 'Spotify' },
+  { name: 'twitch', icon: BrandIcons.twitch, label: 'Twitch' },
+  { name: 'slack', icon: BrandIcons.slack, label: 'Slack' },
+  { name: 'google', icon: BrandIcons.google, label: 'Google' },
+  { name: 'pinterest', icon: BrandIcons.pinterest, label: 'Pinterest' },
+  { name: 'snapchat', icon: BrandIcons.snapchat, label: 'Snapchat' },
   { name: 'messages-square', icon: MessagesSquare, label: 'Chat' },
   { name: 'bot', icon: Bot, label: 'Bot' },
   { name: 'life-buoy', icon: LifeBuoy, label: 'Support' },
@@ -106,6 +136,6 @@ export const CONTACT_LINK_ICONS: { name: string; icon: LucideIcon; label: string
   { name: 'video', icon: Video, label: 'Video' },
 ]
 
-export function getContactLinkIcon(name: string): LucideIcon {
+export function getContactLinkIcon(name: string): ContactLinkIcon {
   return CONTACT_LINK_ICONS.find((entry) => entry.name === name)?.icon ?? Globe
 }

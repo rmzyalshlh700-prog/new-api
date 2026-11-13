@@ -27,6 +27,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // brandkitjs declares "type": "module" but ships a CommonJS main entry
+      // (dist/index.js) that calls require(), so Node-style resolution in the
+      // test runner crashes. Bundlers pick the ESM build; point tests there too.
+      brandkitjs: path.resolve(
+        __dirname,
+        './node_modules/brandkitjs/dist/index.esm.js'
+      ),
     },
   },
   test: {

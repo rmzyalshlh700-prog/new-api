@@ -2,12 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { HeaderContactLinks, SidebarContactLinks } from '../contact-links'
 import {
   CONTACT_LINK_POSITIONS,
   getContactLinkIcon,
   type ContactLink,
 } from '../contact-links-data'
-import { HeaderContactLinks, SidebarContactLinks } from '../contact-links'
 
 vi.mock('@/shared/lib/api', () => ({
   api: {
@@ -49,9 +49,7 @@ function renderWithProviders(ui: React.ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return render(
-    <QueryClientProvider client={client}>{ui}</QueryClientProvider>
-  )
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 describe('contact links rendering', () => {
@@ -80,6 +78,17 @@ describe('contact links rendering', () => {
       <SidebarContactLinks position={CONTACT_LINK_POSITIONS.sidebarTop} />
     )
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('renders brand icons in their official colours', async () => {
+    renderWithProviders(
+      <SidebarContactLinks position={CONTACT_LINK_POSITIONS.sidebarBottom} />
+    )
+
+    const telegram = await screen.findByRole('link', { name: 'Join Telegram' })
+    const svg = telegram.querySelector('svg')
+    expect(svg).toHaveAttribute('fill', '#26A5E4')
+    expect(svg).toHaveAttribute('width', '100%')
   })
 
   it('falls back to the globe icon for unknown icon names', () => {
