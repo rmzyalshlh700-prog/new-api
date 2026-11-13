@@ -91,6 +91,7 @@ func Login(c *gin.Context) {
 		case errors.Is(err, model.ErrUserEmptyCredentials):
 			common.ApiErrorT(c, "Invalid parameters")
 		default:
+			noteFailedLogin(c, user.Id, username, "invalid_credentials")
 			common.ApiErrorT(c, "Username or password is incorrect, or user has been banned")
 		}
 		return

@@ -226,6 +226,19 @@ func RecordLoginLog(userId, actorRole int, username string, content string, ip s
 	RecordAuditLog(c, AuditLog{UserId: userId, Username: username, ActorRole: actorRole, Category: AuditCategoryLogin, Action: action, Content: content, Ip: ip, Other: other, Success: true})
 }
 
+// RecordLoginFailureLog records a failed login attempt (category login,
+// Success=false) so brute-force activity is visible in the audit trail. No
+// credential material is stored; username is the submitted handle only.
+func RecordLoginFailureLog(ip string, username string, userId int, params map[string]any, other AuditOther, request ...*gin.Context) {
+	other.Op = &AuditOperation{Action: "login_failed", Params: params}
+	actorRole := common.RoleCommonUser
+	var c *gin.Context
+	if len(request) > 0 {
+		c = request[0]
+	}
+	RecordAuditLog(c, AuditLog{UserId: userId, Username: username, ActorRole: actorRole, Category: AuditCategoryLogin, Action: "login_failed", Content: "Login attempt failed", Ip: ip, Other: other, Success: false})
+}
+
 // RecordOperationAuditLog writes new operation/security events to the audit table.
 // logUserId 为日志归属者，管理审计日志应归属实际操作者；目标资源/用户放入
 // action params。username 内部按 logUserId 查询。content 为英文兜底文本（供导出使用）。
