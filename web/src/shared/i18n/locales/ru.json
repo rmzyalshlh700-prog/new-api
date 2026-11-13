@@ -196,10 +196,8 @@
     "A dry run needs a format, a model and a JSON object body": "Для пробного запуска нужны формат, модель и тело в виде объекта JSON",
     "A dry run reply must not exceed {{max}} bytes": "Ответ для пробного запуска не должен превышать {{max}} байт",
     "A focused home for keys, balance, routing, and service health.": "Единый экран для ключей, баланса, маршрутов и состояния сервиса.",
-
     "A JSON file generated on this server, streamed directly to your device.": "JSON-файл формируется на этом сервере и передаётся прямо на ваше устройство.",
     "A matching hash confirms the published file, not the safety of its code.": "Совпадение хеша подтверждает соответствие опубликованному файлу, но не безопасность кода.",
-
     "A model update task is already running or queued. Cannot start this manual task": "Задача обновления моделей уже выполняется или ожидает в очереди. Невозможно запустить эту ручную задачу",
     "A number": "Цифра",
     "A Passkey created for www.example.com cannot be used on example.com. Keep the old website available so users can still verify there.": "Ключ доступа, созданный для www.example.com, не работает на example.com. Сохраните доступ к прежнему сайту, чтобы пользователи могли проходить проверку на нём.",
@@ -1292,13 +1290,9 @@
     "Choose the domain used when this Passkey was created, then try again.": "Выберите домен, использованный при создании этого ключа доступа, и повторите попытку.",
     "Choose where to fetch upstream metadata.": "Выберите, откуда получать метаданные вышестоящего источника.",
     "Choose which charts are selected by default when opening model analytics.": "Выберите графики, которые будут выбраны по умолчанию при открытии аналитики моделей.",
-
     "Chosen groups": "Выбранные группы",
-
     "Chosen models": "Выбранные модели",
-
     "Choose which console sections this user can see. Disabling a section hides it and blocks its API.": "Выберите разделы консоли, доступные этому пользователю. Отключение раздела скрывает его и блокирует соответствующий API.",
-
     "Clamped to": "Ограничено до",
     "Claude": "Клод",
     "Claude CLI Header Passthrough": "Проброс заголовков Claude CLI",
@@ -2643,10 +2637,8 @@
     "Fail Reason Details": "Детали причины сбоя",
     "failed": "ошибка",
     "Failed": "Неудача",
-
     "Failed API requests logged today": "Неудачные API-запросы, зафиксированные сегодня",
     "Failed Requests Today": "Неудачные запросы сегодня",
-
     "Failed to {{action}} user": "Не удалось выполнить {{action}} для пользователя",
     "Failed to adjust quota": "Не удалось изменить квоту",
     "Failed to apply overwrite.": "Не удалось применить перезапись.",
@@ -3025,7 +3017,7 @@
     "footer.columns.related.links.oneApi": "Один API",
     "footer.columns.related.title": "Связанные проекты",
     "footer.defaultCopyright": "Все права защищены.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
+    "footer.newapi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
     "For a stronger password": "Чтобы сделать пароль надёжнее",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Для расширенных пользовательских каналов это действует только для маршрутов /v1/responses без преобразования протокола.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Для каналов, добавленных после 10 мая 2025 г., не нужно удалять \".\" из имён моделей при развёртывании",
@@ -3218,9 +3210,7 @@
     "Has been invalidated": "Аннулировано",
     "Have a Code?": "Есть код?",
     "Header": "Заголовок",
-
     "Header (top nav)": "Шапка (верхнее меню)",
-
     "header instead.": ".",
     "Header Name": "Имя заголовка",
     "Header navigation": "Навигация по заголовку",
@@ -3249,12 +3239,9 @@
     "Hide selected models from model square": "Скрыть выбранные модели в каталоге",
     "Hide sensitive data": "Скрыть конфиденциальные данные",
     "Hide setup guide": "Скрыть руководство по настройке",
-
     "High": "Высокая",
-
     "Hide sidebar toggle on home page": "Скрыть кнопку боковой панели на главной странице",
     "Hides the mobile navigation menu button on the public home page. The console sidebar is unaffected.": "Скрывает кнопку мобильного меню навигации на публичной главной странице. Боковая панель консоли не затрагивается.",
-
     "High Performance": "Высокая производительность",
     "High-risk operation confirmation": "Подтверждение высокорисковой операции",
     "High-risk status code retry confirmation text": "Я понимаю риски многократного списания и сбоя и подтверждаю включение",
@@ -3635,9 +3622,7 @@
     "Last active {{time}} · Expires {{expires}}": "Последняя активность: {{time}} · Истекает: {{expires}}",
     "Last check time": "Время последней проверки",
     "Last detected addable models": "Последние обнаруженные модели для добавления",
-
     "Last download: {{time}}": "Последнее скачивание: {{time}}",
-
     "Last Login": "Последний вход",
     "Last Seen": "Последний сигнал",
     "Last successful check": "Последняя успешная проверка",
@@ -3714,9 +3699,7 @@
     "Linked account": "Привязанный аккаунт",
     "Linked models": "Связанные модели",
     "Linked records are counted once. Matching rules show their covered models separately.": "Каждая связанная запись учитывается один раз. Модели, охваченные правилами, считаются отдельно.",
-
     "Links render dynamically in the sidebar and header": "Ссылки динамически отображаются в боковой панели и шапке",
-
     "Linux DO trust level does not meet the minimum required by administrator": "Уровень доверия Linux DO ниже минимального, установленного администратором",
     "LinuxDO": "LinuxDO",
     "LinuxDO Client ID": "ID клиента LinuxDO",
@@ -4638,9 +4621,7 @@
     "Subject": "Subject",
     "Type your message": "Type your message",
     "Resolved": "Resolved",
-    "Low": "Low",
     "Normal": "Normal",
-    "High": "High",
     "Reply": "Reply",
     "Ticket created": "Ticket created",
     "Failed to create ticket": "Failed to create ticket",
@@ -5420,9 +5401,7 @@
     "Re-enable on success": "Повторно включить при успехе",
     "Re-login": "Повторный вход",
     "Read channels": "Чтение каналов",
-
     "Read-only ledger of all top-up and payment orders.": "Журнал всех заказов на пополнение и оплату только для чтения.",
-
     "Ready": "Готово",
     "Ready to initialize": "Готов к инициализации",
     "Ready to simplify": "Готовы упростить",
@@ -6520,11 +6499,8 @@
     "Suffix": "Суффикс",
     "Suffix Match": "Совпадение по суффиксу",
     "Suggested rules": "Предлагаемые правила",
-
     "Suggestions remaining: {{suggestions}}.": "Остались рекомендации: {{suggestions}}.",
-
     "Sum of all user balances (platform liability)": "Сумма всех балансов пользователей (обязательства платформы)",
-
     "Summarize text": "Кратко изложить текст",
     "SunoAPI": "SunoAPI",
     "Sunset Glow": "Закатное сияние",
@@ -6885,9 +6861,7 @@
     "This channel's plugin does not support login": "Плагин этого канала не поддерживает вход",
     "This combination will be billed as free.": "Эта комбинация будет тарифицироваться бесплатно.",
     "This confirmation unlocks payment, redemption code, subscription plan, and invitation reward features. Please read the statements carefully.": "Это подтверждение разблокирует функции платежей, кодов пополнения, планов подписки и наград за приглашения. Внимательно прочитайте заявления.",
-
     "This contact link will be permanently removed. Continue?": "Эта контактная ссылка будет удалена навсегда. Продолжить?",
-
     "This controls model request rate limiting. Web/API route throttling is configured by environment variables and may still return 429.": "Этот параметр управляет ограничением частоты запросов к моделям. Ограничение маршрутов Web/API настраивается переменными окружения и всё ещё может возвращать 429.",
     "This data may be unreliable, use with caution": "Эти данные могут быть ненадежными, используйте с осторожностью",
     "This device does not support Passkey": "Это устройство не поддерживает Passkey",
@@ -7846,9 +7820,7 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL must start with http:// or https://": "Well-Known URL должен начинаться с http:// или https://",
     "What do you want to change?": "Что вы хотите изменить?",
-
     "What the backup includes": "Что входит в резервную копию",
-
     "What would you like to know?": "Что вы хотели бы узнать?",
     "Whatever model the request asks for": "Для любой запрошенной модели",
     "Whatever the group or channel": "Независимо от группы и канала",
@@ -7963,7 +7935,6 @@
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
-
     "Archive": "Archive",
     "Daily archive of historical usage, revenue and payments.": "Daily archive of historical usage, revenue and payments.",
     "Daily Summaries": "Daily Summaries",
@@ -8037,7 +8008,7 @@
     "The copilot button is available across the admin console.": "The copilot button is available across the admin console.",
     "Show on Dashboard only": "Show on Dashboard only",
     "The copilot button is hidden outside the dashboard.": "The copilot button is hidden outside the dashboard.",
-    "Admin Copilot message input": "Admin Copilot message input"
-
+    "Admin Copilot message input": "Admin Copilot message input",
+    "Account": "Аккаунт"
   }
 }

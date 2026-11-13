@@ -196,10 +196,8 @@
     "A dry run needs a format, a model and a JSON object body": "A dry run needs a format, a model and a JSON object body",
     "A dry run reply must not exceed {{max}} bytes": "A dry run reply must not exceed {{max}} bytes",
     "A focused home for keys, balance, routing, and service health.": "A focused home for keys, balance, routing, and service health.",
-
     "A JSON file generated on this server, streamed directly to your device.": "A JSON file generated on this server, streamed directly to your device.",
     "A matching hash confirms the published file, not the safety of its code.": "A matching hash confirms the published file, not the safety of its code.",
-
     "A model update task is already running or queued. Cannot start this manual task": "A model update task is already running or queued. Cannot start this manual task",
     "A number": "A number",
     "A Passkey created for www.example.com cannot be used on example.com. Keep the old website available so users can still verify there.": "A Passkey created for www.example.com cannot be used on example.com. Keep the old website available so users can still verify there.",
@@ -1292,13 +1290,9 @@
     "Choose the domain used when this Passkey was created, then try again.": "Choose the domain used when this Passkey was created, then try again.",
     "Choose where to fetch upstream metadata.": "Choose where to fetch upstream metadata.",
     "Choose which charts are selected by default when opening model analytics.": "Choose which charts are selected by default when opening model analytics.",
-
     "Chosen groups": "Chosen groups",
-
     "Chosen models": "Chosen models",
-
     "Choose which console sections this user can see. Disabling a section hides it and blocks its API.": "Choose which console sections this user can see. Disabling a section hides it and blocks its API.",
-
     "Clamped to": "Clamped to",
     "Claude": "Claude",
     "Claude CLI Header Passthrough": "Claude CLI Header Passthrough",
@@ -2643,10 +2637,8 @@
     "Fail Reason Details": "Fail Reason Details",
     "failed": "failed",
     "Failed": "Failed",
-
     "Failed API requests logged today": "Failed API requests logged today",
     "Failed Requests Today": "Failed Requests Today",
-
     "Failed to {{action}} user": "Failed to {{action}} user",
     "Failed to adjust quota": "Failed to adjust quota",
     "Failed to apply overwrite.": "Failed to apply overwrite.",
@@ -3025,7 +3017,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For a stronger password": "For a stronger password",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
@@ -3218,9 +3210,7 @@
     "Has been invalidated": "Invalidated successfully",
     "Have a Code?": "Have a Code?",
     "Header": "Header",
-
     "Header (top nav)": "Header (top nav)",
-
     "header instead.": "header instead.",
     "Header Name": "Header Name",
     "Header navigation": "Header navigation",
@@ -3249,12 +3239,9 @@
     "Hide selected models from model square": "Hide selected models from model square",
     "Hide sensitive data": "Hide sensitive data",
     "Hide setup guide": "Hide setup guide",
-
     "High": "High",
-
     "Hide sidebar toggle on home page": "Hide sidebar toggle on home page",
     "Hides the mobile navigation menu button on the public home page. The console sidebar is unaffected.": "Hides the mobile navigation menu button on the public home page. The console sidebar is unaffected.",
-
     "High Performance": "High Performance",
     "High-risk operation confirmation": "High-risk Operation Confirmation",
     "High-risk status code retry confirmation text": "I understand the multiple billing and crash risks, and confirm enabling it",
@@ -3635,9 +3622,7 @@
     "Last active {{time}} · Expires {{expires}}": "Last active {{time}} · Expires {{expires}}",
     "Last check time": "Last check time",
     "Last detected addable models": "Last detected addable models",
-
     "Last download: {{time}}": "Last download: {{time}}",
-
     "Last Login": "Last Login",
     "Last Seen": "Last Seen",
     "Last successful check": "Last successful check",
@@ -3714,9 +3699,7 @@
     "Linked account": "Linked account",
     "Linked models": "Linked models",
     "Linked records are counted once. Matching rules show their covered models separately.": "Linked records are counted once. Matching rules show their covered models separately.",
-
     "Links render dynamically in the sidebar and header": "Links render dynamically in the sidebar and header",
-
     "Linux DO trust level does not meet the minimum required by administrator": "Linux DO trust level does not meet the minimum required by administrator",
     "LinuxDO": "LinuxDO",
     "LinuxDO Client ID": "LinuxDO Client ID",
@@ -4638,9 +4621,7 @@
     "Subject": "Subject",
     "Type your message": "Type your message",
     "Resolved": "Resolved",
-    "Low": "Low",
     "Normal": "Normal",
-    "High": "High",
     "Reply": "Reply",
     "Ticket created": "Ticket created",
     "Failed to create ticket": "Failed to create ticket",
@@ -5420,9 +5401,7 @@
     "Re-enable on success": "Re-enable on success",
     "Re-login": "Re-login",
     "Read channels": "Read channels",
-
     "Read-only ledger of all top-up and payment orders.": "Read-only ledger of all top-up and payment orders.",
-
     "Ready": "Ready",
     "Ready to initialize": "Ready to initialize",
     "Ready to simplify": "Ready to simplify",
@@ -6520,11 +6499,8 @@
     "Suffix": "Suffix",
     "Suffix Match": "Suffix Match",
     "Suggested rules": "Suggested rules",
-
     "Suggestions remaining: {{suggestions}}.": "Suggestions remaining: {{suggestions}}.",
-
     "Sum of all user balances (platform liability)": "Sum of all user balances (platform liability)",
-
     "Summarize text": "Summarize text",
     "SunoAPI": "SunoAPI",
     "Sunset Glow": "Sunset Glow",
@@ -6885,9 +6861,7 @@
     "This channel's plugin does not support login": "This channel's plugin does not support login",
     "This combination will be billed as free.": "This combination will be billed as free.",
     "This confirmation unlocks payment, redemption code, subscription plan, and invitation reward features. Please read the statements carefully.": "This confirmation unlocks payment, redemption code, subscription plan, and invitation reward features. Please read the statements carefully.",
-
     "This contact link will be permanently removed. Continue?": "This contact link will be permanently removed. Continue?",
-
     "This controls model request rate limiting. Web/API route throttling is configured by environment variables and may still return 429.": "This controls model request rate limiting. Web/API route throttling is configured by environment variables and may still return 429.",
     "This data may be unreliable, use with caution": "This data may be unreliable, use with caution",
     "This device does not support Passkey": "This device does not support Passkey",
@@ -7846,9 +7820,7 @@
     "Well-Known URL": "Well-Known URL",
     "Well-Known URL must start with http:// or https://": "Well-Known URL must start with http:// or https://",
     "What do you want to change?": "What do you want to change?",
-
     "What the backup includes": "What the backup includes",
-
     "What would you like to know?": "What would you like to know?",
     "Whatever model the request asks for": "Whatever model the request asks for",
     "Whatever the group or channel": "Whatever the group or channel",
@@ -7963,7 +7935,6 @@
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom",
-
     "Archive": "Archive",
     "Daily archive of historical usage, revenue and payments.": "Daily archive of historical usage, revenue and payments.",
     "Daily Summaries": "Daily Summaries",
@@ -8037,7 +8008,7 @@
     "The copilot button is available across the admin console.": "The copilot button is available across the admin console.",
     "Show on Dashboard only": "Show on Dashboard only",
     "The copilot button is hidden outside the dashboard.": "The copilot button is hidden outside the dashboard.",
-    "Admin Copilot message input": "Admin Copilot message input"
-
+    "Admin Copilot message input": "Admin Copilot message input",
+    "Account": "Account"
   }
 }

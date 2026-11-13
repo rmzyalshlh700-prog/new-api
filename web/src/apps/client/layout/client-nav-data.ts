@@ -17,9 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
+  Box,
   FileText,
   FlaskConical,
-  Image,
   Key,
   LayoutDashboard,
   LifeBuoy,
@@ -34,7 +34,9 @@ import { useTranslation } from 'react-i18next'
 import type { SidebarData } from '@/shared/components/layout/types'
 
 /**
- * Navigation for the client portal.
+ * Navigation for the client portal, ordered as:
+ * Dashboard → API Keys → Models → Usage Logs → Wallet → Profile →
+ * Security & Access → Chat.
  *
  * Deliberately contains no administrative entries: the admin console is a
  * separate portal with its own layout, routes and bundle.
@@ -45,34 +47,23 @@ export function useClientSidebarData(): SidebarData {
   return {
     navGroups: [
       {
-        id: 'workspace',
-        title: t('Workspace'),
+        id: 'console',
+        title: t('Console'),
         items: [
           {
-            title: t('Workspace'),
+            title: t('Dashboard'),
             url: '/app/workspace/overview',
             icon: LayoutDashboard,
           },
           {
-            title: t('Playground'),
-            url: '/app/playground',
-            icon: FlaskConical,
-          },
-          {
-            title: t('Chat'),
-            icon: MessageSquare,
-            type: 'chat-presets',
-          },
-        ],
-      },
-      {
-        id: 'api-usage',
-        title: t('API & Usage'),
-        items: [
-          {
             title: t('API Keys'),
             url: '/app/keys',
             icon: Key,
+          },
+          {
+            title: t('Models'),
+            url: '/pricing',
+            icon: Box,
           },
           {
             title: t('Usage Logs'),
@@ -87,7 +78,7 @@ export function useClientSidebarData(): SidebarData {
           {
             title: t('Drawing Logs'),
             url: '/app/usage-logs/drawing',
-            icon: Image,
+            icon: FileText,
           },
         ],
       },
@@ -114,6 +105,22 @@ export function useClientSidebarData(): SidebarData {
             title: t('Support'),
             url: '/app/support',
             icon: LifeBuoy,
+          },
+        ],
+      },
+      {
+        id: 'ai-studio',
+        title: t('Chat'),
+        items: [
+          {
+            title: t('Playground'),
+            url: '/app/playground',
+            icon: FlaskConical,
+          },
+          {
+            title: t('Chat'),
+            icon: MessageSquare,
+            type: 'chat-presets',
           },
         ],
       },
