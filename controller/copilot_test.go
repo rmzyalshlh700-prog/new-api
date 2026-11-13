@@ -228,8 +228,11 @@ func TestBuildCopilotChatRequestBoundsOutputTokens(t *testing.T) {
 		body     string
 		expected uint
 	}{
-		{"omitted budget", `{"messages":[{"id":"m1","textMessage":{"content":"hi","role":"user"}}]}`, copilotMaxTokensLimit},
-		{"oversized budget", `{"messages":[],"forwardedParameters":{"maxTokens":999999}}`, copilotMaxTokensLimit},
+		// Literal expectations: the audited contract is a 2048-token ceiling, so
+		// a change to the constant must show up here as a behavior change.
+		{"omitted budget", `{"messages":[{"id":"m1","textMessage":{"content":"hi","role":"user"}}]}`, 2048},
+		{"oversized budget (99999)", `{"messages":[],"forwardedParameters":{"maxTokens":99999}}`, 2048},
+		{"oversized budget (999999)", `{"messages":[],"forwardedParameters":{"maxTokens":999999}}`, 2048},
 		{"in-range budget", `{"messages":[],"forwardedParameters":{"maxTokens":64}}`, 64},
 		{"zero budget", `{"messages":[],"forwardedParameters":{"maxTokens":0}}`, 1},
 	}
@@ -243,4 +246,106 @@ func TestBuildCopilotChatRequestBoundsOutputTokens(t *testing.T) {
 			require.Equal(t, tc.expected, *request.MaxTokens)
 		})
 	}
+}
+
+// TestBuildCopilotChatRequestRejectsUnlistedModel covers SEC-002's model rule:
+// the browser may only select a model the server allow-lists, and a pinned
+// server model always wins over the client's choice.
+func TestBuildCopilotChatRequestRejectsUnlistedModel(t *testing.T) {
+	t.Setenv("COPILOT_MODEL", "")
+	t.Setenv("COPILOT_ALLOWED_MODELS", "gpt-4.1")
+	withCopilotTestOptions(t, map[string]string{})
+
+	for _, model := range []string{"gpt-3.5-turbo", "claude-3-opus", "gpt-4o-mini-2024-07-18"} {
+		t.Run("rejects "+model, func(t *testing.T) {
+			data := decodeCopilotChatData(t, fmt.Sprintf(`{"messages":[],"forwardedParameters":{"model":%q}}`, model))
+			_, err := buildCopilotChatRequest(&data, copilotToolExchange{})
+			require.ErrorContains(t, err, "is not allowed for the admin copilot")
+		})
+	}
+
+	t.Run("accepts an allow-listed model", func(t *testing.T) {
+		data := decodeCopilotChatData(t, `{"messages":[],"forwardedParameters":{"model":"gpt-4.1"}}`)
+		request, err := buildCopilotChatRequest(&data, copilotToolExchange{})
+		require.NoError(t, err)
+		require.Equal(t, "gpt-4.1", request.Model)
+	})
+
+	t.Run("server-pinned model wins", func(t *testing.T) {
+		withCopilotTestOptions(t, map[string]string{setting.CopilotModelOptionKey: "gpt-4o-mini"})
+		data := decodeCopilotChatData(t, `{"messages":[],"forwardedParameters":{"model":"gpt-3.5-turbo"}}`)
+		request, err := buildCopilotChatRequest(&data, copilotToolExchange{})
+		require.NoError(t, err)
+		require.Equal(t, "gpt-4o-mini", request.Model)
+	})
+}
+
+// TestUpdateCopilotSettingsRefusesBaseURLChangeWithoutNewKey covers SEC-001
+// end to end: an admin repointing copilot_base_url at an untrusted host while
+// omitting the API key is refused, so the stored platform credential can never
+// follow the new URL.
+func TestUpdateCopilotSettingsRefusesBaseURLChangeWithoutNewKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	withCopilotTestOptions(t, map[string]string{
+		setting.CopilotBaseURLOptionKey:       "https://api.openai.com",
+		setting.CopilotAPIKeyOptionKey:        "sk-platform-secret",
+		setting.CopilotAPIKeyBaseURLOptionKey: "https://api.openai.com",
+	})
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(
+		http.MethodPost,
+		"/api/admin/system-settings/copilot",
+		strings.NewReader(`{"base_url":"https://attacker.example","model":"gpt-4o-mini","visibility":"all"}`),
+	)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	UpdateCopilotSettings(c)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.JSONEq(t, `{"success":false,"message":"Changing the Copilot base URL requires entering a new API key, or clearing the saved key"}`, w.Body.String())
+	// Nothing was persisted: the saved configuration is untouched.
+	require.Equal(t, "https://api.openai.com", common.OptionMap[setting.CopilotBaseURLOptionKey])
+
+	apiKey, unbound := copilotAPIKeyForBaseURL("https://attacker.example")
+	require.Empty(t, apiKey)
+	require.True(t, unbound)
+
+	boundKey, unbound := copilotAPIKeyForBaseURL("https://api.openai.com")
+	require.Equal(t, "sk-platform-secret", boundKey)
+	require.False(t, unbound)
+}
+
+// TestCopilotChatNeverSendsStoredKeyToAnotherHost covers the downstream half of
+// SEC-001: with copilot_base_url pointing at another host, the stored key is not
+// attached to the outgoing request and that host is never contacted at all.
+func TestCopilotChatNeverSendsStoredKeyToAnotherHost(t *testing.T) {
+	var hits int
+	var authorization string
+	untrustedHost := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		authorization = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"leak"}}]}`))
+	}))
+	defer untrustedHost.Close()
+
+	withCopilotTestOptions(t, map[string]string{
+		setting.CopilotBaseURLOptionKey:       untrustedHost.URL,
+		setting.CopilotAPIKeyOptionKey:        "sk-platform-secret",
+		setting.CopilotAPIKeyBaseURLOptionKey: "https://api.openai.com",
+	})
+
+	data := decodeCopilotChatData(t, `{"threadId":"thread-1","messages":[{"id":"m1","textMessage":{"content":"hello","role":"user"}}]}`)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/admin/copilot/chat", nil)
+
+	_, apiErr := copilotRelayChat(c, &data, copilotToolExchange{})
+
+	require.NotNil(t, apiErr)
+	require.Contains(t, apiErr.Error(), "bound to a different base URL")
+	require.Zero(t, hits, "the untrusted host must never be contacted")
+	require.Empty(t, authorization)
 }

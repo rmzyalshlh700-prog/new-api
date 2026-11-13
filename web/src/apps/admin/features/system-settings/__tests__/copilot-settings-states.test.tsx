@@ -85,6 +85,47 @@ describe('Copilot settings page states', () => {
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
   })
 
+  it('shows a 500 failure as an error card whose retry recovers the form', async () => {
+    const serverError = Object.assign(
+      new Error('Request failed with status code 500'),
+      {
+        isAxiosError: true,
+        response: {
+          status: 500,
+          data: {
+            success: false,
+            message: 'Copilot settings could not be loaded',
+          },
+        },
+      }
+    )
+    const get = vi
+      .spyOn(api, 'get')
+      .mockRejectedValueOnce(serverError)
+      .mockResolvedValue({
+        data: { success: true, message: '', data: SETTINGS },
+      })
+    const user = renderSettings()
+
+    expect(
+      await screen.findByText('Failed to load Copilot settings')
+    ).toBeVisible()
+    expect(
+      screen.getByText('Copilot settings could not be loaded')
+    ).toBeVisible()
+    expect(
+      screen.queryByText('Loading Copilot settings...')
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(await screen.findByLabelText('Model ID')).toHaveValue('gpt-test')
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    expect(
+      screen.queryByRole('button', { name: 'Retry' })
+    ).not.toBeInTheDocument()
+  })
+
   it('labels the model combobox so the field has an accessible name', async () => {
     vi.spyOn(api, 'get').mockResolvedValue({
       data: { success: true, message: '', data: SETTINGS },
