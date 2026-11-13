@@ -107,7 +107,7 @@ export function useClientSidebarData(): SidebarData {
         title: t('Chat'),
         items: [
           {
-            title: t('Playground'),
+            title: t('Chat'),
             url: '/app/playground',
             icon: FlaskConical,
           },
