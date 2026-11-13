@@ -39,6 +39,7 @@ import {
   getPaymentOrdersStats,
   getProfitStats,
 } from './api'
+import { WidgetErrorBoundary } from './components/widget-error-boundary'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
 import { ClientBalancesPanel } from './components/client-balances-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
@@ -62,6 +63,18 @@ import {
 
 const TREND_DAYS = 30
 const TOP_MODEL_LIMIT = 6
+
+/** A timestamp is queryable only when it is a finite, non-negative number. */
+function isValidTimestamp(value: number | undefined): value is number {
+  return (
+    typeof value === 'number' && Number.isFinite(value) && value >= 0
+  )
+}
+
+/** Clamp the window so start <= end and the span cannot be negative. */
+function safeRange(start: number, end: number): { start: number; end: number } {
+  return start <= end ? { start, end } : { start: end, end: start }
+}
 
 export function AdminOverview() {
   const { t } = useTranslation()
@@ -96,45 +109,53 @@ export function AdminOverview() {
   )
   const currentHour = now.getHours()
 
+  // Unix seconds, floored; both timestamps are strictly validated before any
+  // query fires so a NaN/undefined value can never reach the API.
+  const nowSec = Math.floor(now.getTime() / 1000)
+  const quotaRange = isValidTimestamp(windowStart)
+    ? safeRange(windowStart, nowSec + 3600)
+    : null
+  const rateRange = safeRange(nowSec - 60, nowSec)
+
   const quotaQuery = useQuery({
-    queryKey: ['admin-overview', 'quota', windowStart],
+    queryKey: ['admin-overview', 'quota', quotaRange?.start],
     queryFn: async () =>
       requireServerSuccess(
         await getAdminQuotaRows({
-          start_timestamp: windowStart,
+          start_timestamp: quotaRange!.start,
           // Include the current hour even when the export lags behind.
-          end_timestamp: Math.floor(Date.now() / 1000) + 3600,
+          end_timestamp: quotaRange!.end,
         })
       ),
+    enabled: quotaRange !== null,
     refetchInterval: LIVE_REFRESH_MS,
     refetchIntervalInBackground: false,
     staleTime: LIVE_REFRESH_MS - 100,
   })
 
-  const allTimeRevenueQuery = useQuery({
-    queryKey: ['admin-overview', 'all-time-revenue'],
-    queryFn: async () =>
-      requireServerSuccess(
-        await getAdminLogStat({
-          end_timestamp: Math.floor(Date.now() / 1000),
-        })
-      ),
+  // All-time revenue comes from the profit-stats endpoint, which already
+  // returns an `all_time` bucket. The `/api/log/stat` endpoint rejects any
+  // window larger than 31 days, so a full-history query would always fail
+  // with "Invalid time range" and crash the page.
+  const profitStatsQuery = useQuery({
+    queryKey: ['admin-overview', 'profit-stats'],
+    queryFn: async () => requireServerSuccess(await getProfitStats()),
     refetchInterval: ALL_TIME_REFRESH_MS,
     refetchIntervalInBackground: false,
     staleTime: ALL_TIME_REFRESH_MS - 100,
   })
 
   const rateQuery = useQuery({
-    queryKey: ['admin-overview', 'rates'],
-    queryFn: async () => {
-      const timestamp = Math.floor(Date.now() / 1000)
-      return requireServerSuccess(
+    queryKey: ['admin-overview', 'rates', rateRange.start],
+    queryFn: async () =>
+      requireServerSuccess(
         await getAdminLogStat({
-          start_timestamp: timestamp - 60,
-          end_timestamp: timestamp,
+          start_timestamp: rateRange.start,
+          end_timestamp: rateRange.end,
         })
-      )
-    },
+      ),
+    enabled:
+      isValidTimestamp(rateRange.start) && isValidTimestamp(rateRange.end),
     refetchInterval: LIVE_REFRESH_MS,
     refetchIntervalInBackground: false,
     staleTime: LIVE_REFRESH_MS - 100,
@@ -151,14 +172,6 @@ export function AdminOverview() {
   const platformMetricsQuery = useQuery({
     queryKey: ['admin-overview', 'platform-metrics'],
     queryFn: async () => requireServerSuccess(await getAdminDashboardMetrics()),
-    refetchInterval: LIVE_REFRESH_MS,
-    refetchIntervalInBackground: false,
-    staleTime: LIVE_REFRESH_MS - 100,
-  })
-
-  const profitStatsQuery = useQuery({
-    queryKey: ['admin-overview', 'profit-stats'],
-    queryFn: async () => requireServerSuccess(await getProfitStats()),
     refetchInterval: LIVE_REFRESH_MS,
     refetchIntervalInBackground: false,
     staleTime: LIVE_REFRESH_MS - 100,
@@ -211,11 +224,11 @@ export function AdminOverview() {
     [quotaRows, todayStart, currentHour]
   )
   const allTimeRevenue =
-    allTimeRevenueQuery.data?.data == null
+    profitStatsQuery.data?.data == null
       ? null
-      : Number(allTimeRevenueQuery.data.data.quota ?? 0)
+      : Number(profitStatsQuery.data.data.all_time?.net_profit_quota ?? 0)
   const statsLoading = quotaQuery.isLoading
-  const essentialQueries = [quotaQuery, allTimeRevenueQuery]
+  const essentialQueries = [quotaQuery, profitStatsQuery]
   const queries = [
     ...essentialQueries,
     rateQuery,
@@ -287,78 +300,96 @@ export function AdminOverview() {
               </FadeIn>
 
               <FadeIn delay={0.02}>
-                <PlatformMetricsCards
-                  metrics={platformMetricsQuery.data?.data}
-                  loading={platformMetricsQuery.isLoading}
-                  profit={profitStatsQuery.data?.data}
-                  profitLoading={profitStatsQuery.isLoading}
-                  profitError={profitStatsQuery.isError}
-                />
+                <WidgetErrorBoundary>
+                  <PlatformMetricsCards
+                    metrics={platformMetricsQuery.data?.data}
+                    loading={platformMetricsQuery.isLoading}
+                    profit={profitStatsQuery.data?.data}
+                    profitLoading={profitStatsQuery.isLoading}
+                    profitError={profitStatsQuery.isError}
+                  />
+                </WidgetErrorBoundary>
               </FadeIn>
 
               <FadeIn delay={0.02}>
-                <PaymentOrdersWidget
-                  groups={paymentOrdersQuery.data?.data}
-                  loading={paymentOrdersQuery.isLoading}
-                />
+                <WidgetErrorBoundary>
+                  <PaymentOrdersWidget
+                    groups={paymentOrdersQuery.data?.data}
+                    loading={paymentOrdersQuery.isLoading}
+                  />
+                </WidgetErrorBoundary>
               </FadeIn>
 
               <FadeIn delay={0.02}>
-                <ClientBalancesPanel />
+                <WidgetErrorBoundary>
+                  <ClientBalancesPanel />
+                </WidgetErrorBoundary>
               </FadeIn>
 
               <FadeIn delay={0.05}>
-                <PerformanceOverview />
+                <WidgetErrorBoundary>
+                  <PerformanceOverview />
+                </WidgetErrorBoundary>
               </FadeIn>
 
               <FadeIn delay={0.1}>
-                <ActivityTrendPanel
-                  rows={quotaRows}
-                  now={now}
-                  loading={quotaQuery.isLoading}
-                  rates={
-                    rateQuery.isError ? null : (rateQuery.data?.data ?? null)
-                  }
-                  ratesLoading={rateQuery.isLoading}
-                />
+                <WidgetErrorBoundary>
+                  <ActivityTrendPanel
+                    rows={quotaRows}
+                    now={now}
+                    loading={quotaQuery.isLoading}
+                    rates={
+                      rateQuery.isError ? null : (rateQuery.data?.data ?? null)
+                    }
+                    ratesLoading={rateQuery.isLoading}
+                  />
+                </WidgetErrorBoundary>
               </FadeIn>
 
               <FadeIn delay={0.05}>
-                <RevenuePanel
-                  points={revenueTrend}
-                  monthlyPoints={monthlyRevenueTrend}
-                  revenueToday={totalsToday.quota}
-                  revenueMonth={totalsMonth.quota}
-                  revenueAllTime={allTimeRevenue}
-                  revenueYesterday={revenueYesterdayValue?.quota}
-                  daysElapsed={now.getDate()}
-                  loading={quotaQuery.isLoading}
-                />
+                <WidgetErrorBoundary>
+                  <RevenuePanel
+                    points={revenueTrend}
+                    monthlyPoints={monthlyRevenueTrend}
+                    revenueToday={totalsToday.quota}
+                    revenueMonth={totalsMonth.quota}
+                    revenueAllTime={allTimeRevenue}
+                    revenueYesterday={revenueYesterdayValue?.quota}
+                    daysElapsed={now.getDate()}
+                    loading={quotaQuery.isLoading}
+                  />
+                </WidgetErrorBoundary>
               </FadeIn>
 
               <div className='grid gap-3 sm:gap-4 xl:grid-cols-2'>
                 <FadeIn delay={0.15}>
-                  <TokenUsagePanel
-                    series={tokenSeries.series}
-                    points={tokenSeries.points}
-                    tokensToday={totalsToday.tokens}
-                    requestsToday={totalsToday.requests}
-                    loading={quotaQuery.isLoading}
-                  />
+                  <WidgetErrorBoundary>
+                    <TokenUsagePanel
+                      series={tokenSeries.series}
+                      points={tokenSeries.points}
+                      tokensToday={totalsToday.tokens}
+                      requestsToday={totalsToday.requests}
+                      loading={quotaQuery.isLoading}
+                    />
+                  </WidgetErrorBoundary>
                 </FadeIn>
                 <FadeIn delay={0.2}>
-                  <TopModelsPanel
-                    models={topModels}
-                    totalTokens={totalModelTokens}
-                    loading={quotaQuery.isLoading}
-                  />
+                  <WidgetErrorBoundary>
+                    <TopModelsPanel
+                      models={topModels}
+                      totalTokens={totalModelTokens}
+                      loading={quotaQuery.isLoading}
+                    />
+                  </WidgetErrorBoundary>
                 </FadeIn>
               </div>
               <FadeIn delay={0.25}>
-                <UserCharts
-                  filters={userChartsFilters}
-                  onFiltersChange={setUserChartsFilters}
-                />
+                <WidgetErrorBoundary>
+                  <UserCharts
+                    filters={userChartsFilters}
+                    onFiltersChange={setUserChartsFilters}
+                  />
+                </WidgetErrorBoundary>
               </FadeIn>
             </>
           )}
