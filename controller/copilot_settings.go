@@ -37,6 +37,23 @@ type updateCopilotSettingsRequest struct {
 	Visibility   string   `json:"visibility"`
 }
 
+// copilotAPIKeyForBaseURL resolves the API key to use for baseURL. The stored
+// key is returned only when it was entered for exactly this URL. The second
+// return value reports that a key is stored but belongs to another host (or has
+// no recorded host at all), so callers can explain the failure instead of
+// calling upstream unauthenticated.
+func copilotAPIKeyForBaseURL(baseURL string) (apiKey string, unbound bool) {
+	key := setting.CopilotOption(setting.CopilotAPIKeyOptionKey)
+	if key == "" {
+		return "", false
+	}
+	normalized := setting.NormalizeCopilotBaseURL(baseURL)
+	if normalized == "" || setting.CopilotAPIKeyBaseURL() != normalized {
+		return "", true
+	}
+	return key, false
+}
+
 func currentCopilotSettings() copilotSettingsResponse {
 	return copilotSettingsResponse{
 		BaseURL:          setting.CopilotOption(setting.CopilotBaseURLOptionKey),
@@ -81,7 +98,7 @@ func UpdateCopilotSettings(c *gin.Context) {
 	}
 	baseURL := setting.NormalizeCopilotBaseURL(request.BaseURL)
 	if baseURL != "" && !setting.IsValidCopilotBaseURL(baseURL) {
-		common.ApiErrorMsg(c, "Copilot base URL must be an absolute http(s) URL")
+		common.ApiErrorMsg(c, "Copilot base URL must be an absolute https URL (http is allowed only for localhost)")
 		return
 	}
 	visibility := request.Visibility
@@ -107,10 +124,26 @@ func UpdateCopilotSettings(c *gin.Context) {
 		}
 		values[setting.CopilotEnabledToolsOptionKey] = setting.CopilotEnabledToolsToJSON(tools)
 	}
-	if request.ClearAPIKey {
+	// The API key is bound to the base URL it was entered for. Saving a
+	// different base URL while a key is stored would hand the operator's
+	// credential to another host, so that transition needs a fresh key.
+	previousBaseURL := setting.NormalizeCopilotBaseURL(setting.CopilotOption(setting.CopilotBaseURLOptionKey))
+	storedKey := setting.CopilotOption(setting.CopilotAPIKeyOptionKey)
+	newKey := strings.TrimSpace(request.APIKey)
+	switch {
+	case request.ClearAPIKey:
 		values[setting.CopilotAPIKeyOptionKey] = ""
-	} else if key := strings.TrimSpace(request.APIKey); key != "" {
-		values[setting.CopilotAPIKeyOptionKey] = key
+		values[setting.CopilotAPIKeyBaseURLOptionKey] = ""
+	case newKey != "":
+		values[setting.CopilotAPIKeyOptionKey] = newKey
+		values[setting.CopilotAPIKeyBaseURLOptionKey] = baseURL
+	case storedKey != "" && baseURL != previousBaseURL:
+		common.ApiErrorMsg(c, "Changing the Copilot base URL requires entering a new API key, or clearing the saved key")
+		return
+	case storedKey != "" && baseURL != "" && setting.CopilotAPIKeyBaseURL() == "":
+		// A key saved before host binding existed is bound to the base URL the
+		// operator kept, so it can never follow a later change.
+		values[setting.CopilotAPIKeyBaseURLOptionKey] = baseURL
 	}
 	if err := model.UpdateOptionsBulk(values); err != nil {
 		common.ApiError(c, err)
@@ -147,8 +180,9 @@ func FetchCopilotModels(c *gin.Context) {
 		common.ApiErrorMsg(c, "Invalid request body")
 		return
 	}
-	configuredBaseURL := setting.CopilotOption(setting.CopilotBaseURLOptionKey)
-	baseURL := setting.NormalizeCopilotBaseURL(request.BaseURL)
+	configuredBaseURL := setting.NormalizeCopilotBaseURL(setting.CopilotOption(setting.CopilotBaseURLOptionKey))
+	requestedBaseURL := setting.NormalizeCopilotBaseURL(request.BaseURL)
+	baseURL := requestedBaseURL
 	if baseURL == "" {
 		baseURL = configuredBaseURL
 	}
@@ -157,15 +191,24 @@ func FetchCopilotModels(c *gin.Context) {
 		return
 	}
 	if !setting.IsValidCopilotBaseURL(baseURL) {
-		common.ApiErrorMsg(c, "Copilot base URL must be an absolute http(s) URL")
+		common.ApiErrorMsg(c, "Copilot base URL must be an absolute https URL (http is allowed only for localhost)")
 		return
 	}
+
 	apiKey := strings.TrimSpace(request.APIKey)
-	if apiKey == "" && baseURL == configuredBaseURL {
-		// The stored key belongs to the configured host. Sending it to any
-		// other base URL a caller supplies would hand the secret to that host,
-		// so a different origin must bring its own key.
-		apiKey = setting.CopilotOption(setting.CopilotAPIKeyOptionKey)
+	if apiKey == "" {
+		// A caller-supplied host must bring its own credential: the stored key
+		// belongs to the configured host and is never sent anywhere else.
+		if requestedBaseURL != "" && requestedBaseURL != configuredBaseURL {
+			common.ApiErrorMsg(c, "An API key is required when fetching models from a different base URL")
+			return
+		}
+		storedKey, unbound := copilotAPIKeyForBaseURL(baseURL)
+		if unbound {
+			common.ApiErrorMsg(c, "The saved Copilot API key is bound to a different base URL. Re-enter the key in the Copilot settings")
+			return
+		}
+		apiKey = storedKey
 	}
 
 	endpoint := setting.CopilotV1Endpoint(baseURL, "models")

@@ -1,6 +1,7 @@
 package setting
 
 import (
+	"net"
 	"net/url"
 	"strings"
 
@@ -11,11 +12,15 @@ import (
 // persisted in the options table and picked up on startup like every other
 // platform setting.
 const (
-	CopilotBaseURLOptionKey      = "copilot_base_url"
-	CopilotAPIKeyOptionKey       = "copilot_api_key"
-	CopilotModelOptionKey        = "copilot_model"
-	CopilotEnabledToolsOptionKey = "copilot_enabled_tools"
-	CopilotVisibilityOptionKey   = "copilot_visibility"
+	CopilotBaseURLOptionKey = "copilot_base_url"
+	CopilotAPIKeyOptionKey  = "copilot_api_key"
+	// CopilotAPIKeyBaseURLOptionKey records the base URL the stored API key was
+	// entered for. The key is only ever sent to that host, so repointing
+	// copilot_base_url cannot redirect the operator's credential elsewhere.
+	CopilotAPIKeyBaseURLOptionKey = "copilot_api_key_base_url"
+	CopilotModelOptionKey         = "copilot_model"
+	CopilotEnabledToolsOptionKey  = "copilot_enabled_tools"
+	CopilotVisibilityOptionKey    = "copilot_visibility"
 )
 
 // Copilot visibility modes.
@@ -55,6 +60,12 @@ func CopilotOption(key string) string {
 		return ""
 	}
 	return strings.TrimSpace(common.OptionMap[key])
+}
+
+// CopilotAPIKeyBaseURL returns the base URL the stored API key is bound to. An
+// empty value means the key predates host binding and may not be reused.
+func CopilotAPIKeyBaseURL() string {
+	return NormalizeCopilotBaseURL(CopilotOption(CopilotAPIKeyBaseURLOptionKey))
 }
 
 // CopilotEnabledTools parses the enabled tool list. Missing or invalid values
@@ -123,16 +134,33 @@ func CopilotV1Endpoint(baseURL string, path string) string {
 	return base + "/v1/" + path
 }
 
-// IsValidCopilotBaseURL accepts an absolute http(s) URL with a host.
+// IsValidCopilotBaseURL accepts an absolute https URL with a host. Plain http
+// is rejected outside loopback because the Copilot API key travels as a bearer
+// token on every request to this endpoint.
 func IsValidCopilotBaseURL(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil {
+	if err != nil || parsed.Host == "" {
 		return false
 	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+	switch parsed.Scheme {
+	case "https":
+		return true
+	case "http":
+		return isLoopbackCopilotHost(parsed.Hostname())
+	default:
 		return false
 	}
-	return parsed.Host != ""
+}
+
+// isLoopbackCopilotHost reports whether host is a local development address.
+// Only there is cleartext http acceptable.
+func isLoopbackCopilotHost(host string) bool {
+	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // ValidateCopilotOption validates a Copilot option value before it is
@@ -142,7 +170,7 @@ func ValidateCopilotOption(key string, value string) error {
 	switch key {
 	case CopilotBaseURLOptionKey:
 		if strings.TrimSpace(value) != "" && !IsValidCopilotBaseURL(value) {
-			return common.NewMessage("Copilot base URL must be an absolute http(s) URL")
+			return common.NewMessage("Copilot base URL must be an absolute https URL (http is allowed only for localhost)")
 		}
 	case CopilotVisibilityOptionKey:
 		if value != CopilotVisibilityAll && value != CopilotVisibilityDashboardOnly {

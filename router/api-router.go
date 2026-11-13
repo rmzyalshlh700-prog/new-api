@@ -440,7 +440,9 @@ func SetApiRouter(router *gin.Engine) {
 		// Admin Copilot: chat proxy for CopilotKit plus REST data for frontend tools.
 		copilotRoute := apiRouter.Group("/admin/copilot")
 		copilotRoute.Use(middleware.AdminAuth())
-		copilotRoute.POST("/chat", controller.AdminCopilotChat)
+		// The chat proxy spends platform credits on a paid upstream, so it carries
+		// its own per-admin budget on top of the global API limiter.
+		copilotRoute.POST("/chat", middleware.UserCriticalRateLimit("copilot"), controller.AdminCopilotChat)
 		copilotRoute.POST("/fetch-models", middleware.RequireVisibleSection("system_settings"), controller.FetchCopilotModels)
 		// CopilotKit v1.87+ handshake probe before the first chat exchange.
 		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)
