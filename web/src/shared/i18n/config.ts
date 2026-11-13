@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18n from 'i18next'
+import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
 import {
@@ -27,8 +28,9 @@ import {
 import en from './locales/en.json'
 
 /**
- * Storage key for the interface language. It must stay `i18nextLng` because the
- * pre-paint direction script in `index.html` reads the same key.
+ * Storage key for the interface language. It must stay `i18nextLng` because
+ * the `LanguageDetector` caches manual choices under it and the pre-paint
+ * direction script in `index.html` reads the same key.
  */
 const LANGUAGE_STORAGE_KEY = 'i18nextLng'
 
@@ -70,26 +72,14 @@ function matchSupportedLanguage(value: string): string | null {
   return normalized
 }
 
-/** Interface language for this page load: stored choice first, then browser. */
-export function detectInterfaceLanguage(): string {
-  try {
-    const cached = window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
-    if (cached) {
-      const matched = matchSupportedLanguage(cached)
-      if (matched) return matched
-    }
-  } catch {
-    // Storage blocked (private mode): fall through to the browser languages.
-  }
-
-  if (typeof navigator !== 'undefined') {
-    for (const candidate of navigator.languages ?? [navigator.language]) {
-      const matched = matchSupportedLanguage(candidate)
-      if (matched) return matched
-    }
-  }
-
-  return 'en'
+/**
+ * Resolve the `LanguageDetector`'s raw pick (stored choice first, then the
+ * browser's `navigator` languages) onto an interface code we ship. Unknown
+ * locales resolve to `null` so i18next falls back to English.
+ */
+function resolveDetectedLanguage(value?: string): string {
+  if (!value) return 'en'
+  return matchSupportedLanguage(value) ?? 'en'
 }
 
 async function loadBundle(code: string): Promise<LocaleBundle | undefined> {
@@ -137,7 +127,9 @@ export async function changeInterfaceLanguage(
   return code
 }
 
-const initialLanguage = detectInterfaceLanguage()
+const initialLanguage = resolveDetectedLanguage(
+  i18n.services.languageDetector?.detect() as string | undefined
+)
 
 /**
  * Resolves once the initial language chunk is loaded and i18next is ready.
@@ -145,21 +137,31 @@ const initialLanguage = detectInterfaceLanguage()
  */
 export const i18nReady: Promise<void> = (async () => {
   const initialBundle = await loadBundle(initialLanguage)
-  await i18n.use(initReactI18next).init({
-    resources: initialBundle
-      ? { en, [initialLanguage]: initialBundle }
-      : { en },
-    lng: initialLanguage,
-    fallbackLng: 'en',
-    supportedLngs: [...SUPPORTED_LANGUAGES],
-    load: 'currentOnly',
-    nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
-    debug: import.meta.env.DEV,
-    interpolation: {
-      escapeValue: false, // not needed for react as it escapes by default
-    },
-  })
-  persistInterfaceLanguage(initialLanguage)
+  await i18n
+    .use(LanguageDetector)
+    .use(initReactI18next)
+    .init({
+      // Check the manually chosen language stored in localStorage first, then
+      // the browser settings; unknown locales fall back to English.
+      detection: {
+        order: ['localStorage', 'navigator', 'htmlTag'],
+        lookupLocalStorage: LANGUAGE_STORAGE_KEY,
+        caches: ['localStorage'],
+      },
+      resources: initialBundle
+        ? { en, [initialLanguage]: initialBundle }
+        : { en },
+      supportedLngs: [...SUPPORTED_LANGUAGES],
+      nonExplicitSupportedLngs: true,
+      fallbackLng: 'en',
+      load: 'currentOnly',
+      nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
+      debug: import.meta.env.DEV,
+      interpolation: {
+        escapeValue: false, // not needed for react as it escapes by default
+      },
+    })
+  persistInterfaceLanguage(i18n.resolvedLanguage || initialLanguage)
 })()
 
 export default i18n
