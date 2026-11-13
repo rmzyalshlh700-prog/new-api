@@ -742,18 +742,6 @@ export const STATIC_I18N_KEYS = [
   'Updated channel status (ID: {{id}})',
   'Batch updated channel status ({{count}}/{{total}} changed)',
 
-  // Password strength labels and hints (passed to t at runtime)
-  'Password strength empty',
-  'Password strength weak',
-  'Password strength fair',
-  'Password strength good',
-  'Password strength strong',
-  '8–128 characters',
-  '15 or more characters',
-  'Uppercase and lowercase letters',
-  'A number',
-  'A symbol',
-
   // Misc
   'Cancel',
   'Status',
@@ -801,10 +789,10 @@ export const STATIC_I18N_KEYS = [
   'Current password is incorrect.',
   'Email verification code is incorrect.',
   'Email verification has ended. Start again to continue.',
-  'Enter password (8–128 characters)',
+  'Enter password',
+  'Set a secure password',
   'Long passwords are unavailable until the password storage upgrade is complete.',
   'New email verification code',
-  'Password must contain between 8 and 128 characters.',
   'Password settings have changed. Reload the page and try again.',
   'Please wait before requesting another verification code.',
   'Resend codes',

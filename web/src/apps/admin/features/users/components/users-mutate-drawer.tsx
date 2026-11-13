@@ -102,7 +102,6 @@ import { UserQuotaDialog } from './user-quota-dialog'
 import { UserVisibleSections } from './user-visible-sections'
 import { useUsers } from './users-provider'
 import { PasswordInput } from '@/shared/components/password-input'
-import { PasswordStrength } from '@/shared/components/password-strength'
 
 type UsersMutateDrawerProps = {
   open: boolean
@@ -398,13 +397,7 @@ export function UsersMutateDrawer({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('Password')}</FormLabel>
-                      <FormControl
-                        describedBy={
-                          !isUpdate || field.value
-                            ? 'user-password-strength'
-                            : undefined
-                        }
-                      >
+                      <FormControl>
                         <PasswordInput
                           {...field}
                           value={field.value ?? ''}
@@ -412,15 +405,10 @@ export function UsersMutateDrawer({
                           placeholder={
                             isUpdate
                               ? t('Leave empty to keep unchanged')
-                              : t('Enter password (8–128 characters)')
+                              : t('Enter password')
                           }
                         />
                       </FormControl>
-                      <PasswordStrength
-                        id='user-password-strength'
-                        value={field.value ?? ''}
-                        quietWhenEmpty={isUpdate}
-                      />
                       <FormMessage />
                     </FormItem>
                   )}

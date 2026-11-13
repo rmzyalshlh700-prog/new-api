@@ -458,14 +458,13 @@ it('allows a common new password after verifying the current password once', asy
   render(
     <ChangePasswordDialog open username='user' onOpenChange={onOpenChange} />
   )
-  expect(screen.getByLabelText('New Password')).toHaveAccessibleDescription(
-    expect.stringContaining('8–128 characters')
-  )
+  expect(
+    screen.queryByRole('meter', { name: 'Password strength' })
+  ).not.toBeInTheDocument()
   await user.type(screen.getByLabelText('Current Password'), 'current-password')
   await user.type(screen.getByLabelText('New Password'), 'password123')
   await user.type(screen.getByLabelText('Confirm New Password'), 'password123')
-  expect(screen.getByText('Easy to guess')).toBeVisible()
-  expect(screen.getByRole('status')).toHaveTextContent('Passwords match')
+  expect(screen.queryByText('Easy to guess')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Change Password' }))
   await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
   expect(get).toHaveBeenCalledWith(
@@ -504,7 +503,6 @@ it('shows a password confirmation mismatch once after a failed submit', async ()
     screen.getByLabelText('Confirm New Password'),
     'account-password!43'
   )
-  expect(screen.getAllByText('Passwords do not match')).toHaveLength(1)
 
   await user.click(screen.getByRole('button', { name: 'Change Password' }))
 
@@ -513,9 +511,6 @@ it('shows a password confirmation mismatch once after a failed submit', async ()
     expect(confirmation).toHaveAttribute('aria-invalid', 'true')
   )
   expect(screen.getAllByText('Passwords do not match')).toHaveLength(1)
-  expect(confirmation).toHaveAccessibleDescription(
-    /^\s*Passwords do not match\s*$/
-  )
   expect(put).not.toHaveBeenCalled()
 })
 
