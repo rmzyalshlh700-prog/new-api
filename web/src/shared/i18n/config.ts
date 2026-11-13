@@ -127,20 +127,23 @@ export async function changeInterfaceLanguage(
   return code
 }
 
-const initialLanguage = resolveDetectedLanguage(
-  i18n.services.languageDetector?.detect() as string | undefined
-)
-
 /**
  * Resolves once the initial language chunk is loaded and i18next is ready.
  * `main.tsx` awaits it before rendering so no untranslated key is ever painted.
  */
 export const i18nReady: Promise<void> = (async () => {
+  // Register the detector BEFORE reading it: `services.languageDetector` only
+  // exists after `.use(LanguageDetector)`. Detecting earlier silently returned
+  // `undefined`, so the initial locale chunk (e.g. Arabic) was never preloaded
+  // and i18next fell back to English on every load.
+  i18n.use(LanguageDetector).use(initReactI18next)
+
+  const initialLanguage = resolveDetectedLanguage(
+    i18n.services.languageDetector?.detect() as string | undefined
+  )
   const initialBundle = await loadBundle(initialLanguage)
-  await i18n
-    .use(LanguageDetector)
-    .use(initReactI18next)
-    .init({
+
+  await i18n.init({
       // Check the manually chosen language stored in localStorage first, then
       // the browser settings; unknown locales fall back to English.
       detection: {
