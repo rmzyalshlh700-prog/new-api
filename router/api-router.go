@@ -441,11 +441,19 @@ func SetApiRouter(router *gin.Engine) {
 		copilotRoute := apiRouter.Group("/admin/copilot")
 		copilotRoute.Use(middleware.AdminAuth())
 		copilotRoute.POST("/chat", controller.AdminCopilotChat)
+		copilotRoute.POST("/fetch-models", controller.FetchCopilotModels)
 		// CopilotKit v1.87+ handshake probe before the first chat exchange.
 		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)
 		copilotRoute.GET("/tools/financials", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotFinancials)
 		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), controller.GetCopilotUsers)
 		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotHealth)
+		copilotSettingsRoute := apiRouter.Group("/admin/system-settings/copilot")
+		copilotSettingsRoute.Use(middleware.AdminAuth())
+		copilotSettingsRoute.Use(middleware.RequireVisibleSection("system_settings"))
+		{
+			copilotSettingsRoute.GET("", controller.GetCopilotSettings)
+			copilotSettingsRoute.PUT("", controller.UpdateCopilotSettings)
+		}
 		// Full configuration backup download (admin console > Backup).
 		// The backup exports users, channels, API tokens and sensitive system
 		// options, so it is restricted to the root account.

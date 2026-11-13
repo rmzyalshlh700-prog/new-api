@@ -77,6 +77,7 @@ export const SETTINGS_MODELS_SECTION_IDS = [
 export const SETTINGS_MODELS_DEFAULT_SECTION = 'global'
 
 export const SETTINGS_OPERATIONS_SECTION_IDS = [
+  'copilot',
   'behavior',
   'alerts',
   'email',

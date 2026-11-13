@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +22,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
 
 	"github.com/gin-gonic/gin"
 )
@@ -284,6 +286,12 @@ func copilotRelayChat(c *gin.Context, data *copilotChatRequestVariablesData) (*d
 		return nil, types.NewError(buildErr, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
 
+	// When an administrator configured a dedicated upstream, the Copilot talks
+	// to it directly with its own credentials instead of the internal channels.
+	if baseURL := setting.CopilotOption(setting.CopilotBaseURLOptionKey); baseURL != "" {
+		return copilotDirectChat(c, request, baseURL, setting.CopilotOption(setting.CopilotAPIKeyOptionKey))
+	}
+
 	// Serialize the synthesized request and re-read it through the ordinary
 	// relay entry point so validation, token counting and conversion all run.
 	body, err := common.Marshal(request)
@@ -372,6 +380,64 @@ func copilotParseRelayResponse(relayCtx *gin.Context) (*dto.OpenAITextResponse, 
 	return &openaiResp, nil
 }
 
+// copilotDirectChat sends the synthesized completion to the administrator's
+// configured OpenAI-compatible upstream, authenticated with its own key. It is
+// used instead of the internal relay whenever copilot_base_url is set.
+func copilotDirectChat(c *gin.Context, request *dto.GeneralOpenAIRequest, baseURL string, apiKey string) (*dto.OpenAITextResponse, *types.NewAPIError) {
+	body, err := common.Marshal(request)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeJsonMarshalFailed)
+	}
+	endpoint := setting.CopilotV1Endpoint(baseURL, "chat/completions")
+	if err := service.ValidateSSRFProtectedFetchURL(endpoint); err != nil {
+		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	httpRequest, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest.Header.Set("Accept", "application/json")
+	if apiKey != "" {
+		httpRequest.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	protectedClient := *service.GetSSRFProtectedHTTPClient()
+	protectedClient.Timeout = 120 * time.Second
+	response, err := protectedClient.Do(httpRequest)
+	if err != nil {
+		return nil, types.NewError(fmt.Errorf("copilot upstream request failed: %w", err), types.ErrorCodeDoRequestFailed)
+	}
+	defer response.Body.Close()
+
+	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 8<<20))
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeReadResponseBodyFailed)
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		message := strings.TrimSpace(string(responseBody))
+		if len(message) > 300 {
+			message = message[:300] + "..."
+		}
+		if message == "" {
+			message = response.Status
+		}
+		return nil, types.NewError(fmt.Errorf("copilot upstream rejected the request (%d): %s", response.StatusCode, message), types.ErrorCodeBadResponse)
+	}
+
+	var openaiResp dto.OpenAITextResponse
+	if err := common.Unmarshal(responseBody, &openaiResp); err != nil {
+		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	if len(openaiResp.Choices) == 0 {
+		return nil, types.NewError(fmt.Errorf("copilot upstream response contained no choices"), types.ErrorCodeBadResponse)
+	}
+	if openaiResp.Id == "" {
+		openaiResp.Id = fmt.Sprintf("chatcmpl-copilot-%d", time.Now().UnixNano())
+	}
+	return &openaiResp, nil
+}
+
 // buildCopilotChatRequest converts the CopilotKit conversation, context and
 // frontend tools into an OpenAI chat completion request. It returns an error
 // when the client asks for a model the server has not allow-listed.
@@ -424,9 +490,15 @@ func buildCopilotChatRequest(data *copilotChatRequestVariablesData) (*dto.Genera
 		Stream:   common.GetPointer(false),
 	}
 
+	// Only actions enabled in the Copilot settings may reach the model: a tool
+	// the administrator disabled is never advertised to the LLM.
+	enabledTools := setting.CopilotEnabledToolSet()
 	if len(data.Frontend.Actions) > 0 {
 		tools := make([]dto.ToolCallRequest, 0, len(data.Frontend.Actions))
 		for _, action := range data.Frontend.Actions {
+			if _, enabled := enabledTools[action.Name]; !enabled {
+				continue
+			}
 			tools = append(tools, dto.ToolCallRequest{
 				Type: "function",
 				Function: dto.FunctionRequest{
@@ -436,11 +508,16 @@ func buildCopilotChatRequest(data *copilotChatRequestVariablesData) (*dto.Genera
 				},
 			})
 		}
-		req.Tools = tools
+		if len(tools) > 0 {
+			req.Tools = tools
+		}
 	}
 
 	if fp := data.ForwardedParameters; fp != nil {
-		if fp.Model != "" {
+		// An explicit model in the Copilot settings wins over the browser's
+		// forwarded parameter. When the operator has not pinned a model, the
+		// browser may only choose one from the server allow-list.
+		if fp.Model != "" && setting.CopilotOption(setting.CopilotModelOptionKey) == "" {
 			if _, allowed := copilotAllowedModels()[fp.Model]; !allowed {
 				return nil, fmt.Errorf("model %q is not allowed for the admin copilot", fp.Model)
 			}
@@ -499,10 +576,14 @@ func copilotPageContextBlock(url string, items []copilotContextItem) string {
 	return sb.String()
 }
 
-// copilotModelName returns the model the Admin Copilot should use. Operators
-// override it with the COPILOT_MODEL environment variable; the default is a
-// widely available chat model.
+// copilotModelName returns the model the Admin Copilot should use. The model
+// saved in the Copilot settings wins; operators otherwise override it with the
+// COPILOT_MODEL environment variable, and the default is a widely available
+// chat model.
 func copilotModelName() string {
+	if m := setting.CopilotOption(setting.CopilotModelOptionKey); m != "" {
+		return m
+	}
 	if m := strings.TrimSpace(os.Getenv("COPILOT_MODEL")); m != "" {
 		return m
 	}
