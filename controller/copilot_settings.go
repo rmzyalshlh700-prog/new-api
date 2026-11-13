@@ -52,6 +52,25 @@ func GetCopilotSettings(c *gin.Context) {
 	common.ApiSuccess(c, currentCopilotSettings())
 }
 
+// copilotRuntimeSettings is the subset of the configuration the chat runtime
+// needs. It is readable by every admin, not only those allowed into system
+// settings: the operator's tool and visibility policy applies to all of them,
+// and without it a restricted admin would be left with no tools at all. It
+// deliberately carries no connection details.
+type copilotRuntimeSettings struct {
+	EnabledTools []string `json:"enabled_tools"`
+	Visibility   string   `json:"visibility"`
+}
+
+// GetCopilotRuntimeSettings returns the tool permissions and visibility for
+// the admin Copilot runtime.
+func GetCopilotRuntimeSettings(c *gin.Context) {
+	common.ApiSuccess(c, copilotRuntimeSettings{
+		EnabledTools: setting.CopilotEnabledTools(),
+		Visibility:   setting.CopilotVisibility(),
+	})
+}
+
 // UpdateCopilotSettings persists the admin Copilot configuration atomically.
 // An empty api_key leaves the stored key untouched; clear_api_key removes it.
 func UpdateCopilotSettings(c *gin.Context) {
@@ -73,17 +92,20 @@ func UpdateCopilotSettings(c *gin.Context) {
 		common.ApiErrorMsg(c, "Copilot visibility must be all or dashboard_only")
 		return
 	}
-	tools := setting.NormalizeCopilotTools(request.EnabledTools)
-	if len(tools) != len(dedupeStrings(request.EnabledTools)) {
-		common.ApiErrorMsg(c, "Copilot tools contain unknown tool names")
-		return
-	}
-
 	values := map[string]string{
-		setting.CopilotBaseURLOptionKey:      baseURL,
-		setting.CopilotModelOptionKey:        strings.TrimSpace(request.Model),
-		setting.CopilotEnabledToolsOptionKey: setting.CopilotEnabledToolsToJSON(tools),
-		setting.CopilotVisibilityOptionKey:   visibility,
+		setting.CopilotBaseURLOptionKey:    baseURL,
+		setting.CopilotModelOptionKey:      strings.TrimSpace(request.Model),
+		setting.CopilotVisibilityOptionKey: visibility,
+	}
+	// An absent enabled_tools field means "leave the permissions alone"; only
+	// an explicit array (including an empty one) rewrites the tool set.
+	if request.EnabledTools != nil {
+		tools := setting.NormalizeCopilotTools(request.EnabledTools)
+		if len(tools) != len(dedupeStrings(request.EnabledTools)) {
+			common.ApiErrorMsg(c, "Copilot tools contain unknown tool names")
+			return
+		}
+		values[setting.CopilotEnabledToolsOptionKey] = setting.CopilotEnabledToolsToJSON(tools)
 	}
 	if request.ClearAPIKey {
 		values[setting.CopilotAPIKeyOptionKey] = ""
@@ -125,9 +147,10 @@ func FetchCopilotModels(c *gin.Context) {
 		common.ApiErrorMsg(c, "Invalid request body")
 		return
 	}
+	configuredBaseURL := setting.CopilotOption(setting.CopilotBaseURLOptionKey)
 	baseURL := setting.NormalizeCopilotBaseURL(request.BaseURL)
 	if baseURL == "" {
-		baseURL = setting.CopilotOption(setting.CopilotBaseURLOptionKey)
+		baseURL = configuredBaseURL
 	}
 	if baseURL == "" {
 		common.ApiErrorMsg(c, "Set a Copilot base URL before fetching models")
@@ -138,7 +161,10 @@ func FetchCopilotModels(c *gin.Context) {
 		return
 	}
 	apiKey := strings.TrimSpace(request.APIKey)
-	if apiKey == "" {
+	if apiKey == "" && baseURL == configuredBaseURL {
+		// The stored key belongs to the configured host. Sending it to any
+		// other base URL a caller supplies would hand the secret to that host,
+		// so a different origin must bring its own key.
 		apiKey = setting.CopilotOption(setting.CopilotAPIKeyOptionKey)
 	}
 
@@ -201,13 +227,15 @@ func FetchCopilotModels(c *gin.Context) {
 // a bare array of ids and returns a sorted, de-duplicated list.
 func parseCopilotModelIDs(body []byte) ([]string, error) {
 	var payload struct {
-		Data []struct {
+		Data *[]struct {
 			ID string `json:"id"`
 		} `json:"data"`
 	}
 	ids := make([]string, 0)
-	if err := common.Unmarshal(bytes.TrimSpace(body), &payload); err == nil && len(payload.Data) > 0 {
-		for _, item := range payload.Data {
+	// A present data array is authoritative even when empty: a compatible
+	// provider with no models answers {"data":[]}, which is a valid empty list.
+	if err := common.Unmarshal(bytes.TrimSpace(body), &payload); err == nil && payload.Data != nil {
+		for _, item := range *payload.Data {
 			ids = append(ids, item.ID)
 		}
 	} else {

@@ -13,7 +13,8 @@ import {
 
 import {
   ADMIN_COPILOT_DEFAULT_PATH,
-  useAdminCopilotSettings,
+  ALL_ADMIN_COPILOT_TOOLS,
+  useAdminCopilotRuntimeSettings,
   type AdminCopilotToolName,
 } from './admin-copilot-config'
 import { useAdminCopilot } from './use-admin-copilot'
@@ -82,8 +83,11 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
-  const { data: settings } = useAdminCopilotSettings()
-  const enabledTools = settings?.enabled_tools ?? []
+  const { data: settings } = useAdminCopilotRuntimeSettings()
+  // Until the policy loads, advertise the full set: the gateway filters tools
+  // against the stored policy server-side, so this cannot widen permissions and
+  // it keeps the copilot usable instead of tool-less for the first render.
+  const enabledTools = settings?.enabled_tools ?? ALL_ADMIN_COPILOT_TOOLS
   // The bot is hidden outside the dashboard when visibility is dashboard-only,
   // but the admin tree always renders so the rest of the portal keeps working.
   const hideCopilot =

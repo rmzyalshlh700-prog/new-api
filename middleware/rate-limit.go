@@ -265,8 +265,13 @@ func userRedisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, key
 	allowed, _, ttlSeconds, err := redisFixedWindowTake(c.Request.Context(), key, maxRequestNum, duration)
 	if err != nil {
 		logRateLimitFailure(c.Request.Context(), err, common.LogText("rate limit check failed (key=%s): %v", key, err))
-		c.Status(http.StatusInternalServerError)
-		c.Abort()
+		// User-keyed limits guard critical account operations, so a Redis
+		// outage must degrade to the per-instance limiter instead of turning
+		// password changes and similar endpoints into HTTP 500s.
+		inMemoryRateLimiter.Init(common.RateLimitKeyExpirationDuration)
+		if !inMemoryRateLimiter.Request(key, maxRequestNum, duration) {
+			writeRateLimited(c, duration)
+		}
 		return
 	}
 	if !allowed {

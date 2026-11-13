@@ -16,6 +16,7 @@ import { Switch } from '@/shared/components/ui/switch'
 import { handleServerError } from '@/shared/lib/handle-server-error'
 
 import {
+  ADMIN_COPILOT_RUNTIME_QUERY_KEY,
   ADMIN_COPILOT_SETTINGS_QUERY_KEY,
   ADMIN_COPILOT_TOOLS,
   fetchAdminCopilotModels,
@@ -51,17 +52,26 @@ export function CopilotSettings() {
   const [form, setForm] = useState<CopilotFormState | null>(null)
   const [models, setModels] = useState<string[]>([])
 
+  // Seed the form from the first successful load only. A refetch (window
+  // focus, post-save invalidation) must never overwrite edits the admin has
+  // not saved yet.
   useEffect(() => {
-    if (settings) setForm(toFormState(settings))
+    if (!settings) return
+    setForm((current) => current ?? toFormState(settings))
   }, [settings])
 
   const saveMutation = useMutation({
     mutationFn: updateAdminCopilotSettings,
     onSuccess: async () => {
       toast.success(t('Copilot settings saved successfully'))
-      await queryClient.invalidateQueries({
-        queryKey: ADMIN_COPILOT_SETTINGS_QUERY_KEY,
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ADMIN_COPILOT_SETTINGS_QUERY_KEY,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ADMIN_COPILOT_RUNTIME_QUERY_KEY,
+        }),
+      ])
       setForm((current) => (current ? { ...current, api_key: '' } : current))
     },
     onError: (error: Error) => {

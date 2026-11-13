@@ -69,6 +69,12 @@ export const ALL_ADMIN_COPILOT_TOOLS: AdminCopilotToolName[] =
 export const ADMIN_COPILOT_DEFAULT_PATH = '/admin/overview'
 
 export const ADMIN_COPILOT_SETTINGS_QUERY_KEY = ['admin-copilot-settings']
+export const ADMIN_COPILOT_RUNTIME_QUERY_KEY = ['admin-copilot-runtime']
+
+export interface AdminCopilotRuntimeSettings {
+  enabled_tools: AdminCopilotToolName[]
+  visibility: AdminCopilotVisibility
+}
 
 export const defaultAdminCopilotSettings: AdminCopilotSettings = {
   base_url: '',
@@ -93,6 +99,33 @@ export function useAdminCopilotSettings() {
         enabled_tools: Array.isArray(result.data?.enabled_tools)
           ? result.data.enabled_tools
           : ALL_ADMIN_COPILOT_TOOLS,
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * Runtime policy for every admin, including those not allowed into system
+ * settings. The full settings endpoint is restricted, so the chat runtime
+ * reads this sanitized subset instead of losing all tools for those admins.
+ */
+export function useAdminCopilotRuntimeSettings() {
+  return useQuery({
+    queryKey: ADMIN_COPILOT_RUNTIME_QUERY_KEY,
+    queryFn: async (): Promise<AdminCopilotRuntimeSettings> => {
+      const response = await api.get<ApiEnvelope<AdminCopilotRuntimeSettings>>(
+        '/api/admin/copilot/settings'
+      )
+      const result = requireServerSuccess(response.data)
+      return {
+        enabled_tools: Array.isArray(result.data?.enabled_tools)
+          ? result.data.enabled_tools
+          : ALL_ADMIN_COPILOT_TOOLS,
+        visibility:
+          result.data?.visibility === 'dashboard_only'
+            ? 'dashboard_only'
+            : 'all',
       }
     },
     staleTime: 60_000,
