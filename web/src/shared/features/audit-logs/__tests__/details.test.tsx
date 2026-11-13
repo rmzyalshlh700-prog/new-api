@@ -30,7 +30,7 @@ import type { ReactElement } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import type { PermissionResourceDef } from '@/shared/lib/admin-permissions'
 import { api } from '@/shared/lib/api'
 import dayjs from '@/shared/lib/dayjs'
@@ -84,7 +84,7 @@ it.each([
   [1, 'user'],
 ] as const)('keeps role %i as %s in Chinese', async (role, label) => {
   const i18n = createInstance()
-  await i18n.init({ lng: 'zh', resources: { zh } })
+  await i18n.init({ lng: 'ru', resources: { ru } })
   const log = {
     ...entry,
     actor_role: role,
@@ -123,7 +123,7 @@ it.each([
   ['token.key_view_batch', '批量查看 API 令牌密钥'],
 ])('localizes the neutral event summary for %s', async (action, summary) => {
   const i18n = createInstance()
-  await i18n.init({ lng: 'zh', resources: { zh } })
+  await i18n.init({ lng: 'ru', resources: { ru } })
   const detail = buildAuditDetails(
     {
       ...entry,
@@ -665,7 +665,7 @@ it.each([
   'renders redemption audit %s at %s with recorded result %j',
   async (action, route, params, success, summary) => {
     const i18n = createInstance()
-    await i18n.init({ lng: 'zh', resources: { zh } })
+    await i18n.init({ lng: 'ru', resources: { ru } })
     const detail = buildAuditDetails(
       {
         ...entry,
@@ -886,7 +886,7 @@ it('loads scope labels for a generated token when its details open', async () =>
     data: { success: true, data: { resources: scopeResources } },
   })
   const i18n = createInstance()
-  await i18n.init({ lng: 'zh', resources: { zh } })
+  await i18n.init({ lng: 'ru', resources: { ru } })
   renderWithQueryClient(
     <I18nextProvider i18n={i18n}>
       <AuditLogDetailsDialog
@@ -918,7 +918,7 @@ it('loads scope labels for a permission change when its details open', async () 
     data: { success: true, data: { resources: scopeResources } },
   })
   const i18n = createInstance()
-  await i18n.init({ lng: 'zh', resources: { zh } })
+  await i18n.init({ lng: 'ru', resources: { ru } })
   renderWithQueryClient(
     <I18nextProvider i18n={i18n}>
       <AuditLogDetailsDialog

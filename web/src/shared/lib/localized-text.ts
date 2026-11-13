@@ -26,10 +26,10 @@ export type LocalizedTextValue = string | Record<string, string>
 /**
  * Resolve LocalizedText against an i18next language code.
  *
- * This project's `i18n.language` values are `en` / `zhCN` / `zhTW` / `fr` /
- * `ru` / `ja` / `vi` / `ar` (see `web/src/i18n/config.ts`). Backend keys are
- * BCP-47 (`en`, `zh`, `zh-TW`). Matching is case-insensitive and also accepts
- * hyphenated tags (`zh-TW`, `en-US`) so callers can pass either shape.
+ * This project's `i18n.language` values are `en` / `ru` / `ar` (see
+ * `web/src/shared/i18n/config.ts`). Backend keys may be BCP-47 (`en`, `zh`,
+ * `zh-TW`). Matching is case-insensitive and also accepts hyphenated tags
+ * (`en-US`) so callers can pass either shape.
  *
  * Fallback: exact tag → primary subtag → `en` → first key in sorted order → `''`.
  */
@@ -69,13 +69,9 @@ function localeFallbackKeys(language: string): string[] {
   }
 
   add(normalized)
-  if (normalized === 'zhcn') add('zh-cn')
-  if (normalized === 'zhtw') add('zh-tw')
 
   if (normalized.includes('-')) {
     add(normalized.slice(0, normalized.indexOf('-')))
-  } else if (normalized === 'zhcn' || normalized === 'zhtw') {
-    add('zh')
   }
   add('en')
   return keys

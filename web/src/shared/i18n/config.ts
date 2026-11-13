@@ -34,12 +34,7 @@ const LANGUAGE_STORAGE_KEY = 'i18nextLng'
 
 export const SUPPORTED_LANGUAGES = [
   'en',
-  'zhCN',
-  'fr',
   'ru',
-  'ja',
-  'vi',
-  'zhTW',
   'ar',
 ] as const
 
@@ -55,12 +50,7 @@ const LAZY_LOCALES: Record<
   LazyLocaleCode,
   () => Promise<{ default: LocaleBundle }>
 > = {
-  zhCN: () => import('./locales/zh.json'),
-  fr: () => import('./locales/fr.json'),
   ru: () => import('./locales/ru.json'),
-  ja: () => import('./locales/ja.json'),
-  vi: () => import('./locales/vi.json'),
-  zhTW: () => import('./locales/zh-TW.json'),
   ar: () => import('./locales/ar.json'),
 }
 

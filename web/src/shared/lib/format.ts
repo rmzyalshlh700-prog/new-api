@@ -35,7 +35,7 @@ import {
 /**
  * Locale for the active interface language, ready for `Intl.*`.
  *
- * Interface codes such as `zhCN` / `zhTW` are not valid BCP-47 tags, so they
+ * Interface codes must be valid BCP-47 tags, so they
  * always pass through `toIntlLocale`. This is the single place where the
  * interface language is read for formatting; non-React helpers use it as their
  * default, while components pass `toIntlLocale(i18n.language)` explicitly so

@@ -31,7 +31,7 @@ import { I18nextProvider, initReactI18next } from 'react-i18next'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import en from '@/shared/i18n/locales/en.json'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 import { STATUS_QUERY_KEY } from '@/shared/lib/status-query'
 import { useAuthStore } from '@/shared/stores/auth-store'
@@ -788,10 +788,10 @@ it('confirms both email addresses after identity verification and freezes the su
 it('translates the delete confirmation as a sentence and preserves the literal username on language change', async () => {
   const i18n = createInstance()
   await i18n.use(initReactI18next).init({
-    lng: 'zh',
+    lng: 'ru',
     fallbackLng: false,
     nsSeparator: false,
-    resources: { en, zh },
+    resources: { en, ru },
     interpolation: { escapeValue: false },
   })
   const username = 'admin <b>name</b>'
@@ -801,7 +801,9 @@ it('translates the delete confirmation as a sentence and preserves the literal u
     </I18nextProvider>
   )
   expect(
-    screen.getByRole('textbox', { name: `输入 ${username} 以确认` })
+    screen.getByRole('textbox', {
+      name: `Введите ${username} для подтверждения`,
+    })
   ).toBeVisible()
   await act(() => i18n.changeLanguage('en'))
   expect(
@@ -813,10 +815,10 @@ it('translates the delete confirmation as a sentence and preserves the literal u
 it('shows complete translated 2FA step descriptions and updates every step on language change', async () => {
   const i18n = createInstance()
   await i18n.use(initReactI18next).init({
-    lng: 'zh',
+    lng: 'ru',
     fallbackLng: false,
     nsSeparator: false,
-    resources: { en, zh },
+    resources: { en, ru },
     interpolation: { escapeValue: false },
   })
   const user = userEvent.setup()
@@ -839,13 +841,13 @@ it('shows complete translated 2FA step descriptions and updates every step on la
     </I18nextProvider>
   )
   const descriptions = [
-    ['第 1 步，共 3 步：扫描二维码', 'Step 1 of 3: Scan QR Code'],
-    ['第 2 步，共 3 步：保存备份代码', 'Step 2 of 3: Save Backup Codes'],
-    ['第 3 步，共 3 步：验证设置', 'Step 3 of 3: Verify Setup'],
+    ['Шаг 1 из 3: Сканировать QR-код', 'Step 1 of 3: Scan QR Code'],
+    ['Шаг 2 из 3: Сохранить резервные коды', 'Step 2 of 3: Save Backup Codes'],
+    ['Шаг 3 из 3: Проверить настройку', 'Step 3 of 3: Verify Setup'],
   ]
-  for (const [chinese, english] of descriptions) {
-    await act(() => i18n.changeLanguage('zh'))
-    expect(screen.getByRole('dialog')).toHaveAccessibleDescription(chinese)
+  for (const [russian, english] of descriptions) {
+    await act(() => i18n.changeLanguage('ru'))
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription(russian)
     await act(() => i18n.changeLanguage('en'))
     expect(screen.getByRole('dialog')).toHaveAccessibleDescription(english)
     const next = screen.queryByRole('button', { name: 'Next' })
