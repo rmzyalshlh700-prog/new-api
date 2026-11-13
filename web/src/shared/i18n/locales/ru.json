@@ -5024,6 +5024,7 @@
     "Please enter your email first": "Пожалуйста, сначала введите ваш email",
     "Please enter your password": "Пожалуйста, введите пароль",
     "Please enter your username": "Пожалуйста, введите имя пользователя",
+    "Username can only contain English letters and numbers.": "Username can only contain English letters and numbers.",
     "Please enter your username or email": "Пожалуйста, введите имя пользователя или адрес электронной почты",
     "Please enter your verification code": "Пожалуйста, введите код подтверждения",
     "Please enter your verification code or backup code": "Пожалуйста, введите код подтверждения или резервный код",

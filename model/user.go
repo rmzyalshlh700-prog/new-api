@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,17 @@ import (
 )
 
 const UserNameMaxLength = 20
+
+// UserNamePattern keeps console usernames portable: ASCII letters and digits
+// only, with no spaces, punctuation or non-Latin scripts. Provider-issued and
+// pre-existing names are not rewritten by it; controllers apply it when a
+// username is created or changed through the API.
+var UserNamePattern = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+
+// IsValidUserName reports whether username satisfies UserNamePattern.
+func IsValidUserName(username string) bool {
+	return UserNamePattern.MatchString(username)
+}
 
 var userSortColumns = map[string]string{
 	"id":            "id",

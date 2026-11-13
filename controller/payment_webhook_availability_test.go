@@ -421,6 +421,8 @@ func TestPaymentWebhookLogsExcludeRawPayloadsAndSignatures(t *testing.T) {
 	assert.NotContains(t, logged, bodyMarker, "raw webhook bodies must never be logged")
 	assert.NotContains(t, logged, signatureMarker, "webhook signatures must never be logged")
 
+}
+
 // newEpayRSAKeyPairForTest returns a throwaway key pair as single-line Base64
 // text, the format Epay merchant consoles show.
 func newEpayRSAKeyPairForTest(t *testing.T) (string, string) {

@@ -67,6 +67,10 @@ func PostSetup(c *gin.Context) {
 			common.ApiErrorT(c, "Username must be {{max}} characters or fewer", map[string]any{"max": 12})
 			return
 		}
+		if !model.IsValidUserName(req.Username) {
+			common.ApiErrorT(c, "Username can only contain English letters and numbers.")
+			return
+		}
 		// Validate password
 		if req.Password != req.ConfirmPassword {
 			common.ApiErrorT(c, "Passwords do not match")

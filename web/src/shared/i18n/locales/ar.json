@@ -5024,6 +5024,7 @@
     "Please enter your email first": "يرجى إدخال بريدك الإلكتروني أولًا",
     "Please enter your password": "يرجى إدخال كلمة المرور",
     "Please enter your username": "يرجى إدخال اسم المستخدم",
+    "Username can only contain English letters and numbers.": "اسم المستخدم يجب أن يحتوي على حروف إنجليزية وأرقام فقط.",
     "Please enter your username or email": "يرجى إدخال اسم المستخدم أو البريد الإلكتروني",
     "Please enter your verification code": "يرجى إدخال رمز التحقق الخاص بك",
     "Please enter your verification code or backup code": "يرجى إدخال رمز التحقق أو الرمز الاحتياطي",

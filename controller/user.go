@@ -236,6 +236,10 @@ func Register(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
+	if !model.IsValidUserName(user.Username) {
+		rejectInvalidUserName(c)
+		return
+	}
 	if err := common.Validate.Struct(&user); err != nil {
 		common.ApiErrorT(c, "Invalid input {{error}}", map[string]any{"error": err.Error()})
 		return
@@ -334,6 +338,13 @@ func Register(c *gin.Context) {
 		"message": "",
 	})
 	return
+}
+
+// rejectInvalidUserName answers a username that violates model.UserNamePattern.
+// The console maps the message through its locale files, and 400 separates a
+// bad request from an authentication failure in logs and client code.
+func rejectInvalidUserName(c *gin.Context) {
+	common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Username can only contain English letters and numbers."))
 }
 
 func GetAllUsers(c *gin.Context) {
@@ -680,6 +691,12 @@ func UpdateUser(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	// Administrators edit users through a form that echoes the stored username;
+	// only an actual rename is checked so legacy names stay editable.
+	if updatedUser.Username != originUser.Username && !model.IsValidUserName(updatedUser.Username) {
+		rejectInvalidUserName(c)
+		return
+	}
 	if updatedUser.Role != common.RoleGuestUser && updatedUser.Role != originUser.Role {
 		common.ApiErrorT(c, "Invalid parameters")
 		return
@@ -889,6 +906,20 @@ func UpdateSelf(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid input")
 		return
 	}
+	// The profile form always posts the username back. Only a rename has to
+	// satisfy the pattern, so accounts created before it can still edit their
+	// display name or password.
+	if user.Username != "" {
+		currentUser, fetchErr := model.GetUserById(c.GetInt("id"), false)
+		if fetchErr != nil {
+			common.ApiError(c, fetchErr)
+			return
+		}
+		if user.Username != currentUser.Username && !model.IsValidUserName(user.Username) {
+			rejectInvalidUserName(c)
+			return
+		}
+	}
 
 	cleanUser := model.User{
 		Id:          c.GetInt("id"),
@@ -1031,6 +1062,10 @@ func CreateUser(c *gin.Context) {
 	}
 	if err := common.Validate.Struct(&user); err != nil {
 		common.ApiErrorT(c, "Invalid input {{error}}", map[string]any{"error": err.Error()})
+		return
+	}
+	if !model.IsValidUserName(user.Username) {
+		rejectInvalidUserName(c)
 		return
 	}
 	if !common.IsValidateRole(user.Role) {
