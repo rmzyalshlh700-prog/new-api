@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ErrorState } from '@/shared/components/error-state'
 import { PasswordInput } from '@/shared/components/password-input'
 import { SettingsPageFormActions } from '@/shared/components/settings/settings-page-context'
 import { SettingsSection } from '@/shared/components/settings/settings-section'
@@ -12,8 +13,10 @@ import { Combobox } from '@/shared/components/ui/combobox'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/components/ui/radio-group'
+import { Skeleton } from '@/shared/components/ui/skeleton'
 import { Switch } from '@/shared/components/ui/switch'
 import { handleServerError } from '@/shared/lib/handle-server-error'
+import { getServerErrorMessage } from '@/shared/lib/server-error-message'
 
 import {
   ADMIN_COPILOT_RUNTIME_QUERY_KEY,
@@ -45,10 +48,85 @@ function toFormState(settings: AdminCopilotSettings): CopilotFormState {
   }
 }
 
+/**
+ * Section skeleton mirroring the loaded form, so the page keeps its layout
+ * while the settings load instead of collapsing to a single spinner line.
+ */
+function CopilotSettingsSkeleton() {
+  const { t } = useTranslation()
+  return (
+    <div className='flex flex-col gap-8' aria-busy='true'>
+      <p className='sr-only' role='status'>
+        {t('Loading Copilot settings...')}
+      </p>
+
+      <SettingsSection title={t('Connection')}>
+        <div className='grid gap-4 md:grid-cols-2'>
+          {[0, 1].map((field) => (
+            <div key={field} className='flex flex-col gap-2'>
+              <Skeleton className='h-3.5 w-20' />
+              <Skeleton className='h-8 w-full' />
+              <Skeleton className='h-3 w-48' />
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title={t('Model')}>
+        <div className='flex flex-col gap-2'>
+          <Skeleton className='h-3.5 w-20' />
+          <div className='flex flex-col gap-2 sm:flex-row'>
+            <Skeleton className='h-8 flex-1' />
+            <Skeleton className='h-8 w-32' />
+          </div>
+          <Skeleton className='h-3 w-64' />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title={t('Tool Permissions')}>
+        <div className='flex flex-col divide-y rounded-lg border'>
+          {ADMIN_COPILOT_TOOLS.map((tool) => (
+            <div
+              key={tool.name}
+              className='flex items-start justify-between gap-4 p-4'
+            >
+              <div className='flex flex-col gap-1'>
+                <Skeleton className='h-3.5 w-40' />
+                <Skeleton className='h-3 w-64' />
+              </div>
+              <Skeleton className='h-5 w-9 rounded-full' />
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title={t('Visibility')}>
+        <div className='flex flex-col gap-3'>
+          {[0, 1].map((option) => (
+            <div key={option} className='flex items-start gap-3'>
+              <Skeleton className='size-4 rounded-full' />
+              <div className='flex flex-col gap-1'>
+                <Skeleton className='h-3.5 w-44' />
+                <Skeleton className='h-3 w-60' />
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+    </div>
+  )
+}
+
 export function CopilotSettings() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { data: settings, isLoading } = useAdminCopilotSettings()
+  const {
+    data: settings,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useAdminCopilotSettings()
   const [form, setForm] = useState<CopilotFormState | null>(null)
   const [models, setModels] = useState<string[]>([])
 
@@ -100,13 +178,25 @@ export function CopilotSettings() {
     return values.map((value) => ({ value, label: value }))
   }, [form?.model, models])
 
-  if (isLoading || !form) {
+  // A failed load must never leave the page spinning forever: show the failure
+  // with a retry instead of locking the form out with no explanation.
+  if (isError) {
     return (
-      <div className='text-muted-foreground flex items-center gap-2 text-sm'>
-        <Loader2 className='size-4 animate-spin' />
-        {t('Loading Copilot settings...')}
-      </div>
+      <ErrorState
+        title={t('Failed to load Copilot settings')}
+        description={getServerErrorMessage(
+          error,
+          t('Failed to load Copilot settings')
+        )}
+        onRetry={() => {
+          void refetch()
+        }}
+      />
     )
+  }
+
+  if (isLoading || !form) {
+    return <CopilotSettingsSkeleton />
   }
 
   const canFetchModels = form.base_url.trim().length > 0
@@ -196,9 +286,10 @@ export function CopilotSettings() {
 
       <SettingsSection title={t('Model')}>
         <div className='flex flex-col gap-2'>
-          <Label>{t('Model ID')}</Label>
+          <Label htmlFor='copilot-model'>{t('Model ID')}</Label>
           <div className='flex flex-col gap-2 sm:flex-row'>
             <Combobox
+              id='copilot-model'
               options={comboboxOptions}
               value={form.model}
               onValueChange={(value) =>

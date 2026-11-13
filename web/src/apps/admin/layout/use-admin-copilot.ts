@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/shared/lib/http-client'
+import { getServerErrorMessage } from '@/shared/lib/server-error-message'
 
 import type { AdminCopilotToolName } from './admin-copilot-config'
 
@@ -40,6 +41,31 @@ interface ApiEnvelope<T> {
   data: T
 }
 
+/** Structured failure returned to the assistant instead of a thrown error. */
+interface CopilotToolError {
+  error: string
+}
+
+/**
+ * Runs a Copilot tool request and converts every failure into data the model can
+ * read. A thrown handler aborts the whole run and reaches the operator as a
+ * generic copilot error, so the failure detail would be lost.
+ */
+async function loadCopilotTool<T>(
+  request: Promise<{ data: ApiEnvelope<T> }>,
+  fallback: string
+): Promise<T | CopilotToolError> {
+  try {
+    const response = await request
+    if (!response.data.success) {
+      return { error: getServerErrorMessage(response.data, fallback) }
+    }
+    return response.data.data
+  } catch (error) {
+    return { error: getServerErrorMessage(error, fallback) }
+  }
+}
+
 /**
  * Registers the admin Copilot's frontend tools (financial summary, user
  * lookup, system health) with CopilotKit and publishes the current page as
@@ -70,12 +96,13 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
     ),
     parameters: [],
     available: availability('getFinancialSummary'),
-    handler: async () => {
-      const res = await api.get<ApiEnvelope<FinancialSummary>>(
-        '/api/admin/copilot/tools/financials'
-      )
-      return res.data.data
-    },
+    handler: async () =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<FinancialSummary>>(
+          '/api/admin/copilot/tools/financials'
+        ),
+        t('Failed to load the financial summary.')
+      ),
   })
 
   useCopilotAction({
@@ -100,12 +127,20 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
     ],
     available: availability('lookupUser'),
     handler: async ({ id, keyword }) => {
-      const params = id ? { id } : { keyword }
-      const res = await api.get<ApiEnvelope<CopilotUser | CopilotUser[]>>(
-        '/api/admin/copilot/tools/users',
-        { params }
+      const trimmedKeyword = keyword?.trim() ?? ''
+      if (!id && !trimmedKeyword) {
+        return {
+          error: t('Provide a user id, email or username to look up a user.'),
+        }
+      }
+      const params = id ? { id } : { keyword: trimmedKeyword }
+      return loadCopilotTool(
+        api.get<ApiEnvelope<CopilotUser | CopilotUser[]>>(
+          '/api/admin/copilot/tools/users',
+          { params }
+        ),
+        t('Failed to look up the user.')
       )
-      return res.data.data
     },
   })
 
@@ -116,12 +151,11 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
     ),
     parameters: [],
     available: availability('getSystemHealth'),
-    handler: async () => {
-      const res = await api.get<ApiEnvelope<SystemHealth>>(
-        '/api/admin/copilot/tools/health'
-      )
-      return res.data.data
-    },
+    handler: async () =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<SystemHealth>>('/api/admin/copilot/tools/health'),
+        t('Failed to load server health.')
+      ),
   })
 
   const context = useMemo(() => ({ page: pageContext }), [pageContext])

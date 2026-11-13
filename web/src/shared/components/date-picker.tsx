@@ -71,6 +71,7 @@ export function DatePicker({
           <Button
             id={id}
             variant='outline'
+            aria-haspopup='dialog'
             data-empty={!selected}
             className={cn(
               'data-[empty=true]:text-muted-foreground w-[240px] justify-start text-start font-normal',
@@ -84,7 +85,7 @@ export function DatePicker({
         ) : (
           <span>{placeholderText}</span>
         )}
-        <CalendarIcon className='ms-auto h-4 w-4 opacity-50' />
+        <CalendarIcon aria-hidden='true' className='ms-auto h-4 w-4 opacity-50' />
       </PopoverTrigger>
       <PopoverContent className='w-auto p-0'>
         <Calendar

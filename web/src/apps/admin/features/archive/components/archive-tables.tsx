@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
+import { useIsFetching, useQuery } from '@tanstack/react-query'
 import type {
   ColumnDef,
   OnChangeFn,
@@ -51,6 +51,10 @@ import {
 
 const PAGE_SIZE = 20
 
+/** Single source for the summary query key, shared by the tab and the export cells. */
+const archiveSummaryQueryKey = (range: ArchiveRange | null) =>
+  ['archive-summary', range] as const
+
 // Shared stable empty array: `query.data?.items ?? []` would allocate a new
 // array every render, changing the table's `data` identity and re-triggering
 // TanStack's auto-reset → an infinite render loop (tab switch freeze/WSOD).
@@ -58,13 +62,42 @@ const EMPTY_ITEMS: never[] = []
 
 type TabProps = { range: ArchiveRange | null }
 
+/**
+ * Export cell for one archived day. It subscribes to the summary query state
+ * itself so the surrounding column definition never depends on `isFetching`:
+ * a background refetch used to rebuild every column, which resets the table's
+ * column model and sizing state mid-session.
+ */
+function SummaryExportButton(props: {
+  date: string
+  exporting: string | null
+  range: ArchiveRange | null
+  onExport: (date: string) => void
+}) {
+  const { t } = useTranslation()
+  const isFetching =
+    useIsFetching({ queryKey: archiveSummaryQueryKey(props.range) }) > 0
+  const isExporting = props.exporting === props.date
+  return (
+    <Button
+      size='sm'
+      className='gap-1.5'
+      disabled={(props.exporting !== null && !isExporting) || isFetching}
+      onClick={() => props.onExport(props.date)}
+    >
+      <Download className='size-4' aria-hidden='true' />
+      {isExporting ? t('Exporting…') : t('Export Day Data')}
+    </Button>
+  )
+}
+
 export function SummaryTab({ range }: TabProps) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [exporting, setExporting] = useState<string | null>(null)
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['archive-summary', range],
+    queryKey: archiveSummaryQueryKey(range),
     // No request (and therefore no error toast) until a valid range exists.
     enabled: isValidArchiveRange(range),
     staleTime: 60 * 1000,
@@ -145,25 +178,19 @@ export function SummaryTab({ range }: TabProps) {
         id: 'export',
         header: '',
         cell: ({ row }) => (
-          <Button
-            size='sm'
-            className='gap-1.5'
-            disabled={
-              (exporting !== null && exporting !== row.original.date) ||
-              isFetching ||
-              isLoading
-            }
-            onClick={() => handleExport(row.original.date)}
-          >
-            <Download className='size-4' aria-hidden='true' />
-            {exporting === row.original.date
-              ? t('Exporting…')
-              : t('Export Day Data')}
-          </Button>
+          <SummaryExportButton
+            date={row.original.date}
+            exporting={exporting}
+            range={range}
+            onExport={handleExport}
+          />
         ),
       },
     ],
-    [t, locale, exporting, isFetching, isLoading, handleExport]
+    // Query state stays out of these dependencies on purpose: it belongs to the
+    // cell component above. Only user-driven state (exporting) and language
+    // change the column model.
+    [t, locale, exporting, handleExport, range]
   )
 
   const { table } = useDataTable({

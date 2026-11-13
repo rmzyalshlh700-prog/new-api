@@ -25,6 +25,7 @@ import { TabErrorBoundary } from './components/tab-error-boundary'
 import { isValidArchiveRange, type ArchiveRange } from './api'
 import { DatePicker } from '@/shared/components/date-picker'
 import { Button } from '@/shared/components/ui/button'
+import { Label } from '@/shared/components/ui/label'
 import {
   Tabs,
   TabsContent,
@@ -62,10 +63,14 @@ export function ArchiveExplorer() {
     <div className='space-y-4'>
       <div className='flex flex-wrap items-end gap-3'>
         <div className='flex flex-col gap-1'>
-          <span className='text-muted-foreground text-xs'>
+          <Label
+            htmlFor='archive-start-date'
+            className='text-muted-foreground text-xs font-normal'
+          >
             {t('Start date')}
-          </span>
+          </Label>
           <DatePicker
+            id='archive-start-date'
             selected={startDate}
             onSelect={setStartDate}
             maxDate={endDate}
@@ -73,8 +78,14 @@ export function ArchiveExplorer() {
           />
         </div>
         <div className='flex flex-col gap-1'>
-          <span className='text-muted-foreground text-xs'>{t('End date')}</span>
+          <Label
+            htmlFor='archive-end-date'
+            className='text-muted-foreground text-xs font-normal'
+          >
+            {t('End date')}
+          </Label>
           <DatePicker
+            id='archive-end-date'
             selected={endDate}
             onSelect={setEndDate}
             minDate={startDate}
