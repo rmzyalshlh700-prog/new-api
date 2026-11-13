@@ -18,19 +18,30 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, test } from 'vitest'
 
-import { convertDetectedLanguage } from './languages'
+import { matchInterfaceLanguage, normalizeInterfaceLanguage } from './languages'
 
-describe('convertDetectedLanguage', () => {
-  test('passes supported language values through unchanged', () => {
-    expect(convertDetectedLanguage('en')).toBe('en')
-    expect(convertDetectedLanguage('ru')).toBe('ru')
-    expect(convertDetectedLanguage('ar')).toBe('ar')
+describe('matchInterfaceLanguage', () => {
+  test('accepts supported codes and their regional variants', () => {
+    expect(matchInterfaceLanguage('en')).toBe('en')
+    expect(matchInterfaceLanguage('ru')).toBe('ru')
+    expect(matchInterfaceLanguage('ar')).toBe('ar')
+    expect(matchInterfaceLanguage('ar-EG')).toBe('ar')
+    expect(matchInterfaceLanguage('ru_RU')).toBe('ru')
+    expect(matchInterfaceLanguage('en-US')).toBe('en')
   })
 
-  test('passes unsupported browser locales through unchanged (i18next falls back to en)', () => {
-    expect(convertDetectedLanguage('fr-FR')).toBe('fr-FR')
-    expect(convertDetectedLanguage('ja')).toBe('ja')
-    expect(convertDetectedLanguage('zh-CN')).toBe('zh-CN')
-    expect(convertDetectedLanguage('zh-TW')).toBe('zh-TW')
+  test('rejects locales this project does not ship', () => {
+    expect(matchInterfaceLanguage('fr-FR')).toBeNull()
+    expect(matchInterfaceLanguage('zh-CN')).toBeNull()
+    expect(matchInterfaceLanguage('')).toBeNull()
+    expect(matchInterfaceLanguage(undefined)).toBeNull()
+  })
+})
+
+describe('normalizeInterfaceLanguage', () => {
+  test('falls back to English for unsupported values', () => {
+    expect(normalizeInterfaceLanguage('ar-EG')).toBe('ar')
+    expect(normalizeInterfaceLanguage('fr-FR')).toBe('en')
+    expect(normalizeInterfaceLanguage(undefined)).toBe('en')
   })
 })

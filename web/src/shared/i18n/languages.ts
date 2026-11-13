@@ -37,16 +37,29 @@ const RTL_LANGUAGE_CODES: ReadonlySet<string> = new Set<InterfaceLanguageCode>([
 ])
 
 export function normalizeInterfaceLanguage(value?: string | null): string {
-  if (!value) return 'en'
+  return matchInterfaceLanguage(value) ?? 'en'
+}
 
-  let normalized = value.trim().replaceAll('_', '-').toLowerCase()
+/**
+ * Match a stored or browser-reported locale against a shipped interface
+ * language, or `null` when this project does not ship it.
+ *
+ * Regional variants such as `ar-EG` or `en-US` resolve to their base language.
+ * Callers that must tell "English" apart from "not supported" (the startup
+ * language resolver) need this; `normalizeInterfaceLanguage` collapses both to
+ * `en`.
+ */
+export function matchInterfaceLanguage(
+  value?: string | null
+): InterfaceLanguageCode | null {
+  if (!value) return null
 
-  // Regional variants such as `ar-EG` or `fr-FR` resolve to their base language.
+  const normalized = value.trim().replaceAll('_', '-').toLowerCase()
   const [primary] = normalized.split('-')
   const match = INTERFACE_LANGUAGE_OPTIONS.find(
     (lang) => lang.code === normalized || lang.code === primary
   )
-  return match?.code ?? 'en'
+  return match?.code ?? null
 }
 
 /**
@@ -59,19 +72,6 @@ export function getInterfaceLanguageDirection(
   return RTL_LANGUAGE_CODES.has(normalizeInterfaceLanguage(value))
     ? 'rtl'
     : 'ltr'
-}
-
-/**
- * Map a browser-detected locale onto the interface language codes this project
- * uses with i18next.
- *
- * Browsers report BCP-47 tags (`zh-CN`, `zh-TW`, `zh-Hans`, ...), but the
- * interface supports only `en`, `ru` and `ar`, so Chinese variants are resolved
- * away and i18next's `supportedLngs` matching falls back to English. Other
- * codes are returned unchanged (e.g. `fr-FR` -> `fr-FR`, `ja` -> `ja`).
- */
-export function convertDetectedLanguage(value: string): string {
-  return value
 }
 
 /**
