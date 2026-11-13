@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 /* Space reserved for fixed overlay chrome mounted by the admin portal. The
- * Admin Copilot bubble is a fixed 56px button anchored bottom-right (z-[1100]);
+ * Admin Copilot bubble is a fixed 56px button anchored to the inline end;
  * data-table footers add this to their padding so pagination controls are
  * never covered by it. Nothing sets the variable elsewhere yet, so it is 0px. */
 :root {
@@ -797,6 +797,63 @@ body:lang(ar) *::after {
 [dir='rtl'] :is(pre, code, kbd, samp, .cm-editor) {
   direction: ltr;
   unicode-bidi: isolate;
+}
+
+/* ── Admin Copilot ─────────────────────────────────────────────────────────
+ * CopilotKit ships a bubble anchored bottom-right and, below 640px, a window
+ * pinned to `inset: 0`. The portal replaces both (see
+ * `admin-copilot-chrome.tsx`), so this block only re-homes the panel: it starts
+ * under the sticky app header, which is what kept the chat's title bar on top
+ * of the site logo on phones. Layer 45 puts the assistant above page content
+ * and the header (40) but below dialogs and sheets (50); the FAB inside uses a
+ * larger index so it always sits above the panel. */
+
+.admin-copilot-shell.copilotKitPopup {
+  z-index: 45;
+}
+
+.admin-copilot-window.copilotKitWindow {
+  inset: auto 0 0;
+  top: var(--app-header-height, 3rem);
+  width: auto;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 639px) {
+  /* Reserve the FAB's corner so the composer and its send button stay clear. */
+  .admin-copilot-window .copilotKitInputContainer {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (min-width: 640px) {
+  .admin-copilot-window.copilotKitWindow {
+    inset: auto;
+    top: auto;
+    bottom: 6rem;
+    inset-inline-end: 1.5rem;
+    width: min(24rem, calc(100vw - 3rem));
+    height: min(600px, calc(100dvh - var(--app-header-height, 3rem) - 7rem));
+    min-height: 200px;
+    max-height: calc(100dvh - var(--app-header-height, 3rem) - 7rem);
+    border-radius: 0.75rem;
+  }
+}
+
+[dir='rtl'] .admin-copilot-window.copilotKitWindow {
+  transform-origin: bottom left;
+}
+
+/* The library pins the header's close button to `right`; mirror it in RTL. */
+[dir='rtl'] .admin-copilot-window .copilotKitHeader > button {
+  right: auto;
+  inset-inline-end: 16px;
 }
 
 /* Icons that carry a direction point the other way in right-to-left layouts.

@@ -2,7 +2,7 @@ import '@copilotkit/react-ui/styles.css'
 import { CopilotKit } from '@copilotkit/react-core'
 import { CopilotPopup } from '@copilotkit/react-ui'
 import { useRouterState } from '@tanstack/react-router'
-import { ChevronsUpDown, MessagesSquare, Send, Sparkles, X } from 'lucide-react'
+import { MessagesSquare, Send, X } from 'lucide-react'
 import {
   Component,
   useCallback,
@@ -17,6 +17,7 @@ import {
   getFreshAuthHeaders,
 } from '@/shared/lib/auth-session'
 
+import { AdminCopilotFab, AdminCopilotWindow } from './admin-copilot-chrome'
 import {
   ADMIN_COPILOT_DEFAULT_PATH,
   ALL_ADMIN_COPILOT_TOOLS,
@@ -165,9 +166,14 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
       {!hideCopilot && (
         <CopilotNullErrorBoundary>
           <CopilotPopup
+            // Scopes the z-index layer; the portal renders its own FAB and
+            // window, which anchor themselves against the viewport.
+            className='admin-copilot-shell'
             defaultOpen={false}
             clickOutsideToClose
             hitEscapeToClose
+            Button={AdminCopilotFab}
+            Window={AdminCopilotWindow}
             labels={{
               title: t('Admin Copilot'),
               placeholder: t('Ask Admin Copilot...'),
@@ -184,9 +190,7 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
               thumbsDown: t('Thumbs down'),
             }}
             icons={{
-              openIcon: <Sparkles className='size-5' />,
-              closeIcon: <X className='size-5' />,
-              headerCloseIcon: <ChevronsUpDown className='size-5' />,
+              headerCloseIcon: <X className='size-5' />,
               sendIcon: <Send className='size-4' />,
               activityIcon: <MessagesSquare className='size-5' />,
             }}

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api } from '@/shared/lib/http-client'
 import { getServerErrorMessage } from '@/shared/lib/server-error-message'
+import { useAuthStore } from '@/shared/stores/auth-store'
 
 import type { AdminCopilotToolName } from './admin-copilot-config'
 
@@ -81,12 +82,28 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
   })
   const availability = (tool: AdminCopilotToolName) =>
     enabledTools.includes(tool) ? 'enabled' : 'disabled'
+  const adminUser = useAuthStore((state) => state.auth.user)
 
   useCopilotReadable({
     description: t(
       'The admin console page the user is currently viewing, including query parameters'
     ),
     value: pageContext,
+  })
+
+  // Who is asking. The tool results are platform-wide, so the model needs the
+  // operator's own role and name to answer "what can I do" style questions.
+  useCopilotReadable({
+    description: t('The signed-in administrator account'),
+    value: adminUser
+      ? {
+          id: adminUser.id,
+          username: adminUser.username,
+          display_name: adminUser.display_name ?? adminUser.username,
+          role: adminUser.role,
+          group: adminUser.group,
+        }
+      : null,
   })
 
   useCopilotAction({
