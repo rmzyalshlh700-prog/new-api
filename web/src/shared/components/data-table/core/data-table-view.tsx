@@ -138,7 +138,10 @@ function SplitHeaderTableView<TData>({
     >
       <div
         className={cn(
-          'min-h-0 flex-1 overflow-auto',
+          'min-h-0 flex-1',
+          // An empty table cannot scroll horizontally, so suppress the
+          // overflow to avoid rendering a meaningless scrollbar track.
+          rows.length === 0 ? 'overflow-y-auto' : 'overflow-auto',
           '**:data-[slot=table-header]:[--table-header-bg:var(--table-header)]',
           '**:data-[slot=table-header]:bg-(--table-header-bg)',
           props.splitHeaderScrollClassName,

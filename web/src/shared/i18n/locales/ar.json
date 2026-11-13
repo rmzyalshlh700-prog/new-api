@@ -7668,6 +7668,7 @@
     "Show on all admin pages": "إظهار في جميع صفحات الإدارة",
     "The copilot button is available across the admin console.": "يكون زر المساعد متاحًا في جميع أنحاء لوحة الإدارة.",
     "Show on Dashboard only": "إظهار في لوحة المعلومات فقط",
-    "The copilot button is hidden outside the dashboard.": "يُخفى زر المساعد خارج لوحة المعلومات."
+    "The copilot button is hidden outside the dashboard.": "يُخفى زر المساعد خارج لوحة المعلومات.",
+    "Admin Copilot message input": "Admin Copilot message input"
   }
 }

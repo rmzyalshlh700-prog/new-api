@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { splitBillingExprAndRequestRules } from '@/shared/features/pricing/lib/billing-expr'
 import { splitPluginBillingExprKey } from '@/shared/features/pricing/lib/plugin-pricing'
+import { formatPricingAmount } from './currency'
 
 import { safeJsonParse } from '@/shared/lib/json-parser'
 import { formatPricingNumber } from './pricing-format'
@@ -108,13 +109,17 @@ export const getPriceSummary = (
     return getExpressionSummary(row, t)
   }
   if (row.billingMode === 'per-request') {
-    return row.price ? `$${row.price} / ${t('request')}` : t('Unset price')
+    // Route through the shared pricing formatter so the symbol follows the
+    // configured display currency instead of a hardcoded dollar sign.
+    return row.price
+      ? `${formatPricingAmount(row.price)} / ${t('request')}`
+      : t('Unset price')
   }
 
   const inputPrice = ratioToPrice(row.ratio)
   if (!inputPrice) return t('Unset price')
 
-  return `${t('Input')} $${inputPrice}`
+  return `${t('Input')} ${formatPricingAmount(inputPrice)}`
 }
 
 export const getPriceDetail = (
@@ -135,11 +140,17 @@ export const getPriceDetail = (
 
   const details = [
     row.completionRatio &&
-      `${t('Output')} $${ratioToPrice(row.completionRatio, inputPrice)}`,
+      `${t('Output')} ${formatPricingAmount(
+        ratioToPrice(row.completionRatio, inputPrice)
+      )}`,
     row.cacheRatio &&
-      `${t('Cache')} $${ratioToPrice(row.cacheRatio, inputPrice)}`,
+      `${t('Cache')} ${formatPricingAmount(
+        ratioToPrice(row.cacheRatio, inputPrice)
+      )}`,
     row.createCacheRatio &&
-      `${t('Cache write')} $${ratioToPrice(row.createCacheRatio, inputPrice)}`,
+      `${t('Cache write')} ${formatPricingAmount(
+        ratioToPrice(row.createCacheRatio, inputPrice)
+      )}`,
   ]
     .filter(Boolean)
     .slice(0, 2)

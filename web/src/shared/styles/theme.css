@@ -113,7 +113,9 @@ For commercial licensing, please contact support@quantumnous.com
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.692 0.141 243.716);
+  /* Darkened from oklch(0.692 ...) so `text-primary` links meet WCAG AA
+     4.5:1 on white (#0276EA measured only ~4.39:1). */
+  --primary: oklch(0.602 0.156 243.716);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.95 0 0);
   --secondary-foreground: oklch(0.42 0.16 250);

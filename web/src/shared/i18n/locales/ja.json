@@ -7668,6 +7668,7 @@
     "Show on all admin pages": "Show on all admin pages",
     "The copilot button is available across the admin console.": "The copilot button is available across the admin console.",
     "Show on Dashboard only": "Show on Dashboard only",
-    "The copilot button is hidden outside the dashboard.": "The copilot button is hidden outside the dashboard."
+    "The copilot button is hidden outside the dashboard.": "The copilot button is hidden outside the dashboard.",
+    "Admin Copilot message input": "Admin Copilot message input"
   }
 }

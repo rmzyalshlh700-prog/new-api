@@ -251,10 +251,10 @@ export function MobileDrawer({
                   onClick={onClose}
                 />
                 <Button
-                  variant='ghost'
-                  size='icon-sm'
+                  variant='outline'
+                  size='icon-lg'
                   onClick={onClose}
-                  className='hover:text-primary cursor-pointer'
+                  className='text-foreground hover:text-foreground cursor-pointer border-border'
                   aria-label={t('Close menu')}
                 >
                   <X className='size-5' />

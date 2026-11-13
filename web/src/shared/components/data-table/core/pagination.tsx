@@ -146,7 +146,7 @@ export function DataTablePagination<TData>({
         <div className='flex min-w-0 shrink-0 items-center gap-1 @lg/pagination:gap-1.5 @xl/pagination:gap-2'>
           <Button
             variant='outline'
-            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-8 p-0 @max-lg/pagination:hidden'
+            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-9 p-0 @max-lg/pagination:hidden'
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
           >
@@ -155,7 +155,7 @@ export function DataTablePagination<TData>({
           </Button>
           <Button
             variant='outline'
-            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-8 p-0'
+            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-9 p-0'
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
@@ -173,7 +173,7 @@ export function DataTablePagination<TData>({
                 <Button
                   variant={currentPage === pageNumber ? 'default' : 'outline'}
                   className={cn(
-                    'h-8 min-w-8 px-2 tabular-nums',
+                    'h-9 min-w-9 px-2 tabular-nums',
                     currentPage === pageNumber
                       ? 'font-semibold'
                       : 'text-muted-foreground hover:text-foreground'
@@ -191,7 +191,7 @@ export function DataTablePagination<TData>({
 
           <Button
             variant='outline'
-            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-8 p-0'
+            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-9 p-0'
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
@@ -200,7 +200,7 @@ export function DataTablePagination<TData>({
           </Button>
           <Button
             variant='outline'
-            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-8 p-0 @max-lg/pagination:hidden'
+            className='text-muted-foreground hover:text-foreground disabled:text-muted-foreground/50 size-9 p-0 @max-lg/pagination:hidden'
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
           >

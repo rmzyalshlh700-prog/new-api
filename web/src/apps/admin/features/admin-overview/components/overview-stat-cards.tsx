@@ -31,8 +31,8 @@ import { StatCard } from '@/apps/client/features/dashboard/components/ui/stat-ca
 import {
   formatCompactNumber,
   formatInteger,
+  formatLogQuota,
   formatPercent,
-  formatQuota,
 } from '@/shared/lib/format'
 
 export interface OverviewStatCardsProps {
@@ -62,11 +62,11 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
       <StatCardTile>
         <StatCard
           title={t('Revenue today')}
-          value={formatQuota(props.revenueToday)}
+          value={formatLogQuota(props.revenueToday)}
           description={
             <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
               <span className='text-muted-foreground/60'>
-                {t('This month')}: {formatQuota(props.revenueMonth)}
+                {t('This month')}: {formatLogQuota(props.revenueMonth)}
               </span>
               {todayVsYesterdayPct !== undefined && (
                 <YesterdayTrend percent={todayVsYesterdayPct} />
@@ -84,11 +84,11 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
       <StatCardTile>
         <StatCard
           title={t('Revenue this month')}
-          value={formatQuota(props.revenueMonth)}
+          value={formatLogQuota(props.revenueMonth)}
           description={
             <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
               <span className='text-muted-foreground/60'>
-                {t('Today')}: {formatQuota(props.revenueToday)}
+                {t('Today')}: {formatLogQuota(props.revenueToday)}
               </span>
               {todayVsYesterdayPct !== undefined && (
                 <YesterdayTrend percent={todayVsYesterdayPct} />

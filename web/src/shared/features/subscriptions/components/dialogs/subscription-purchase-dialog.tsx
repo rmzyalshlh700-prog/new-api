@@ -30,6 +30,7 @@ import { Separator } from '@/shared/components/ui/separator'
 import { useSystemConfig } from '@/shared/hooks/use-system-config'
 import { formatQuota } from '@/shared/lib/format'
 import { handleServerError } from '@/shared/lib/handle-server-error'
+import { formatBillingCurrencyFromUSD } from '@/shared/lib/currency'
 import { DEFAULT_CURRENCY_CONFIG } from '@/shared/stores/system-config-store'
 
 import {
@@ -87,7 +88,11 @@ export function SubscriptionPurchaseDialog(props: Props) {
     props.enableOnlineTopUp && (props.epayMethods || []).length > 0
   const hasAnyPayment = hasStripe || hasCreem || hasWaffoPancake || hasEpay
   const totalAmount = Number(plan.total_amount || 0)
-  const price = Number(plan.price_amount || 0).toFixed(2)
+  const price = formatBillingCurrencyFromUSD(Number(plan.price_amount || 0), {
+    digitsLarge: 2,
+    digitsSmall: 2,
+    abbreviate: false,
+  })
   const quotaPerUnit =
     currency?.quotaPerUnit && currency.quotaPerUnit > 0
       ? currency.quotaPerUnit
@@ -286,7 +291,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
           <Separator />
           <div className='flex items-center justify-between'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>
-            <span className='text-primary text-lg font-bold'>${price}</span>
+            <span className='text-primary text-lg font-bold'>{price}</span>
           </div>
         </div>
 

@@ -23,8 +23,11 @@ import { useTranslation } from 'react-i18next'
 import { CopyButton } from '@/shared/components/copy-button'
 import { StatusBadge } from '@/shared/components/status-badge'
 import { toIntlLocale } from '@/shared/i18n/languages'
-import { formatCurrencyFromUSD } from '@/shared/lib/currency'
-import { formatNumber, formatTimestampToDate } from '@/shared/lib/format'
+import {
+  formatCurrencyFromUSD,
+  formatLocalCurrencyAmount,
+} from '@/shared/lib/currency'
+import { formatTimestampToDate } from '@/shared/lib/format'
 
 import { getPaymentProviderLabel, getPaymentStatusBadge } from '../constants'
 import type { PaymentLogEntry } from '../types'
@@ -122,7 +125,15 @@ export function usePaymentLogColumns(): ColumnDef<PaymentLogEntry>[] {
         meta: { mobileOrder: 50 },
         cell: ({ row }) => (
           <span className='text-sm tabular-nums' dir='ltr'>
-            {formatNumber(row.original.money, locale)}
+            {/* The gateway stores paid amounts in the local billing currency
+                (never tokens), so format them with the billing-currency
+                formatter instead of a bare number. */}
+            {formatLocalCurrencyAmount(row.original.money, {
+              digitsLarge: 2,
+              digitsSmall: 2,
+              abbreviate: false,
+              locale,
+            })}
           </span>
         ),
         size: 120,

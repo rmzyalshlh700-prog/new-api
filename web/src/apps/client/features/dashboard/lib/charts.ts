@@ -24,8 +24,8 @@ import type {
   ProcessedChartData,
   ProcessedUserChartData,
 } from '@/apps/client/features/dashboard/types'
-import { getCurrencyDisplay } from '@/shared/lib/currency'
-import { currentIntlLocale, formatInteger } from '@/shared/lib/format'
+import { formatQuotaWithCurrency, getCurrencyDisplay } from '@/shared/lib/currency'
+import { currentIntlLocale } from '@/shared/lib/format'
 import { formatChartTime, type TimeGranularity } from '@/shared/lib/time'
 
 const CHART_STROKE_FALLBACK = 'rgba(127, 127, 127, 0.9)'
@@ -65,17 +65,14 @@ export function getDashboardChartColors(domainLength: number): string[] {
 }
 
 function renderQuotaCompat(rawQuota: number, digits = 4): string {
-  const { config, meta } = getCurrencyDisplay()
-  if (meta.kind === 'tokens') return formatInteger(rawQuota)
-  const usd = rawQuota / config.quotaPerUnit
-  const rate = 'exchangeRate' in meta ? meta.exchangeRate : 1
-  const symbol = 'symbol' in meta ? meta.symbol : '$'
-  const value = usd * rate
-  const fixed = value.toFixed(digits)
-  if (Number.parseFloat(fixed) === 0 && rawQuota > 0 && value > 0) {
-    return symbol + Math.pow(10, -digits).toFixed(digits)
-  }
-  return symbol + fixed
+  // Route chart values through the shared quota formatter instead of a local
+  // reimplementation, so chart tooltips use the same currency conversion and
+  // symbol handling as the rest of the UI.
+  return formatQuotaWithCurrency(rawQuota, {
+    digitsLarge: digits,
+    digitsSmall: digits,
+    abbreviate: false,
+  })
 }
 
 /**

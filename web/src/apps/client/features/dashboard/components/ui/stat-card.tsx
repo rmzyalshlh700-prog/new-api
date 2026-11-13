@@ -332,7 +332,9 @@ export function StatCard(props: StatCardProps) {
 
       {valueContent}
 
-      <div className='hidden sm:block'>{visualization}</div>
+      {/* Inner bottom padding keeps the sparkline clear of the card's
+          rounded corners instead of being clipped flush against them. */}
+      <div className='hidden pb-3 sm:block'>{visualization}</div>
     </div>
   )
 }

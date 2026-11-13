@@ -100,6 +100,29 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
     settings?.visibility === 'dashboard_only' &&
     pathname !== ADMIN_COPILOT_DEFAULT_PATH
 
+  // CopilotKit's TextArea renders a bare <textarea> with no accessible name
+  // (only a placeholder, which is not a reliable label). Watch the DOM for the
+  // popup's textarea and attach a translated aria-label whenever it mounts.
+  useEffect(() => {
+    if (hideCopilot) return
+    const label = t('Admin Copilot message input')
+    const apply = () => {
+      document
+        .querySelectorAll<HTMLTextAreaElement>(
+          '[data-testid="copilot-chat-textarea"]'
+        )
+        .forEach((textarea) => {
+          if (textarea.getAttribute('aria-label') !== label) {
+            textarea.setAttribute('aria-label', label)
+          }
+        })
+    }
+    apply()
+    const observer = new MutationObserver(apply)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [hideCopilot, t])
+
   // The Copilot bubble is fixed to the bottom-right corner (56px + margin) and
   // floats above page footers, so it covers pagination controls on table pages.
   // Publish its reserved height through a CSS variable that the shared page
