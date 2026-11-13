@@ -1,0 +1,24 @@
+# Netlify configuration for the web console of this Go monorepo.
+#
+# The React app lives in `web/`; the repository root is the Go gateway, which
+# Netlify neither builds nor serves. Clone-time settings (GIT_LFS_ENABLED,
+# GIT_DEPTH, NETLIFY_BUILD_DEBUG) cannot live here: this file is read only
+# after the repository has already been cloned.
+
+[build]
+  # Netlify installs dependencies and runs the build command from here.
+  base = "web"
+  command = "bun run build"
+  # Relative to `base`, so this resolves to `web/dist`.
+  publish = "dist"
+
+[build.environment]
+  # Keep the Bun version used by `rsbuild build` in step with package.json.
+  BUN_VERSION = "1.4.4"
+
+# Single-page app: TanStack Router owns client-side routes, so deep links such
+# as /app/keys must serve the shell instead of a Netlify 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
