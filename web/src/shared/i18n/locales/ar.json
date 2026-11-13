@@ -8000,5 +8000,8 @@
     "The copilot button is hidden outside the dashboard.": "يُخفى زر المساعد خارج لوحة المعلومات.",
     "Admin Copilot message input": "حقل إدخال رسائل مساعد الإدارة",
     "Account": "الحساب"
-  }
+  },
+  "Report date": "تاريخ التقرير",
+  "Invoices": "الفواتير",
+  "Export ready": "تم تجهيز ملف التصدير"
 }

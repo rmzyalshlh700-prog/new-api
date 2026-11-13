@@ -16,40 +16,48 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
 import { CalendarDays } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { SummaryTab, LogsTab, PaymentsTab } from './components/archive-tables'
+import {
+  isValidArchiveRange,
+  type ArchiveRange,
+  type DailyArchive,
+} from './api'
+import { ArchiveSummaryCards } from './components/archive-summary-cards'
+import { InvoicesTab, UsageLogsTab } from './components/archive-tables'
 import { TabErrorBoundary } from './components/tab-error-boundary'
-import { isValidArchiveRange, type ArchiveRange } from './api'
 import { DatePicker } from '@/shared/components/date-picker'
 import { Button } from '@/shared/components/ui/button'
 import { Label } from '@/shared/components/ui/label'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/shared/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 import { formatDateStr } from '@/shared/lib/format'
+import { createServerError } from '@/shared/lib/server-error-message'
 
+const todayRange = (): ArchiveRange => {
+  const today = formatDateStr(new Date())
+  return { start_date: today, end_date: today }
+}
+
+/**
+ * The daily financial & operations report: pick a date, see the KPI cards and
+ * audit the day's payment invoices and usage. The report view targets one day
+ * at a time; the date defaults to today and is applied immediately.
+ */
 export function ArchiveExplorer() {
   const { t } = useTranslation()
-  const [startDate, setStartDate] = useState<Date | undefined>()
-  const [endDate, setEndDate] = useState<Date | undefined>()
-  // The range is only committed on Apply, so no query runs with a partial
-  // filter and tabs never prefetch on mount (range starts null).
-  const [range, setRange] = useState<ArchiveRange | null>(null)
-  const [tab, setTab] = useState('summaries')
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [range, setRange] = useState<ArchiveRange | null>(todayRange())
+  const [tab, setTab] = useState('invoices')
 
-  const nextRange: ArchiveRange | null =
-    startDate && endDate
-      ? {
-          start_date: formatDateStr(startDate),
-          end_date: formatDateStr(endDate),
-        }
-      : null
+  const nextRange: ArchiveRange | null = selectedDate
+    ? {
+        start_date: formatDateStr(selectedDate),
+        end_date: formatDateStr(selectedDate),
+      }
+    : null
   const canApply = isValidArchiveRange(nextRange)
 
   const handleApply = () => {
@@ -59,6 +67,22 @@ export function ArchiveExplorer() {
     setRange(nextRange)
   }
 
+  const { data: summary } = useQuery({
+    queryKey: ['archive-summary', range],
+    enabled: isValidArchiveRange(range),
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const { getArchiveSummary } = await import('./api')
+      const result = await getArchiveSummary(range as ArchiveRange)
+      if (!result.success) {
+        throw createServerError(result, t('Failed to load archive'))
+      }
+      return result.data ?? []
+    },
+  })
+  const daySummary: DailyArchive | null =
+    summary && summary.length > 0 ? summary[0] : null
+
   return (
     <div className='space-y-4'>
       <div className='flex flex-wrap items-end gap-3'>
@@ -67,28 +91,12 @@ export function ArchiveExplorer() {
             htmlFor='archive-start-date'
             className='text-muted-foreground text-xs font-normal'
           >
-            {t('Start date')}
+            {t('Report date')}
           </Label>
           <DatePicker
             id='archive-start-date'
-            selected={startDate}
-            onSelect={setStartDate}
-            maxDate={endDate}
-            placeholder={t('Select date')}
-          />
-        </div>
-        <div className='flex flex-col gap-1'>
-          <Label
-            htmlFor='archive-end-date'
-            className='text-muted-foreground text-xs font-normal'
-          >
-            {t('End date')}
-          </Label>
-          <DatePicker
-            id='archive-end-date'
-            selected={endDate}
-            onSelect={setEndDate}
-            minDate={startDate}
+            selected={selectedDate}
+            onSelect={setSelectedDate}
             placeholder={t('Select date')}
           />
         </div>
@@ -98,28 +106,24 @@ export function ArchiveExplorer() {
         </Button>
       </div>
 
+      <ArchiveSummaryCards summary={daySummary} loading={false} />
+
       {/* Each tab panel is isolated: a crash in one tab shows a recoverable
           fallback inside the card instead of blanking the whole page. The
           outer boundary is the last line of defence for the filter bar. */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value='summaries'>{t('Daily Summaries')}</TabsTrigger>
+          <TabsTrigger value='invoices'>{t('Invoices')}</TabsTrigger>
           <TabsTrigger value='logs'>{t('Usage Logs')}</TabsTrigger>
-          <TabsTrigger value='payments'>{t('Payment Logs')}</TabsTrigger>
         </TabsList>
-        <TabsContent value='summaries'>
+        <TabsContent value='invoices'>
           <TabErrorBoundary>
-            <SummaryTab range={range} />
+            <InvoicesTab range={range} />
           </TabErrorBoundary>
         </TabsContent>
         <TabsContent value='logs'>
           <TabErrorBoundary>
-            <LogsTab range={range} />
-          </TabErrorBoundary>
-        </TabsContent>
-        <TabsContent value='payments'>
-          <TabErrorBoundary>
-            <PaymentsTab range={range} />
+            <UsageLogsTab range={range} />
           </TabErrorBoundary>
         </TabsContent>
       </Tabs>

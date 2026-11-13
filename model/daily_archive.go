@@ -1,9 +1,11 @@
 package model
 
 import (
+	"errors"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -19,8 +21,19 @@ type DailyArchive struct {
 	TotalTokens   int64   `json:"total_tokens" gorm:"default:0"`
 	TotalRequests int64   `json:"total_requests" gorm:"default:0"`
 	NewUsers      int64   `json:"new_users" gorm:"default:0"`
+	NewApiKeys    int64   `json:"new_api_keys" gorm:"default:0"`
 	TopUpAmount   float64 `json:"top_up_amount" gorm:"default:0"`
 	UpdatedAt     int64   `json:"updated_at" gorm:"bigint"`
+}
+
+// ArchiveNewKeyEntry is one API key created on the archived day, for the
+// export's "New API Keys" sheet. It never includes key material.
+type ArchiveNewKeyEntry struct {
+	Id          int    `json:"id"`
+	UserId      int    `json:"user_id"`
+	Username    string `json:"username"`
+	Name        string `json:"name"`
+	CreatedTime int64  `json:"created_time"`
 }
 
 const DailyArchiveDateLayout = "2006-01-02"
@@ -53,6 +66,10 @@ func BuildDailyArchive(date time.Time) (*DailyArchive, error) {
 	if err = DB.Model(&User{}).Where("created_at >= ? AND created_at <= ?", start, end).Count(&newUsers).Error; err != nil {
 		return nil, err
 	}
+	var newKeys int64
+	if err = DB.Model(&Token{}).Where("created_time >= ? AND created_time <= ?", start, end).Count(&newKeys).Error; err != nil {
+		return nil, err
+	}
 	var topUp struct{ Money float64 }
 	err = DB.Model(&TopUp{}).
 		Where("status = ? AND create_time >= ? AND create_time <= ?", common.TopUpStatusSuccess, start, end).
@@ -68,6 +85,7 @@ func BuildDailyArchive(date time.Time) (*DailyArchive, error) {
 		TotalTokens:   logRow.Tokens,
 		TotalRequests: logRow.Requests,
 		NewUsers:      newUsers,
+		NewApiKeys:    newKeys,
 		TopUpAmount:   topUp.Money,
 	}, nil
 }
@@ -85,6 +103,7 @@ func SaveDailyArchive(archive *DailyArchive) error {
 			"total_tokens",
 			"total_requests",
 			"new_users",
+			"new_api_keys",
 			"top_up_amount",
 			"updated_at",
 		}),
@@ -98,6 +117,20 @@ func ArchiveDay(date time.Time) error {
 		return err
 	}
 	return SaveDailyArchive(archive)
+}
+
+// GetDailyArchiveByDate returns the archive row of one date, or nil when the
+// day has not been archived yet.
+func GetDailyArchiveByDate(date string) (*DailyArchive, error) {
+	var archive DailyArchive
+	err := DB.Where("date = ?", date).First(&archive).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &archive, nil
 }
 
 // HasDailyArchive reports whether the date was already archived.
@@ -125,6 +158,19 @@ func GetArchiveLogsForExport(start int64, end int64, limit int) ([]Log, error) {
 	err := LOG_DB.Where("created_at >= ? AND created_at <= ?", start, end).
 		Order("created_at asc, id asc").Limit(limit).Find(&logs).Error
 	return logs, err
+}
+
+// GetArchiveNewKeysForExport returns up to limit API keys created in
+// [start, end], oldest first, with the owning username resolved.
+func GetArchiveNewKeysForExport(start int64, end int64, limit int) ([]ArchiveNewKeyEntry, error) {
+	entries := make([]ArchiveNewKeyEntry, 0)
+	err := DB.Model(&Token{}).
+		Select("tokens.id, tokens.user_id, tokens.name, tokens.created_time, users.username AS username").
+		Joins("LEFT JOIN users ON users.id = tokens.user_id").
+		Where("tokens.created_time >= ? AND tokens.created_time <= ?", start, end).
+		Order("tokens.created_time asc, tokens.id asc").Limit(limit).
+		Scan(&entries).Error
+	return entries, err
 }
 
 // GetArchiveTopUpsForExport returns up to limit top-ups in [start, end].

@@ -8000,5 +8000,8 @@
     "The copilot button is hidden outside the dashboard.": "The copilot button is hidden outside the dashboard.",
     "Admin Copilot message input": "Admin Copilot message input",
     "Account": "Аккаунт"
-  }
+  },
+  "Report date": "Дата отчёта",
+  "Invoices": "Счета",
+  "Export ready": "Экспорт готов"
 }

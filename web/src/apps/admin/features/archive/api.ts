@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import type { PaymentLogEntry } from '@/apps/admin/features/payment-logs/types'
 import { api } from '@/shared/lib/api'
 
+import { buildArchiveWorkbook } from './export'
+
 export interface DailyArchive {
   id: number
   date: string
@@ -27,6 +29,7 @@ export interface DailyArchive {
   total_tokens: number
   total_requests: number
   new_users: number
+  new_api_keys: number
   top_up_amount: number
 }
 
@@ -39,6 +42,15 @@ export interface ArchiveLog {
   quota: number
   prompt_tokens: number
   completion_tokens: number
+}
+
+/** One API key created on the archived day (export sheet, no key material). */
+export interface ArchiveNewKeyEntry {
+  id: number
+  user_id: number
+  username: string
+  name: string
+  created_time: number
 }
 
 export interface ArchiveRange {
@@ -95,23 +107,46 @@ export async function getArchivePayments(
   return response.data
 }
 
-/** Download one day's logs and payments as a CSV file. */
-export async function exportArchiveDay(date: string): Promise<void> {
-  const response = await api.get('/api/admin/archive/export', {
-    params: { date, format: 'csv' },
-    responseType: 'blob',
-  })
-  const blob = response.data as Blob
-  // An error page returned as JSON instead of the CSV blob must not produce
-  // a corrupted download; surface it as a normal API failure instead.
-  if (!(blob instanceof Blob) || blob.size === 0) {
-    throw new Error('Failed to export archive')
+/** Raw structured export payload served by /api/admin/archive/export. */
+export interface ArchiveExportPayload {
+  date: string
+  summary: DailyArchive | null
+  invoices: PaymentLogEntry[]
+  new_keys: ArchiveNewKeyEntry[]
+}
+
+interface ArchiveLogExportEnvelope {
+  success: boolean
+  message?: string
+  data?: unknown
+}
+
+/** Download one day's report as a multi-sheet XLSX workbook. */
+export async function exportArchiveDay(
+  date: string,
+  logs: ArchiveLog[]
+): Promise<void> {
+  const response = await api.get<ArchiveLogExportEnvelope>(
+    '/api/admin/archive/export',
+    { params: { date } }
+  )
+  const envelope = response.data
+  if (!envelope.success || !envelope.data) {
+    throw new Error(envelope.message || 'Failed to export archive')
   }
+  const payload = envelope.data as ArchiveExportPayload
+  const blob = buildArchiveWorkbook({
+    date: payload.date || date,
+    summary: payload.summary,
+    invoices: payload.invoices ?? [],
+    newKeys: payload.new_keys ?? [],
+    logs,
+  })
   const url = URL.createObjectURL(blob)
   try {
     const link = document.createElement('a')
     link.href = url
-    link.download = `archive-${date}.csv`
+    link.download = `archive-${date}.xlsx`
     link.click()
   } finally {
     URL.revokeObjectURL(url)
