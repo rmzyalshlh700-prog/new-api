@@ -431,7 +431,9 @@ func SetApiRouter(router *gin.Engine) {
 
 		// Real-time OS metrics streamed over SSE (one snapshot per second).
 		liveMetricsRoute := apiRouter.Group("/admin/metrics")
-		liveMetricsRoute.Use(middleware.AdminAuth())
+		// EventSource cannot attach headers, so this route also accepts the
+		// dashboard access token in the access_token query parameter.
+		liveMetricsRoute.Use(middleware.AdminAuthStream())
 		liveMetricsRoute.Use(middleware.RequireVisibleSection("dashboard"))
 		liveMetricsRoute.GET("/live", controller.StreamLiveMetrics)
 		dataRoute.GET("/metrics", middleware.AdminAuth(), middleware.RequireVisibleSection("dashboard"), controller.GetAdminDashboardMetrics)

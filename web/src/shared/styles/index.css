@@ -16,6 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+/* Space reserved for fixed overlay chrome mounted by the admin portal. The
+ * Admin Copilot bubble is a fixed 56px button anchored bottom-right (z-[1100]);
+ * data-table footers add this to their padding so pagination controls are
+ * never covered by it. Nothing sets the variable elsewhere yet, so it is 0px. */
+:root {
+  --admin-overlay-bottom-size: 0px;
+}
+
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';

@@ -211,6 +211,7 @@ export function SummaryTab({ range }: TabProps) {
       emptyTitle={t('No archive data')}
       emptyDescription={t('No archived days in the selected range.')}
       skeletonKeyPrefix='archive-summary-skeleton'
+      pinnedColumns={[{ columnId: 'export', side: 'right' }]}
     />
   )
 }

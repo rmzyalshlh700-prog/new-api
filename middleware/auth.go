@@ -147,6 +147,25 @@ func RootAuth() func(c *gin.Context) {
 	}
 }
 
+// AdminAuthStream is the admin gate for SSE routes that browser EventSource
+// clients cannot call with an Authorization header: the header still wins, but
+// a valid access token may also arrive in the access_token query parameter.
+// Requests without any credential are rejected, exactly like AdminAuth.
+func AdminAuthStream() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		if _, ok := authorizationToken(c.GetHeader("Authorization")); ok {
+			authHelper(c, common.RoleAdminUser)
+			return
+		}
+		if accessToken := c.Query("access_token"); accessToken != "" {
+			c.Request.Header.Set("Authorization", "Bearer "+accessToken)
+			authHelper(c, common.RoleAdminUser)
+			return
+		}
+		writeDashboardAuthError(c, service.ErrAuthTokenInvalid)
+	}
+}
+
 // GetAuthIdentity returns a dashboard session identity. PAT-authenticated
 // requests intentionally have no SessionID and cannot manage browser sessions.
 func GetAuthIdentity(c *gin.Context) (service.AuthIdentity, bool) {

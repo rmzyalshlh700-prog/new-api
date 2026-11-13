@@ -117,7 +117,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
 
         <div
           ref={setFooterContainer}
-          className='bg-background shrink-0 border-t px-3 py-2.5 empty:hidden sm:px-4 sm:py-3'
+          className='bg-background shrink-0 border-t px-3 py-2.5 pb-[calc(var(--admin-overlay-bottom-size,0px)+0.625rem)] empty:hidden sm:px-4 sm:py-3 sm:pb-[calc(var(--admin-overlay-bottom-size,0px)+0.75rem)]'
         />
       </Main>
     </PageFooterProvider>

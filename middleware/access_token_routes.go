@@ -254,7 +254,11 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/data/flow":                        accessTokenScopeRule("log:read"),
 	"GET /api/data/flow/self":                   accessTokenScopeRule("usage:read"),
 	"GET /api/admin/profit_stats":               accessTokenScopeRule("log:read"),
-	"GET /api/admin/backup/export":              accessTokenScopeRule("ops:read"),
+	"GET /api/admin/backup/export":            accessTokenScopeRule("ops:read"),
+	"GET /api/admin/metrics/live":             accessTokenScopeRule("dashboard:read"),
+
+	// router/api-router.go: /api/admin/copilot
+	"GET /api/admin/copilot/chat/info":        accessTokenScopeRule("user:read"),
 
 	// router/api-router.go: /api/group, /api/prefill_group
 	"GET /api/group/":               accessTokenScopeRule("group:read"),

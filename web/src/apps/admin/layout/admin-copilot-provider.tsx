@@ -3,7 +3,13 @@ import { CopilotKit } from '@copilotkit/react-core'
 import { CopilotPopup } from '@copilotkit/react-ui'
 import { useRouterState } from '@tanstack/react-router'
 import { ChevronsUpDown, MessagesSquare, Send, Sparkles, X } from 'lucide-react'
-import { Component, useCallback, type ErrorInfo, type ReactNode } from 'react'
+import {
+  Component,
+  useCallback,
+  useEffect,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -93,6 +99,22 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
   const hideCopilot =
     settings?.visibility === 'dashboard_only' &&
     pathname !== ADMIN_COPILOT_DEFAULT_PATH
+
+  // The Copilot bubble is fixed to the bottom-right corner (56px + margin) and
+  // floats above page footers, so it covers pagination controls on table pages.
+  // Publish its reserved height through a CSS variable that the shared page
+  // footer adds to its padding; clearing it on unmount keeps other portals at
+  // their natural spacing.
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty(
+      '--admin-overlay-bottom-size',
+      hideCopilot ? '0px' : '72px'
+    )
+    return () => {
+      root.style.setProperty('--admin-overlay-bottom-size', '0px')
+    }
+  }, [hideCopilot])
 
   // CopilotKit does not share the app's HTTP client, so its fetch calls would
   // otherwise hit AdminAuth() without a Bearer token and return 401. Forward

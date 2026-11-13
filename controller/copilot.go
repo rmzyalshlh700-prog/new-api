@@ -158,6 +158,9 @@ func copilotUserFrom(u *model.User) CopilotUserResult {
 
 // GetCopilotUsers serves the admin Copilot tool data for user lookup, either
 // by numeric id (?id=) or by email/username keyword (?keyword=).
+// This route uses the TryUserAuth middleware, which authenticates optionally.
+// The signed access token route table must declare the path as requiring a
+// "user:read" scope; requests without credentials are accepted (anonymous).
 func GetCopilotUsers(c *gin.Context) {
 	if idStr := c.Query("id"); idStr != "" {
 		id, err := strconv.Atoi(idStr)
