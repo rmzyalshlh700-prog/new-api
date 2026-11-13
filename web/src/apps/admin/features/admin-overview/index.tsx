@@ -42,7 +42,7 @@ import {
 import { ActivityTrendPanel } from './components/activity-trend-panel'
 import { ClientBalancesPanel } from './components/client-balances-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
-import { NetworkSpeedWidget, ServerPerformanceWidget } from './components/live-metrics-widgets'
+import { ServerPerformanceWidget } from './components/live-metrics-widgets'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
 import { PerformanceOverview } from './components/performance-overview'
 import { PlatformMetricsCards } from './components/platform-metrics-cards'
@@ -347,12 +347,6 @@ export function AdminOverview() {
                     connected={liveMetrics.connected}
                     cpuHistory={liveMetrics.cpuHistory}
                     memoryHistory={liveMetrics.memoryHistory}
-                  />
-                  <NetworkSpeedWidget
-                    metrics={liveMetrics.metrics}
-                    connected={liveMetrics.connected}
-                    downloadHistory={liveMetrics.downloadHistory}
-                    uploadHistory={liveMetrics.uploadHistory}
                   />
                 </div>
               </FadeIn>

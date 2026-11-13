@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Activity, ArrowDown, ArrowUp, Cpu, Gauge, MemoryStick, Wifi, WifiOff } from 'lucide-react'
+import { Activity, Cpu, Gauge, MemoryStick, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
@@ -119,16 +119,6 @@ function MiniArea({
   )
 }
 
-function formatSpeed(bytesPerSecond: number): string {
-  if (bytesPerSecond >= 1024 * 1024) {
-    return `${(bytesPerSecond / (1024 * 1024)).toFixed(2)} Mbps`
-  }
-  if (bytesPerSecond >= 1000) {
-    return `${(bytesPerSecond / 1000).toFixed(1)} Kbps`
-  }
-  return `${bytesPerSecond.toFixed(0)} B/s`
-}
-
 export function ServerPerformanceWidget({
   metrics,
   connected,
@@ -203,88 +193,6 @@ export function ServerPerformanceWidget({
             {metrics.load15.toFixed(2)}
           </div>
         )}
-      </div>
-    </TitledCard>
-  )
-}
-
-export function NetworkSpeedWidget({
-  metrics,
-  connected,
-  downloadHistory,
-  uploadHistory,
-}: {
-  metrics: LiveMetrics | null
-  connected: boolean
-  downloadHistory: number[]
-  uploadHistory: number[]
-}) {
-  const { t } = useTranslation()
-  const download = metrics?.download_bps ?? 0
-  const upload = metrics?.upload_bps ?? 0
-
-  return (
-    <TitledCard
-      title={t('Network Speed')}
-      icon={<Wifi className='size-4' />}
-      description={
-        <span
-          className={cn(
-            'flex items-center gap-1.5 text-xs',
-            connected ? 'text-success' : 'text-muted-foreground'
-          )}
-        >
-          {connected ? (
-            <>
-              <Activity className='size-3.5' aria-hidden='true' />
-              {t('Live')}
-            </>
-          ) : (
-            <>
-              <WifiOff className='size-3.5' aria-hidden='true' />
-              {t('Connecting...')}
-            </>
-          )}
-        </span>
-      }
-    >
-      <div className='grid grid-cols-2 gap-4 px-5 py-4'>
-        <div>
-          <div className='text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-medium'>
-            <ArrowDown className='size-3.5 text-success' aria-hidden='true' />
-            {t('Download')}
-          </div>
-          <div className='text-2xl font-semibold tabular-nums'>
-            {formatSpeed(download)}
-          </div>
-        </div>
-        <div>
-          <div className='text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-medium'>
-            <ArrowUp className='size-3.5 text-primary' aria-hidden='true' />
-            {t('Upload')}
-          </div>
-          <div className='text-2xl font-semibold tabular-nums'>
-            {formatSpeed(upload)}
-          </div>
-        </div>
-      </div>
-      <div className='border-t px-5 py-3'>
-        <div className='text-muted-foreground mb-1 text-xs font-medium'>
-          {t('Download trend (last 60s)')}
-        </div>
-        <MiniArea data={downloadHistory} stroke='hsl(var(--success))' id='download-spark' />
-        <div className='text-muted-foreground mt-2 mb-1 text-xs font-medium'>
-          {t('Upload trend (last 60s)')}
-        </div>
-        <MiniArea data={uploadHistory} stroke='hsl(var(--primary))' id='upload-spark' />
-        <div className='text-muted-foreground mt-2 text-xs'>
-          {t('Latency')}:{' '}
-          <span className='text-foreground font-medium tabular-nums'>
-            {metrics && !metrics.latency_failed
-              ? `${metrics.latency_ms.toFixed(1)} ms`
-              : t('Unavailable')}
-          </span>
-        </div>
       </div>
     </TitledCard>
   )
