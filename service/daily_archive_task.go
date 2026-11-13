@@ -58,20 +58,11 @@ func runDailyArchive() {
 	today := time.Now()
 	for i := dailyArchiveBackfillDays; i >= 1; i-- {
 		day := today.AddDate(0, 0, -i)
-		// The previous day is always recomputed to catch late-written logs.
-		if i > 1 {
-			archived, err := model.HasDailyArchive(day)
-			if err != nil {
-				logger.LogWarn(ctx, common.LogText("daily archive check failed: %v", err))
-				return
-			}
-			if archived {
-				continue
-			}
-		}
+		// One failing day must never stop the rest of the backfill: log it and
+		// move on so a transient error cannot leave a permanent gap.
 		if err := model.ArchiveDay(day); err != nil {
-			logger.LogWarn(ctx, common.LogText("daily archive failed: %v", err))
-			return
+			logger.LogWarn(ctx, common.LogText("daily archive failed for %s: %v", day.Format(model.DailyArchiveDateLayout), err))
+			continue
 		}
 	}
 }

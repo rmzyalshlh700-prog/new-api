@@ -18,18 +18,30 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { AuthenticatedLayout } from '@/shared/components/layout/components/authenticated-layout'
 
-import { AdminErrorBoundary } from './admin-error-boundary'
 import { AdminCopilotProvider } from './admin-copilot-provider'
+import { AdminErrorBoundary } from './admin-error-boundary'
 import { useAdminSidebarView } from './admin-sidebar-view'
+
+/**
+ * The shell reads admin navigation data, which can throw on a malformed or
+ * stale permission payload. Keeping the hook inside its own component means
+ * such a throw is caught by the boundary below instead of unmounting the
+ * portal before the boundary ever renders.
+ */
+function AdminShell() {
+  const { navGroups } = useAdminSidebarView()
+  return (
+    <AdminCopilotProvider>
+      <AuthenticatedLayout navGroups={navGroups} portal='admin' />
+    </AdminCopilotProvider>
+  )
+}
 
 /** Admin portal shell: shared authenticated chrome with admin navigation only. */
 export function AdminLayout() {
-  const { navGroups } = useAdminSidebarView()
   return (
     <AdminErrorBoundary>
-      <AdminCopilotProvider>
-        <AuthenticatedLayout navGroups={navGroups} portal='admin' />
-      </AdminCopilotProvider>
+      <AdminShell />
     </AdminErrorBoundary>
   )
 }

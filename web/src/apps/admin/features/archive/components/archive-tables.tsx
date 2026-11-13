@@ -23,7 +23,7 @@ import type {
   PaginationState,
 } from '@tanstack/react-table'
 import { Download } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -77,89 +77,94 @@ export function SummaryTab({ range }: TabProps) {
     },
   })
 
-  const handleExport = async (date: string) => {
-    setExporting(date)
-    try {
-      await exportArchiveDay(date)
-    } catch (error) {
-      // Never let an export failure escape the handler: the row stays
-      // interactive and the user sees a toast instead of a crash.
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : t('Failed to export archive')
-      toast.error(message)
-    } finally {
-      setExporting(null)
-    }
-  }
+  const handleExport = useCallback(
+    async (date: string) => {
+      setExporting(date)
+      try {
+        await exportArchiveDay(date)
+      } catch (error) {
+        // Never let an export failure escape the handler: the row stays
+        // interactive and the user sees a toast instead of a crash.
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : t('Failed to export archive')
+        toast.error(message)
+      } finally {
+        setExporting(null)
+      }
+    },
+    [t]
+  )
 
-  const columns: ColumnDef<DailyArchive>[] = [
-    {
-      accessorKey: 'date',
-      header: t('Date'),
-      meta: { mobileTitle: true },
-      cell: ({ row }) => (
-        <span className='font-mono tabular-nums'>
-          {row.original.date ?? '-'}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'total_revenue',
-      header: t('Revenue'),
-      cell: ({ row }) => formatLogQuota(row.original.total_revenue ?? 0),
-    },
-    {
-      accessorKey: 'total_cost',
-      header: t('Cost'),
-      cell: ({ row }) => formatLogQuota(row.original.total_cost ?? 0),
-    },
-    {
-      accessorKey: 'total_tokens',
-      header: t('Tokens'),
-      cell: ({ row }) =>
-        formatNumber(row.original.total_tokens ?? 0, locale),
-    },
-    {
-      accessorKey: 'total_requests',
-      header: t('Requests'),
-      cell: ({ row }) =>
-        formatNumber(row.original.total_requests ?? 0, locale),
-    },
-    {
-      accessorKey: 'new_users',
-      header: t('New Users'),
-      cell: ({ row }) => formatNumber(row.original.new_users ?? 0, locale),
-    },
-    {
-      accessorKey: 'top_up_amount',
-      header: t('Top-up Amount'),
-      cell: ({ row }) =>
-        formatNumber(row.original.top_up_amount ?? 0, locale),
-    },
-    {
-      id: 'export',
-      header: '',
-      cell: ({ row }) => (
-        <Button
-          size='sm'
-          className='gap-1.5'
-          disabled={
-            (exporting !== null && exporting !== row.original.date) ||
-            isFetching ||
-            isLoading
-          }
-          onClick={() => handleExport(row.original.date)}
-        >
-          <Download className='size-4' aria-hidden='true' />
-          {exporting === row.original.date
-            ? t('Exporting…')
-            : t('Export Day Data')}
-        </Button>
-      ),
-    },
-  ]
+  const columns = useMemo<ColumnDef<DailyArchive>[]>(
+    () => [
+      {
+        accessorKey: 'date',
+        header: t('Date'),
+        meta: { mobileTitle: true },
+        cell: ({ row }) => (
+          <span className='font-mono tabular-nums'>
+            {row.original.date ?? '-'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'total_revenue',
+        header: t('Revenue'),
+        cell: ({ row }) => formatLogQuota(row.original.total_revenue ?? 0),
+      },
+      {
+        accessorKey: 'total_cost',
+        header: t('Cost'),
+        cell: ({ row }) => formatLogQuota(row.original.total_cost ?? 0),
+      },
+      {
+        accessorKey: 'total_tokens',
+        header: t('Tokens'),
+        cell: ({ row }) => formatNumber(row.original.total_tokens ?? 0, locale),
+      },
+      {
+        accessorKey: 'total_requests',
+        header: t('Requests'),
+        cell: ({ row }) =>
+          formatNumber(row.original.total_requests ?? 0, locale),
+      },
+      {
+        accessorKey: 'new_users',
+        header: t('New Users'),
+        cell: ({ row }) => formatNumber(row.original.new_users ?? 0, locale),
+      },
+      {
+        accessorKey: 'top_up_amount',
+        header: t('Top-up Amount'),
+        cell: ({ row }) =>
+          formatNumber(row.original.top_up_amount ?? 0, locale),
+      },
+      {
+        id: 'export',
+        header: '',
+        cell: ({ row }) => (
+          <Button
+            size='sm'
+            className='gap-1.5'
+            disabled={
+              (exporting !== null && exporting !== row.original.date) ||
+              isFetching ||
+              isLoading
+            }
+            onClick={() => handleExport(row.original.date)}
+          >
+            <Download className='size-4' aria-hidden='true' />
+            {exporting === row.original.date
+              ? t('Exporting…')
+              : t('Export Day Data')}
+          </Button>
+        ),
+      },
+    ],
+    [t, locale, exporting, isFetching, isLoading, handleExport]
+  )
 
   const { table } = useDataTable({
     // Stable identity: a fresh array per render makes TanStack reset table
@@ -242,31 +247,34 @@ export function LogsTab({ range }: TabProps) {
     range,
     getArchiveLogs
   )
-  const columns: ColumnDef<ArchiveLog>[] = [
-    {
-      accessorKey: 'created_at',
-      header: t('Time'),
-      meta: { mobileTitle: true },
-      cell: ({ row }) => formatTimestampToDate(row.original.created_at ?? 0),
-    },
-    { accessorKey: 'username', header: t('Username') },
-    { accessorKey: 'model_name', header: t('Model') },
-    {
-      accessorKey: 'prompt_tokens',
-      header: t('Tokens'),
-      cell: ({ row }) =>
-        formatNumber(
-          (row.original.prompt_tokens ?? 0) +
-            (row.original.completion_tokens ?? 0),
-          locale
-        ),
-    },
-    {
-      accessorKey: 'quota',
-      header: t('Quota'),
-      cell: ({ row }) => formatLogQuota(row.original.quota ?? 0),
-    },
-  ]
+  const columns = useMemo<ColumnDef<ArchiveLog>[]>(
+    () => [
+      {
+        accessorKey: 'created_at',
+        header: t('Time'),
+        meta: { mobileTitle: true },
+        cell: ({ row }) => formatTimestampToDate(row.original.created_at ?? 0),
+      },
+      { accessorKey: 'username', header: t('Username') },
+      { accessorKey: 'model_name', header: t('Model') },
+      {
+        accessorKey: 'prompt_tokens',
+        header: t('Tokens'),
+        cell: ({ row }) =>
+          formatNumber(
+            (row.original.prompt_tokens ?? 0) +
+              (row.original.completion_tokens ?? 0),
+            locale
+          ),
+      },
+      {
+        accessorKey: 'quota',
+        header: t('Quota'),
+        cell: ({ row }) => formatLogQuota(row.original.quota ?? 0),
+      },
+    ],
+    [t, locale]
+  )
   const total = query.data?.total ?? 0
   const items = query.data?.items ?? EMPTY_ITEMS
   const { table } = useDataTable({

@@ -36,7 +36,7 @@ func InitRedisClient() (err error) {
 	if err != nil {
 		FatalLog(LogText("failed to parse Redis connection string: %s", err.Error()))
 	}
-	opt.PoolSize = GetEnvOrDefault("REDIS_POOL_SIZE", 10)
+	applyRedisTimeouts(opt)
 	RDB = redis.NewClient(opt)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -53,11 +53,24 @@ func InitRedisClient() (err error) {
 	return err
 }
 
+// applyRedisTimeouts bounds every Redis round trip. The go-redis defaults
+// (3-5s) multiply across the several calls a request makes during an outage
+// and can park handlers far longer than the user-facing budget.
+func applyRedisTimeouts(opt *redis.Options) {
+	opt.PoolSize = GetEnvOrDefault("REDIS_POOL_SIZE", 10)
+	opt.DialTimeout = time.Duration(GetEnvOrDefault("REDIS_DIAL_TIMEOUT_SECONDS", 3)) * time.Second
+	opt.ReadTimeout = time.Duration(GetEnvOrDefault("REDIS_READ_TIMEOUT_SECONDS", 2)) * time.Second
+	opt.WriteTimeout = time.Duration(GetEnvOrDefault("REDIS_WRITE_TIMEOUT_SECONDS", 2)) * time.Second
+	opt.PoolTimeout = time.Duration(GetEnvOrDefault("REDIS_POOL_TIMEOUT_SECONDS", 2)) * time.Second
+	opt.MaxRetries = 2
+}
+
 func ParseRedisOption() *redis.Options {
 	opt, err := redis.ParseURL(os.Getenv("REDIS_CONN_STRING"))
 	if err != nil {
 		FatalLog(LogText("failed to parse Redis connection string: %s", err.Error()))
 	}
+	applyRedisTimeouts(opt)
 	return opt
 }
 

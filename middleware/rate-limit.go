@@ -128,8 +128,10 @@ func redisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, mark st
 	)
 	if err != nil {
 		logRateLimitFailure(c.Request.Context(), err, common.LogText("rate limit check failed (mark=%s): %v", mark, err))
-		c.Status(http.StatusInternalServerError)
-		c.Abort()
+		// A Redis outage must not turn login and registration into HTTP 500s.
+		// Degrade to the bounded per-instance limiter instead of failing shut.
+		inMemoryRateLimiter.Init(common.RateLimitKeyExpirationDuration)
+		memoryRateLimiter(c, maxRequestNum, duration, mark)
 		return
 	}
 	if !allowed {

@@ -444,9 +444,10 @@ func tasksToDto(tasks []*model.Task, fillUser bool, viewerRole int) []*dto.TaskD
 		for _, task := range tasks {
 			userIDs.Add(task.UserId)
 		}
-		for _, userID := range userIDs.Items() {
-			if cacheUser, err := model.GetUserCache(userID); err == nil {
-				userIDMap[userID] = cacheUser
+		// One batched query for the whole page instead of a per-user lookup.
+		if names, err := model.GetUsernamesByIds(userIDs.Items()); err == nil {
+			for userID, username := range names {
+				userIDMap[userID] = &model.UserBase{Id: userID, Username: username}
 			}
 		}
 	}

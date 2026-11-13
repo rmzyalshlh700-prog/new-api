@@ -97,6 +97,26 @@ func updateUserCache(user User) error {
 }
 
 // GetUserCache gets complete user cache from hash
+// GetUsernamesByIds resolves id -> username for a whole page of users in one
+// query, avoiding a per-row cache/database lookup when a list view needs names.
+func GetUsernamesByIds(ids []int) (map[int]string, error) {
+	names := make(map[int]string, len(ids))
+	if len(ids) == 0 {
+		return names, nil
+	}
+	var rows []struct {
+		Id       int
+		Username string
+	}
+	if err := DB.Model(&User{}).Select("id", "username").Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		names[row.Id] = row.Username
+	}
+	return names, nil
+}
+
 func GetUserCache(userId int) (*UserBase, error) {
 	// Try getting from Redis first
 	userCache, err := cacheGetUserBase(userId)

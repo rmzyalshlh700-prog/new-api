@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // DailyArchive is the pre-aggregated metric row for one calendar day (server
@@ -72,19 +72,23 @@ func BuildDailyArchive(date time.Time) (*DailyArchive, error) {
 	}, nil
 }
 
-// SaveDailyArchive inserts or refreshes the row of its date.
+// SaveDailyArchive inserts or refreshes the row of its date in one statement.
+// The upsert relies on the unique index on date, so concurrent archive runs
+// (startup backfill, midnight job, a second replica) cannot collide on insert.
 func SaveDailyArchive(archive *DailyArchive) error {
 	archive.UpdatedAt = common.GetTimestamp()
-	var existing DailyArchive
-	err := DB.Where("date = ?", archive.Date).First(&existing).Error
-	if err == gorm.ErrRecordNotFound {
-		return DB.Create(archive).Error
-	}
-	if err != nil {
-		return err
-	}
-	archive.Id = existing.Id
-	return DB.Save(archive).Error
+	return DB.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "date"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"total_revenue",
+			"total_cost",
+			"total_tokens",
+			"total_requests",
+			"new_users",
+			"top_up_amount",
+			"updated_at",
+		}),
+	}).Create(archive).Error
 }
 
 // ArchiveDay aggregates and stores one day.

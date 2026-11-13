@@ -30,6 +30,9 @@ func SetApiRouter(router *gin.Engine) {
 	apiRouter.Use(gzip.Gzip(gzip.DefaultCompression))
 	apiRouter.Use(middleware.AccessTokenAudit())
 	apiRouter.Use(middleware.BodyStorageCleanup()) // 清理请求体存储
+	// Authenticated JSON endpoints decode their body into memory; cap every
+	// non-GET request so a huge payload cannot exhaust the process heap.
+	apiRouter.Use(middleware.APIBodyLimit(32 << 20))
 	apiRouter.Use(middleware.GlobalAPIRateLimit())
 	anonymousRequestBodyLimit := middleware.AnonymousRequestBodyLimit()
 	{

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+import { useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { api } from '@/shared/lib/http-client';
 
@@ -43,17 +44,12 @@ interface ApiEnvelope<T> {
  */
 export function useAdminCopilot() {
   const { t } = useTranslation();
-  const [pageContext, setPageContext] = useState('');
-
-  useEffect(() => {
-    const update = () => {
-      const { pathname, search } = window.location;
-      setPageContext(`${pathname}${search}`);
-    };
-    update();
-    window.addEventListener('popstate', update);
-    return () => window.removeEventListener('popstate', update);
-  }, []);
+  // The router owns navigation state. A `popstate` listener never fires for
+  // client-side pushState navigations, so the context used to keep describing
+  // the page the console was mounted on.
+  const pageContext = useRouterState({
+    select: (state) => state.location.href,
+  });
 
   useCopilotReadable({
     description: t(

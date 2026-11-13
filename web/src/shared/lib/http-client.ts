@@ -51,6 +51,9 @@ export type ApiRequestConfig = AxiosRequestConfig
 export const api = axios.create({
   baseURL: '',
   withCredentials: true,
+  // No request may hang forever. Without a timeout a half-open upstream pins
+  // the caller — and, for GETs, every later identical request via inFlightGet.
+  timeout: 60_000,
   headers: {
     // no-store forbids storage; no-cache also revalidates any older cached response.
     'Cache-Control': 'no-cache, no-store',
@@ -59,6 +62,8 @@ export const api = axios.create({
 
 const inFlightGet = new Map<string, Promise<unknown>>()
 const originalGet = api.get.bind(api)
+// Absolute ceiling for a deduplicated GET, even if a caller overrides timeout: 0.
+const GET_GUARD_TIMEOUT_MS = 120_000
 
 api.get = ((url: string, config: ApiRequestConfig = {}) => {
   if (config.disableDuplicate) return originalGet(url, config)
@@ -69,7 +74,18 @@ api.get = ((url: string, config: ApiRequestConfig = {}) => {
   const existingRequest = inFlightGet.get(key)
   if (existingRequest) return existingRequest
 
-  const request = originalGet(url, config).finally(() => {
+  // Abort the request ourselves if it outlives the guard, so the promise
+  // rejects and the map entry is always released instead of freezing the UI.
+  const controller = new AbortController()
+  const guard = globalThis.setTimeout(
+    () => controller.abort(),
+    GET_GUARD_TIMEOUT_MS
+  )
+  const request = originalGet(url, {
+    ...config,
+    signal: config.signal ?? controller.signal,
+  }).finally(() => {
+    globalThis.clearTimeout(guard)
     inFlightGet.delete(key)
   })
   inFlightGet.set(key, request)
@@ -77,10 +93,7 @@ api.get = ((url: string, config: ApiRequestConfig = {}) => {
 }) as typeof api.get
 
 function redirectToSignIn(): void {
-  if (
-    typeof window !== 'undefined' &&
-    window.location.pathname !== '/login'
-  ) {
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
     window.location.replace('/login')
   }
 }
