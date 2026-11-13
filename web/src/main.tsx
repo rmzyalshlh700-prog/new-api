@@ -28,6 +28,7 @@ import '@/shared/lib/dayjs'
 import { initializeFrontendCache } from '@/shared/lib/frontend-cache'
 import { registerMaintenanceRedirect } from '@/shared/lib/maintenance-redirect'
 import { createAppQueryClient } from '@/shared/lib/query-client'
+import type { QueryClient } from '@tanstack/react-query'
 import { readCachedStatus, statusQueryOptions } from '@/shared/lib/status-query'
 
 // Generated Routes
@@ -48,7 +49,7 @@ installBuildMetadata()
 // later chunk. Recover once by reloading to fetch the new index.html.
 installChunkLoadRecovery()
 
-const queryClient = createAppQueryClient(() => {
+const queryClient: QueryClient = createAppQueryClient(() => {
   void router.navigate({ to: '/500' })
 })
 

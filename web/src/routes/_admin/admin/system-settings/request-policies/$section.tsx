@@ -25,6 +25,10 @@ export const Route = createFileRoute(
   '/_admin/admin/system-settings/request-policies/$section'
 )({
   beforeLoad: ({ params }) => {
+    // Sensitive words are a request processing instance now.
+    if (params.section === 'filtering') {
+      throw redirect({ to: '/request-processing', replace: true })
+    }
     if (!(POLICY_SECTION_IDS as readonly string[]).includes(params.section)) {
       throw redirect({
         to: '/admin/system-settings/request-policies/$section',

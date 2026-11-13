@@ -71,7 +71,7 @@ async function renderPolicies(path: string) {
   })
   const policyRoute = createRoute({
     getParentRoute: () => authenticated,
-    path: '/admin/system-settings/request-policies/$section',
+    path: '/system-settings/request-policies/$section',
     beforeLoad: PoliciesRoute.options.beforeLoad as PolicyBeforeLoad,
     component: RequestPolicies,
   })
@@ -79,22 +79,26 @@ async function renderPolicies(path: string) {
     policyRoute,
     createRoute({
       getParentRoute: () => authenticated,
-      path: '/admin/system-settings/request-policies/',
+      path: '/system-settings/request-policies/',
       beforeLoad: PolicyIndexRoute.options.beforeLoad as () => void,
     }),
     createRoute({
       getParentRoute: () => authenticated,
-      path: '/admin/system-settings/models/$section',
+      path: '/system-settings/models/$section',
       beforeLoad: ModelsRoute.options.beforeLoad as PolicyBeforeLoad,
     }),
     createRoute({
       getParentRoute: () => authenticated,
-      path: '/admin/system-settings/security/$section',
+      path: '/system-settings/security/$section',
       beforeLoad: SecurityRoute.options.beforeLoad as PolicyBeforeLoad,
     }),
     createRoute({
       getParentRoute: () => authenticated,
-      path: '/admin/system-settings/operations/$section',
+      path: '/request-processing',
+    }),
+    createRoute({
+      getParentRoute: () => authenticated,
+      path: '/system-settings/operations/$section',
       beforeLoad: OperationsRoute.options.beforeLoad as PolicyBeforeLoad,
     }),
   ]
@@ -123,9 +127,6 @@ beforeEach(() => {
     AutomaticDisableChannelEnabled: true,
     AutomaticEnableChannelEnabled: true,
     'monitor_setting.auto_test_channel_enabled': true,
-    CheckSensitiveEnabled: true,
-    CheckSensitiveOnPromptEnabled: true,
-    SensitiveWords: 'blocked',
     'channel_affinity_setting.rules': JSON.stringify([
       {
         name: 'Existing session rule',
@@ -190,12 +191,11 @@ describe('request policy settings', () => {
   it.each([
     ['retry', 'Save Changes'],
     ['health', 'Save Changes'],
-    ['filtering', 'Save sensitive words'],
     ['affinity', 'Save Changes'],
   ])(
     'opening %s and saving unchanged values does not write options',
     async (section, saveLabel) => {
-      await renderPolicies(`/admin/system-settings/request-policies/${section}`)
+      await renderPolicies(`/system-settings/request-policies/${section}`)
       const save = await screen.findByRole('button', { name: saveLabel })
       expect(api.put).not.toHaveBeenCalled()
       await userEvent.click(save)
@@ -215,7 +215,7 @@ describe('request policy settings', () => {
   ])(
     'saving a changed %s field writes only that original option key',
     async (section, label, input, key, value) => {
-      await renderPolicies(`/admin/system-settings/request-policies/${section}`)
+      await renderPolicies(`/system-settings/request-policies/${section}`)
       fireEvent.change(await screen.findByRole('spinbutton', { name: label }), {
         target: { value: input },
       })
@@ -231,43 +231,8 @@ describe('request policy settings', () => {
     }
   )
 
-  it('turning filtering off preserves the prompt switch and keyword list', async () => {
-    await renderPolicies('/admin/system-settings/request-policies/filtering')
-    await userEvent.click(
-      await screen.findByRole('switch', { name: 'Enable filtering' })
-    )
-    const prompt = screen.getByRole('switch', { name: 'Inspect user prompts' })
-    expect(prompt).toHaveAttribute('aria-disabled', 'true')
-    expect(prompt).toBeChecked()
-    expect(
-      screen.getByRole('textbox', { name: 'Blocked keywords' })
-    ).toHaveValue('blocked')
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Save sensitive words' })
-    )
-    await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledExactlyOnceWith(
-        '/api/option/request_policy',
-        { options: { CheckSensitiveEnabled: 'false' } }
-      )
-    )
-  })
-
-  it('refreshing another policy keeps unsaved filter text', async () => {
-    await renderPolicies('/admin/system-settings/request-policies/filtering')
-    const keywords = await screen.findByRole('textbox', {
-      name: 'Blocked keywords',
-    })
-    fireEvent.change(keywords, { target: { value: 'unsaved' } })
-    settings.RetryTimes = 5
-    await act(async () => {
-      await queryClient.invalidateQueries({ queryKey: ['system-options'] })
-    })
-    expect(keywords).toHaveValue('unsaved')
-  })
-
   it('invalid retry status ranges show validation and do not write options', async () => {
-    await renderPolicies('/admin/system-settings/request-policies/retry')
+    await renderPolicies('/system-settings/request-policies/retry')
     const codes = await screen.findByRole('textbox', {
       name: 'Auto-retry status codes',
     })
@@ -285,7 +250,7 @@ describe('request policy settings', () => {
     vi.mocked(api.patch).mockResolvedValue({
       data: { success: false, message: 'Save rejected' },
     })
-    await renderPolicies('/admin/system-settings/request-policies/retry')
+    await renderPolicies('/system-settings/request-policies/retry')
     const retries = await screen.findByRole('spinbutton', {
       name: 'Maximum retries',
     })
@@ -301,7 +266,7 @@ describe('request policy settings', () => {
 
   it('failed initial loading shows a retry action instead of editable fallback values', async () => {
     vi.mocked(api.get).mockRejectedValueOnce(new Error('Unavailable'))
-    await renderPolicies('/admin/system-settings/request-policies/retry')
+    await renderPolicies('/system-settings/request-policies/retry')
     expect(await screen.findByText('Failed to load settings')).toBeVisible()
     expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
@@ -314,7 +279,7 @@ describe('request policy settings', () => {
   })
 
   it('turning scheduled checks off explains recovery without changing the recovery setting', async () => {
-    await renderPolicies('/admin/system-settings/request-policies/health')
+    await renderPolicies('/system-settings/request-policies/health')
     await userEvent.click(
       await screen.findByRole('switch', { name: 'Scheduled channel tests' })
     )
@@ -330,7 +295,7 @@ describe('request policy settings', () => {
   })
 
   it('the affinity cache section opens with the keyboard and keeps the existing values', async () => {
-    await renderPolicies('/admin/system-settings/request-policies/affinity')
+    await renderPolicies('/system-settings/request-policies/affinity')
     const toggle = await screen.findByRole('button', {
       name: 'Affinity cache settings',
     })
@@ -350,17 +315,29 @@ describe('request policy settings', () => {
   })
 
   it.each([
-    ['/admin/system-settings/models/channel-affinity', 'routing'],
-    ['/admin/system-settings/models/routing-reliability', 'routing'],
-    ['/admin/system-settings/security/sensitive-words', 'filtering'],
-    ['/admin/system-settings/operations/monitoring', 'health'],
-    ['/admin/system-settings/request-policies/', 'routing'],
-    ['/admin/system-settings/request-policies/unknown', 'routing'],
+    '/system-settings/security/sensitive-words',
+    '/system-settings/request-policies/filtering',
+  ])(
+    '%s opens request processing, where sensitive words live now',
+    async (path) => {
+      const router = await renderPolicies(path)
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe('/request-processing')
+      )
+    }
+  )
+
+  it.each([
+    ['/system-settings/models/channel-affinity', 'routing'],
+    ['/system-settings/models/routing-reliability', 'routing'],
+    ['/system-settings/operations/monitoring', 'health'],
+    ['/system-settings/request-policies/', 'routing'],
+    ['/system-settings/request-policies/unknown', 'routing'],
   ])('%s opens the corresponding policy page', async (path, section) => {
     const router = await renderPolicies(path)
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
-        `/admin/system-settings/request-policies/${section}`
+        `/system-settings/request-policies/${section}`
       )
     )
     expect(api.put).not.toHaveBeenCalled()

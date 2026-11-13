@@ -30,10 +30,12 @@ import {
   sideDrawerFooterClassName,
   sideDrawerFormClassName,
   sideDrawerHeaderClassName,
+
 } from '@/shared/components/drawer-layout'
 import { PermissionMatrix } from '@/shared/components/permission-matrix'
 import { Button } from '@/shared/components/ui/button'
 import { Combobox } from '@/shared/components/ui/combobox'
+
 import {
   Form,
   FormControl,
@@ -99,6 +101,8 @@ import type { User } from '../types'
 import { UserQuotaDialog } from './user-quota-dialog'
 import { UserVisibleSections } from './user-visible-sections'
 import { useUsers } from './users-provider'
+import { PasswordInput } from '@/shared/components/password-input'
+import { PasswordStrength } from '@/shared/components/password-strength'
 
 type UsersMutateDrawerProps = {
   open: boolean
@@ -394,10 +398,17 @@ export function UsersMutateDrawer({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('Password')}</FormLabel>
-                      <FormControl>
-                        <Input
+                      <FormControl
+                        describedBy={
+                          !isUpdate || field.value
+                            ? 'user-password-strength'
+                            : undefined
+                        }
+                      >
+                        <PasswordInput
                           {...field}
-                          type='password'
+                          value={field.value ?? ''}
+                          autoComplete='new-password'
                           placeholder={
                             isUpdate
                               ? t('Leave empty to keep unchanged')
@@ -405,6 +416,11 @@ export function UsersMutateDrawer({
                           }
                         />
                       </FormControl>
+                      <PasswordStrength
+                        id='user-password-strength'
+                        value={field.value ?? ''}
+                        quietWhenEmpty={isUpdate}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

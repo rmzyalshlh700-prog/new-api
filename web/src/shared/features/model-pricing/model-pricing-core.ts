@@ -32,12 +32,15 @@ import {
   CLAUDE_CACHE_CREATION_1H_MULTIPLIER,
   OPENAI_CACHE_CREATION_12H_MULTIPLIER,
   combineBillingExpr,
+
 } from '@/shared/features/pricing/lib/billing-expr'
 import { formatBillingCondition } from '@/shared/features/pricing/lib/billing-expression/condition-display'
 import { compileBillingExpression } from '@/shared/features/pricing/lib/billing-expression/parser'
 import type { BillingUsageSchema } from '@/shared/features/pricing/types'
 
+
 import { formatPricingNumber } from './pricing-format'
+import { usesChatQuantities } from '@/shared/features/pricing/lib/plugin-pricing'
 
 export const createModelPricingSchema = (t: (key: string) => string) =>
   z.object({
@@ -97,7 +100,12 @@ export function usesTaskModelPricing(
   if (compiled.status === 'ready' && compiled.functions.has('u')) return true
   if (!schema) return false
   if (!data?.billingExpr?.trim()) return true
-  if (compiled.status === 'ready' && compiled.functions.has('fixed')) {
+  // fixed() and chat request quantities are ordinary prices: they never price
+  // a task.
+  if (
+    compiled.status === 'ready' &&
+    (compiled.functions.has('fixed') || usesChatQuantities(compiled.variables))
+  ) {
     return false
   }
   const active = variants.filter((variant) => !variant.stale)

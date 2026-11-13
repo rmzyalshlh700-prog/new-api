@@ -46,6 +46,7 @@ import { Route as AdminAdminOverviewRouteImport } from './routes/_admin/admin/ov
 import { Route as AdminAdminPaymentsRouteImport } from './routes/_admin/admin/payments'
 import { Route as AdminAdminSupportTicketsRouteImport } from './routes/_admin/admin/support-tickets'
 import { Route as AdminAdminSystemSettingsRouteRouteImport } from './routes/_admin/admin/system-settings/route'
+import { Route as AuthenticatedRequestProcessingIndexRouteImport } from './routes/_authenticated/request-processing/index'
 import { Route as AppChatChatIdRouteImport } from './routes/app/chat/$chatId'
 import { Route as AppKeysIndexRouteImport } from './routes/app/keys/index'
 import { Route as AppPlaygroundIndexRouteImport } from './routes/app/playground/index'
@@ -83,6 +84,7 @@ import { Route as AdminAdminSystemSettingsSecurityIndexRouteImport } from './rou
 import { Route as AdminAdminSystemSettingsSecuritySectionRouteImport } from './routes/_admin/admin/system-settings/security/$section'
 import { Route as AdminAdminSystemSettingsSiteIndexRouteImport } from './routes/_admin/admin/system-settings/site/index'
 import { Route as AdminAdminSystemSettingsSiteSectionRouteImport } from './routes/_admin/admin/system-settings/site/$section'
+import { Route as AuthenticatedOauthPluginKeyCallbackRouteImport } from './routes/_authenticated/oauth/plugin/$key/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -268,6 +270,12 @@ const AdminAdminSystemSettingsRouteRoute =
     id: '/admin/system-settings',
     path: '/admin/system-settings',
     getParentRoute: () => AdminRouteRoute,
+  } as any)
+const AuthenticatedRequestProcessingIndexRoute =
+  AuthenticatedRequestProcessingIndexRouteImport.update({
+    id: '/_authenticated/request-processing/',
+    path: '/request-processing/',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AppChatChatIdRoute = AppChatChatIdRouteImport.update({
   id: '/chat/$chatId',
@@ -476,6 +484,12 @@ const AdminAdminSystemSettingsSiteSectionRoute =
     path: '/site/$section',
     getParentRoute: () => AdminAdminSystemSettingsRouteRoute,
   } as any)
+const AuthenticatedOauthPluginKeyCallbackRoute =
+  AuthenticatedOauthPluginKeyCallbackRouteImport.update({
+    id: '/_authenticated/oauth/plugin/$key/callback',
+    path: '/oauth/plugin/$key/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -516,6 +530,7 @@ export interface FileRoutesByFullPath {
   '/app/usage-logs/$section': typeof AppUsageLogsSectionRoute
   '/app/workspace/$section': typeof AppWorkspaceSectionRoute
   '/admin/': typeof AdminAdminIndexRoute
+  '/request-processing/': typeof AuthenticatedRequestProcessingIndexRoute
   '/app/keys/': typeof AppKeysIndexRoute
   '/app/playground/': typeof AppPlaygroundIndexRoute
   '/app/profile/': typeof AppProfileIndexRoute
@@ -542,6 +557,7 @@ export interface FileRoutesByFullPath {
   '/admin/system-settings/request-policies/$section': typeof AdminAdminSystemSettingsRequestPoliciesSectionRoute
   '/admin/system-settings/security/$section': typeof AdminAdminSystemSettingsSecuritySectionRoute
   '/admin/system-settings/site/$section': typeof AdminAdminSystemSettingsSiteSectionRoute
+  '/oauth/plugin/$key/callback': typeof AuthenticatedOauthPluginKeyCallbackRoute
   '/admin/system-settings/auth/': typeof AdminAdminSystemSettingsAuthIndexRoute
   '/admin/system-settings/billing/': typeof AdminAdminSystemSettingsBillingIndexRoute
   '/admin/system-settings/content/': typeof AdminAdminSystemSettingsContentIndexRoute
@@ -588,6 +604,7 @@ export interface FileRoutesByTo {
   '/app/usage-logs/$section': typeof AppUsageLogsSectionRoute
   '/app/workspace/$section': typeof AppWorkspaceSectionRoute
   '/admin': typeof AdminAdminIndexRoute
+  '/request-processing': typeof AuthenticatedRequestProcessingIndexRoute
   '/app/keys': typeof AppKeysIndexRoute
   '/app/playground': typeof AppPlaygroundIndexRoute
   '/app/profile': typeof AppProfileIndexRoute
@@ -614,6 +631,7 @@ export interface FileRoutesByTo {
   '/admin/system-settings/request-policies/$section': typeof AdminAdminSystemSettingsRequestPoliciesSectionRoute
   '/admin/system-settings/security/$section': typeof AdminAdminSystemSettingsSecuritySectionRoute
   '/admin/system-settings/site/$section': typeof AdminAdminSystemSettingsSiteSectionRoute
+  '/oauth/plugin/$key/callback': typeof AuthenticatedOauthPluginKeyCallbackRoute
   '/admin/system-settings/auth': typeof AdminAdminSystemSettingsAuthIndexRoute
   '/admin/system-settings/billing': typeof AdminAdminSystemSettingsBillingIndexRoute
   '/admin/system-settings/content': typeof AdminAdminSystemSettingsContentIndexRoute
@@ -665,6 +683,7 @@ export interface FileRoutesById {
   '/app/usage-logs/$section': typeof AppUsageLogsSectionRoute
   '/app/workspace/$section': typeof AppWorkspaceSectionRoute
   '/_admin/admin/': typeof AdminAdminIndexRoute
+  '/_authenticated/request-processing/': typeof AuthenticatedRequestProcessingIndexRoute
   '/app/keys/': typeof AppKeysIndexRoute
   '/app/playground/': typeof AppPlaygroundIndexRoute
   '/app/profile/': typeof AppProfileIndexRoute
@@ -691,6 +710,7 @@ export interface FileRoutesById {
   '/_admin/admin/system-settings/request-policies/$section': typeof AdminAdminSystemSettingsRequestPoliciesSectionRoute
   '/_admin/admin/system-settings/security/$section': typeof AdminAdminSystemSettingsSecuritySectionRoute
   '/_admin/admin/system-settings/site/$section': typeof AdminAdminSystemSettingsSiteSectionRoute
+  '/_authenticated/oauth/plugin/$key/callback': typeof AuthenticatedOauthPluginKeyCallbackRoute
   '/_admin/admin/system-settings/auth/': typeof AdminAdminSystemSettingsAuthIndexRoute
   '/_admin/admin/system-settings/billing/': typeof AdminAdminSystemSettingsBillingIndexRoute
   '/_admin/admin/system-settings/content/': typeof AdminAdminSystemSettingsContentIndexRoute
@@ -741,6 +761,7 @@ export interface FileRouteTypes {
     | '/app/usage-logs/$section'
     | '/app/workspace/$section'
     | '/admin/'
+    | '/request-processing/'
     | '/app/keys/'
     | '/app/playground/'
     | '/app/profile/'
@@ -767,6 +788,7 @@ export interface FileRouteTypes {
     | '/admin/system-settings/request-policies/$section'
     | '/admin/system-settings/security/$section'
     | '/admin/system-settings/site/$section'
+    | '/oauth/plugin/$key/callback'
     | '/admin/system-settings/auth/'
     | '/admin/system-settings/billing/'
     | '/admin/system-settings/content/'
@@ -813,6 +835,7 @@ export interface FileRouteTypes {
     | '/app/usage-logs/$section'
     | '/app/workspace/$section'
     | '/admin'
+    | '/request-processing'
     | '/app/keys'
     | '/app/playground'
     | '/app/profile'
@@ -839,6 +862,7 @@ export interface FileRouteTypes {
     | '/admin/system-settings/request-policies/$section'
     | '/admin/system-settings/security/$section'
     | '/admin/system-settings/site/$section'
+    | '/oauth/plugin/$key/callback'
     | '/admin/system-settings/auth'
     | '/admin/system-settings/billing'
     | '/admin/system-settings/content'
@@ -889,6 +913,7 @@ export interface FileRouteTypes {
     | '/app/usage-logs/$section'
     | '/app/workspace/$section'
     | '/_admin/admin/'
+    | '/_authenticated/request-processing/'
     | '/app/keys/'
     | '/app/playground/'
     | '/app/profile/'
@@ -915,6 +940,7 @@ export interface FileRouteTypes {
     | '/_admin/admin/system-settings/request-policies/$section'
     | '/_admin/admin/system-settings/security/$section'
     | '/_admin/admin/system-settings/site/$section'
+    | '/_authenticated/oauth/plugin/$key/callback'
     | '/_admin/admin/system-settings/auth/'
     | '/_admin/admin/system-settings/billing/'
     | '/_admin/admin/system-settings/content/'
@@ -944,7 +970,9 @@ export interface RootRouteChildren {
   PricingIndexRoute: typeof PricingIndexRoute
   RankingsIndexRoute: typeof RankingsIndexRoute
   SetupIndexRoute: typeof SetupIndexRoute
+  AuthenticatedRequestProcessingIndexRoute: typeof AuthenticatedRequestProcessingIndexRoute
   PricingModelIdIndexRoute: typeof PricingModelIdIndexRoute
+  AuthenticatedOauthPluginKeyCallbackRoute: typeof AuthenticatedOauthPluginKeyCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -959,7 +987,7 @@ declare module '@tanstack/react-router' {
     '/(auth)': {
       id: '/(auth)'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof authRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -1207,6 +1235,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/system-settings'
       preLoaderRoute: typeof AdminAdminSystemSettingsRouteRouteImport
       parentRoute: typeof AdminRouteRoute
+    }
+    '/_authenticated/request-processing/': {
+      id: '/_authenticated/request-processing/'
+      path: '/request-processing'
+      fullPath: '/request-processing/'
+      preLoaderRoute: typeof AuthenticatedRequestProcessingIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/chat/$chatId': {
       id: '/app/chat/$chatId'
@@ -1467,6 +1502,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminSystemSettingsSiteSectionRouteImport
       parentRoute: typeof AdminAdminSystemSettingsRouteRoute
     }
+    '/_authenticated/oauth/plugin/$key/callback': {
+      id: '/_authenticated/oauth/plugin/$key/callback'
+      path: '/oauth/plugin/$key/callback'
+      fullPath: '/oauth/plugin/$key/callback'
+      preLoaderRoute: typeof AuthenticatedOauthPluginKeyCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1658,7 +1700,11 @@ const rootRouteChildren: RootRouteChildren = {
   PricingIndexRoute: PricingIndexRoute,
   RankingsIndexRoute: RankingsIndexRoute,
   SetupIndexRoute: SetupIndexRoute,
+  AuthenticatedRequestProcessingIndexRoute:
+    AuthenticatedRequestProcessingIndexRoute,
   PricingModelIdIndexRoute: PricingModelIdIndexRoute,
+  AuthenticatedOauthPluginKeyCallbackRoute:
+    AuthenticatedOauthPluginKeyCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

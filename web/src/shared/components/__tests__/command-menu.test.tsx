@@ -45,6 +45,13 @@ import { useAuthStore } from '@/shared/stores/auth-store'
 import { CommandMenu } from '../command-menu'
 import { Search } from '../search'
 
+const superAdminEntries = [
+  'System Info',
+  'Plugins',
+  'Request processing',
+  'System Settings',
+]
+
 const clientNavGroups: NavGroup[] = [
   {
     id: 'workspace',
@@ -95,6 +102,7 @@ const adminNavGroups: NavGroup[] = [
       { title: 'Audit Logs', url: '/admin/audit-logs', icon: ClipboardList },
     ],
   },
+
 ]
 
 // jsdom lacks the Web Animations API the menu's scroll area waits on.
@@ -184,6 +192,15 @@ test('the admin menu lists the admin pages only', async () => {
   expect(entries).toEqual(expect.arrayContaining(['Users', 'Audit Logs']))
   expect(entries).not.toContain('Wallet')
   expect(entries).not.toContain('API Keys')
+})
+
+test('super admins find Request processing right after Plugins', async () => {
+  const entries = await searchEntriesFor(ROLE.SUPER_ADMIN, adminNavGroups)
+
+  expect(entries).toEqual(expect.arrayContaining(superAdminEntries))
+  expect(entries.indexOf('Request processing')).toBe(
+    entries.indexOf('Plugins') + 1
+  )
 })
 
 test('pages hidden in the sidebar settings stay out of search', async () => {

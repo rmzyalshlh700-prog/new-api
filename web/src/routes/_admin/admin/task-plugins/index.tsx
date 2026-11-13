@@ -18,14 +18,18 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
+
 import { TaskPlugins } from '@/apps/admin/features/task-plugins'
 import { ROLE } from '@/shared/lib/roles'
 import { useAuthStore } from '@/shared/stores/auth-store'
+import { taskPluginsSearchSchema } from '@/apps/admin/features/task-plugins/lib/plugin-kinds'
+
 
 export const Route = createFileRoute('/_admin/admin/task-plugins/')({
   beforeLoad: () => {
     const { auth } = useAuthStore.getState()
     if (auth.user?.role !== ROLE.SUPER_ADMIN) throw redirect({ to: '/403' })
   },
+  validateSearch: taskPluginsSearchSchema,
   component: TaskPlugins,
 })

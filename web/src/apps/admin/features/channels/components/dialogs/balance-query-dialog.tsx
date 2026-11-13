@@ -30,13 +30,15 @@ import { Dialog } from '@/shared/components/dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/shared/components/ui/alert'
 import { Button } from '@/shared/components/ui/button'
 import { IconBadge } from '@/shared/components/ui/icon-badge'
-import { formatCurrencyFromUSD } from '@/shared/lib/currency'
+import { toIntlLocale } from '@/shared/i18n/languages'
 import { formatTimestampToDate } from '@/shared/lib/format'
 import { handleServerError } from '@/shared/lib/handle-server-error'
 import { createServerError } from '@/shared/lib/server-error-message'
 
 import { getCodexUsage, updateChannelBalance } from '../../api'
 import { channelsQueryKeys } from '../../lib'
+import { formatChannelBalanceSummary } from '../../lib/channel-balance'
+import { ChannelBalanceDetails } from '../channel-balance-details'
 import { useChannels } from '../channels-provider'
 import {
   CodexUsageDialog,
@@ -50,7 +52,7 @@ type BalanceQueryDialogProps = {
 }
 
 export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { currentRow, setCurrentRow } = useChannels()
   const queryClient = useQueryClient()
   const [isQuerying, setIsQuerying] = useState(false)
@@ -109,6 +111,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
           ...currentRow,
           balance: newBalance,
           balance_updated_time: now,
+          balance_detail: response.balance_detail ?? currentRow.balance_detail,
         })
 
         // Invalidate queries to refresh the table
@@ -136,11 +139,13 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
     props.onOpenChange(false)
   }
 
+  // The detail is the upstream's own currency and limits, kept on the row.
   const formatBalance = (bal: number) =>
-    formatCurrencyFromUSD(bal, {
+    formatChannelBalanceSummary(currentRow.balance_detail, bal, {
       digitsLarge: 2,
       digitsSmall: 4,
       abbreviate: false,
+      locale: toIntlLocale(i18n.resolvedLanguage || i18n.language),
     })
 
   const formatDate = (timestamp: number) => {
@@ -219,6 +224,10 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
                   ? formatBalance(balance)
                   : formatBalance(currentRow.balance)}
               </div>
+              <ChannelBalanceDetails
+                result={currentRow.balance_detail}
+                className='mt-2'
+              />
               <div className='text-muted-foreground mt-2 text-xs'>
                 {t('Last updated:')}{' '}
                 {formatDate(
@@ -235,8 +244,8 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
           onClick={handleQueryBalance}
           disabled={isQuerying}
         >
-          {isQuerying && <Loader2 className='me-2 h-4 w-4 animate-spin' />}
-          {!isQuerying && <RefreshCw className='me-2 h-4 w-4' />}
+          {isQuerying && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+          {!isQuerying && <RefreshCw className='mr-2 h-4 w-4' />}
           {isQuerying ? t('Querying...') : t('Update Balance')}
         </Button>
       </div>
