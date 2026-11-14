@@ -826,9 +826,11 @@ body:lang(ar) *::after {
 }
 
 @media (max-width: 639px) {
-  /* Reserve the FAB's corner so the composer and its send button stay clear. */
+  /* The launcher is unmounted while the panel is open, so the composer only
+   * needs the device's safe area — the reserved 4.5rem gap used to push the
+   * input far above the bottom edge for a button that was no longer there. */
   .admin-copilot-window .copilotKitInputContainer {
-    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
   }
 }
 

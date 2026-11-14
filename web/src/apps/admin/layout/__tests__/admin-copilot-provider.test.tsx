@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -115,16 +115,25 @@ test('the FAB toggles the chat window', async () => {
 
   await user.click(toggle)
 
-  const closeToggle = screen.getByRole('button', {
-    name: 'Close Admin Copilot',
-  })
-  expect(closeToggle).toHaveAttribute('aria-expanded', 'true')
+  // The floating launcher unmounts while the panel is open, so it can never
+  // cover the composer or its send button (it used to land on the input in
+  // RTL, where the logical end edge is the bottom-left corner).
+  expect(
+    screen.queryByRole('button', { name: 'Open Admin Copilot' })
+  ).toBeNull()
   expect(window).toHaveAttribute('aria-hidden', 'false')
   expect(window).not.toHaveAttribute('inert')
   expect(window).toHaveClass('open')
 
+  const closeToggle = within(window as HTMLElement).getByRole('button', {
+    name: 'Close',
+  })
+
   await user.click(closeToggle)
   expect(window).toHaveAttribute('aria-hidden', 'true')
+  expect(
+    screen.getByRole('button', { name: 'Open Admin Copilot' })
+  ).toBeInTheDocument()
 })
 
 test('Escape closes the chat window and keeps the admin shell mounted', async () => {

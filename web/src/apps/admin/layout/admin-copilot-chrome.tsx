@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useChatContext, type WindowProps } from '@copilotkit/react-ui'
-import { Sparkles, X } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -40,10 +40,19 @@ const FAB_SELECTOR = `.${FAB_CLASS}`
  *
  * `z-index` is high within the assistant layer, which itself sits above page
  * content and the sticky header (40) and below dialogs and sheets (50).
+ *
+ * The launcher is hidden while the panel is open. As a floating `end`-anchored
+ * circle it landed on top of the composer — and on the send button in Arabic,
+ * where `end` is the left edge — so closing now happens in the panel header,
+ * with Escape and click-outside as the other ways out.
  */
 export function AdminCopilotFab() {
   const { t } = useTranslation()
   const { open, setOpen } = useChatContext()
+
+  if (open) {
+    return null
+  }
 
   return (
     <button
@@ -55,16 +64,12 @@ export function AdminCopilotFab() {
         'transition-transform duration-200 hover:scale-105 active:scale-95',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
       )}
-      aria-label={open ? t('Close Admin Copilot') : t('Open Admin Copilot')}
-      aria-expanded={open}
+      aria-label={t('Open Admin Copilot')}
+      aria-expanded={false}
       aria-controls={ADMIN_COPILOT_WINDOW_ID}
-      onClick={() => setOpen(!open)}
+      onClick={() => setOpen(true)}
     >
-      {open ? (
-        <X className='size-6' aria-hidden='true' />
-      ) : (
-        <Sparkles className='size-6' aria-hidden='true' />
-      )}
+      <Sparkles className='size-6' aria-hidden='true' />
     </button>
   )
 }
