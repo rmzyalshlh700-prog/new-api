@@ -411,6 +411,18 @@ func UpdateOption(c *gin.Context) {
 			common.ApiError(c, err)
 			return
 		}
+	case "console_setting.social_links_position":
+		position, ok := option.Value.(string)
+		if !ok || !console_setting.IsValidSocialLinksPosition(position) {
+			common.ApiErrorMsg(c, "invalid social links position")
+			return
+		}
+	case "console_setting.social_icon_size":
+		size, ok := option.Value.(string)
+		if !ok || !console_setting.IsValidSocialIconSize(size) {
+			common.ApiErrorMsg(c, "invalid social icon size")
+			return
+		}
 	}
 	if model.IsPasskeyDomainOption(option.Key) {
 		change, updateErr := model.UpdatePasskeyDomainOptions(map[string]string{option.Key: option.Value.(string)}, false, "")

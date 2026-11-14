@@ -126,6 +126,10 @@ func GetStatus(c *gin.Context) {
 		"announcements_enabled": cs.AnnouncementsEnabled,
 		"faq_enabled":           cs.FAQEnabled,
 
+		// 社交链接展示方式
+		"contact_links_position":  cs.SocialLinksPositionOrDefault(),
+		"contact_links_icon_size": cs.SocialIconSizeOrDefault(),
+
 		// 模块管理配置
 		"HeaderNavModules":    common.OptionMap["HeaderNavModules"],
 		"SidebarModulesAdmin": common.OptionMap["SidebarModulesAdmin"],

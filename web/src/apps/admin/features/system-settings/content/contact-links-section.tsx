@@ -1,3 +1,4 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,7 +18,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -25,20 +25,21 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import * as z from 'zod'
 
-import { IconPicker } from './components/icon-picker'
-import {
-  addAdminContactLink,
-  deleteAdminContactLink,
-  getAdminContactLinks,
-  updateAdminContactLink,
-} from './contact-links-api'
-
+import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import {
   getContactLinkIcon,
+  normalizeSocialIconSize,
+  normalizeSocialLinkPlacement,
+  SOCIAL_ICON_SIZES,
+  SOCIAL_LINK_PLACEMENTS,
   type ContactLink,
+  type SocialIconSize,
+  type SocialLinkPlacement,
 } from '@/shared/components/contact/contact-links-data'
-import { ConfirmDialog } from '@/shared/components/confirm-dialog'
+import { StaticDataTable } from '@/shared/components/data-table/static/static-data-table'
+import { StaticRowActions } from '@/shared/components/data-table/static/static-row-actions'
 import { Dialog } from '@/shared/components/dialog'
+import { SettingsSection } from '@/shared/components/settings/settings-section'
 import { StatusBadge } from '@/shared/components/status-badge'
 import { Button } from '@/shared/components/ui/button'
 import { Checkbox } from '@/shared/components/ui/checkbox'
@@ -58,11 +59,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select'
-import { StaticDataTable } from '@/shared/components/data-table/static/static-data-table'
-import { StaticRowActions } from '@/shared/components/data-table/static/static-row-actions'
-import { SettingsSection } from '@/shared/components/settings/settings-section'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { handleServerError } from '@/shared/lib/handle-server-error'
+
+import { useUpdateOption } from '../hooks/use-update-option'
+import { IconPicker } from './components/icon-picker'
+import {
+  addAdminContactLink,
+  deleteAdminContactLink,
+  getAdminContactLinks,
+  updateAdminContactLink,
+} from './contact-links-api'
 
 const LINK_FORM_ID = 'contact-link-form'
 
@@ -93,12 +100,13 @@ const positionBadgeVariant = (position: string) => {
   return 'cyan' as const
 }
 
-const POSITION_OPTIONS: { value: LinkFormValues['position']; label: string }[] = [
-  { value: 'sidebar_bottom', label: 'Sidebar (bottom)' },
-  { value: 'sidebar_top', label: 'Sidebar (top)' },
-  { value: 'header_top', label: 'Header (top nav)' },
-  { value: 'footer', label: 'Footer' },
-]
+const POSITION_OPTIONS: { value: LinkFormValues['position']; label: string }[] =
+  [
+    { value: 'sidebar_bottom', label: 'Sidebar (bottom)' },
+    { value: 'sidebar_top', label: 'Sidebar (top)' },
+    { value: 'header_top', label: 'Header (top nav)' },
+    { value: 'footer', label: 'Footer' },
+  ]
 
 const DEFAULT_FORM_VALUES: LinkFormValues = {
   title: '',
@@ -108,9 +116,126 @@ const DEFAULT_FORM_VALUES: LinkFormValues = {
   is_active: true,
 }
 
+const PLACEMENT_OPTIONS: { value: SocialLinkPlacement; label: string }[] = [
+  { value: SOCIAL_LINK_PLACEMENTS.sidebarBottom, label: 'Sidebar Bottom' },
+  { value: SOCIAL_LINK_PLACEMENTS.sidebarTop, label: 'Sidebar Top' },
+  { value: SOCIAL_LINK_PLACEMENTS.footer, label: 'Footer Only' },
+]
+
+const ICON_SIZE_OPTIONS: { value: SocialIconSize; label: string }[] = [
+  { value: SOCIAL_ICON_SIZES.small, label: 'Small (16px)' },
+  { value: SOCIAL_ICON_SIZES.medium, label: 'Medium (20px)' },
+  { value: SOCIAL_ICON_SIZES.large, label: 'Large (24px)' },
+]
+
+/**
+ * Site-wide presentation of the social links. Changing the placement moves
+ * the whole sidebar group; "Footer Only" removes it from the sidebar and
+ * renders those links in the footer instead. Sizes apply everywhere the
+ * icons appear (sidebar, header, footer).
+ */
+function SocialDisplaySettings(props: {
+  position?: string
+  iconSize?: string
+}) {
+  const { t } = useTranslation()
+  const updateOption = useUpdateOption()
+  const savedPlacement = normalizeSocialLinkPlacement(props.position)
+  const savedIconSize = normalizeSocialIconSize(props.iconSize)
+  const [placement, setPlacement] = useState(savedPlacement)
+  const [iconSize, setIconSize] = useState(savedIconSize)
+
+  const isDirty = placement !== savedPlacement || iconSize !== savedIconSize
+
+  const handleSave = async () => {
+    if (placement !== savedPlacement) {
+      await updateOption.mutateAsync({
+        key: 'console_setting.social_links_position',
+        value: placement,
+      })
+    }
+    if (iconSize !== savedIconSize) {
+      await updateOption.mutateAsync({
+        key: 'console_setting.social_icon_size',
+        value: iconSize,
+      })
+    }
+  }
+
+  return (
+    <div className='space-y-4 rounded-lg border p-4'>
+      <div className='space-y-1'>
+        <p className='text-sm font-medium'>{t('Social Links Position')}</p>
+        <p className='text-muted-foreground text-xs'>
+          {t('Choose where the social links appear on the frontend')}
+        </p>
+      </div>
+
+      <div className='grid gap-4 sm:grid-cols-2'>
+        <div className='space-y-2'>
+          <label className='text-sm font-medium'>
+            {t('Social Links Position')}
+          </label>
+          <Select
+            value={placement}
+            onValueChange={(value) =>
+              setPlacement(normalizeSocialLinkPlacement(value))
+            }
+          >
+            <SelectTrigger className='w-full'>
+              <SelectValue placeholder={t('Select a position')} />
+            </SelectTrigger>
+            <SelectContent>
+              {PLACEMENT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {t(option.label)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className='space-y-2'>
+          <label className='text-sm font-medium'>{t('Social Icon Size')}</label>
+          <Select
+            value={iconSize}
+            onValueChange={(value) =>
+              setIconSize(normalizeSocialIconSize(value))
+            }
+          >
+            <SelectTrigger className='w-full'>
+              <SelectValue placeholder={t('Select icon size')} />
+            </SelectTrigger>
+            <SelectContent>
+              {ICON_SIZE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {t(option.label)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className='flex justify-end'>
+        <Button
+          type='button'
+          size='sm'
+          onClick={handleSave}
+          disabled={!isDirty || updateOption.isPending}
+        >
+          {t('Save display settings')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 interface ContactLinksSectionProps {
   enabled?: boolean
   data?: string
+  position?: string
+  iconSize?: string
 }
 
 /**
@@ -118,7 +243,6 @@ interface ContactLinksSectionProps {
  * immediately through the /api/admin/contact_links CRUD endpoints.
  */
 export function ContactLinksSection(props: ContactLinksSectionProps) {
-  void props
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showDialog, setShowDialog] = useState(false)
@@ -197,6 +321,11 @@ export function ContactLinksSection(props: ContactLinksSectionProps) {
 
   return (
     <SettingsSection title={t('Contact & Social Links')}>
+      <SocialDisplaySettings
+        key={`${props.position ?? ''}-${props.iconSize ?? ''}`}
+        position={props.position}
+        iconSize={props.iconSize}
+      />
       <div className='space-y-4'>
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <Button onClick={handleAdd} size='sm'>
@@ -319,10 +448,7 @@ export function ContactLinksSection(props: ContactLinksSectionProps) {
                 <FormItem>
                   <FormLabel>{t('Title')}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder={t('e.g., Join Telegram')}
-                      {...field}
-                    />
+                    <Input placeholder={t('e.g., Join Telegram')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -352,10 +478,7 @@ export function ContactLinksSection(props: ContactLinksSectionProps) {
                 <FormItem>
                   <FormLabel>{t('Icon')}</FormLabel>
                   <FormControl>
-                    <IconPicker
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
+                    <IconPicker value={field.value} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -393,7 +516,9 @@ export function ContactLinksSection(props: ContactLinksSectionProps) {
                   <FormControl>
                     <Checkbox
                       checked={field.value}
-                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
                     />
                   </FormControl>
                   <FormLabel className='!mt-0'>
@@ -414,9 +539,7 @@ export function ContactLinksSection(props: ContactLinksSectionProps) {
           }
         }}
         title={t('Delete Contact Link')}
-        desc={t(
-          'This contact link will be permanently removed. Continue?'
-        )}
+        desc={t('This contact link will be permanently removed. Continue?')}
         handleConfirm={handleConfirmDelete}
         confirmText={t('Delete')}
         cancelBtnText={t('Cancel')}

@@ -24,6 +24,7 @@ import {
   useAdminCopilotRuntimeSettings,
   type AdminCopilotToolName,
 } from './admin-copilot-config'
+import { AdminCopilotHeader } from './admin-copilot-header'
 import { useAdminCopilot } from './use-admin-copilot'
 
 interface AdminCopilotProviderProps {
@@ -174,6 +175,7 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
             hitEscapeToClose
             Button={AdminCopilotFab}
             Window={AdminCopilotWindow}
+            Header={AdminCopilotHeader}
             labels={{
               title: t('Admin Copilot'),
               placeholder: t('Ask Admin Copilot...'),

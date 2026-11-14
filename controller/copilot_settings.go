@@ -23,6 +23,7 @@ import (
 type copilotSettingsResponse struct {
 	BaseURL          string   `json:"base_url"`
 	Model            string   `json:"model"`
+	Stream           bool     `json:"stream"`
 	EnabledTools     []string `json:"enabled_tools"`
 	Visibility       string   `json:"visibility"`
 	APIKeyConfigured bool     `json:"api_key_configured"`
@@ -33,6 +34,7 @@ type updateCopilotSettingsRequest struct {
 	APIKey       string   `json:"api_key"`
 	ClearAPIKey  bool     `json:"clear_api_key"`
 	Model        string   `json:"model"`
+	Stream       *bool    `json:"stream"`
 	EnabledTools []string `json:"enabled_tools"`
 	Visibility   string   `json:"visibility"`
 }
@@ -58,6 +60,7 @@ func currentCopilotSettings() copilotSettingsResponse {
 	return copilotSettingsResponse{
 		BaseURL:          setting.CopilotOption(setting.CopilotBaseURLOptionKey),
 		Model:            setting.CopilotOption(setting.CopilotModelOptionKey),
+		Stream:           setting.CopilotStreamEnabled(),
 		EnabledTools:     setting.CopilotEnabledTools(),
 		Visibility:       setting.CopilotVisibility(),
 		APIKeyConfigured: setting.CopilotOption(setting.CopilotAPIKeyOptionKey) != "",
@@ -113,6 +116,11 @@ func UpdateCopilotSettings(c *gin.Context) {
 		setting.CopilotBaseURLOptionKey:    baseURL,
 		setting.CopilotModelOptionKey:      strings.TrimSpace(request.Model),
 		setting.CopilotVisibilityOptionKey: visibility,
+	}
+	// An absent stream field keeps the saved preference, so older clients that
+	// do not know the toggle yet cannot silently switch it off.
+	if request.Stream != nil {
+		values[setting.CopilotStreamOptionKey] = setting.CopilotStreamOptionValue(*request.Stream)
 	}
 	// An absent enabled_tools field means "leave the permissions alone"; only
 	// an explicit array (including an empty one) rewrites the tool set.

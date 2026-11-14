@@ -19,6 +19,7 @@ const (
 	// copilot_base_url cannot redirect the operator's credential elsewhere.
 	CopilotAPIKeyBaseURLOptionKey = "copilot_api_key_base_url"
 	CopilotModelOptionKey         = "copilot_model"
+	CopilotStreamOptionKey        = "copilot_stream"
 	CopilotEnabledToolsOptionKey  = "copilot_enabled_tools"
 	CopilotVisibilityOptionKey    = "copilot_visibility"
 )
@@ -66,6 +67,20 @@ func CopilotOption(key string) string {
 // empty value means the key predates host binding and may not be reused.
 func CopilotAPIKeyBaseURL() string {
 	return NormalizeCopilotBaseURL(CopilotOption(CopilotAPIKeyBaseURLOptionKey))
+}
+
+// CopilotStreamEnabled reports whether the chat request asks the configured
+// provider to stream its completion. Unset or unparsable values mean off.
+func CopilotStreamEnabled() bool {
+	return CopilotOption(CopilotStreamOptionKey) == "true"
+}
+
+// CopilotStreamOptionValue renders the stored boolean for the settings API.
+func CopilotStreamOptionValue(enabled bool) string {
+	if enabled {
+		return "true"
+	}
+	return "false"
 }
 
 // CopilotEnabledTools parses the enabled tool list. Missing or invalid values
@@ -171,6 +186,10 @@ func ValidateCopilotOption(key string, value string) error {
 	case CopilotBaseURLOptionKey:
 		if strings.TrimSpace(value) != "" && !IsValidCopilotBaseURL(value) {
 			return common.NewMessage("Copilot base URL must be an absolute https URL (http is allowed only for localhost)")
+		}
+	case CopilotStreamOptionKey:
+		if value != "true" && value != "false" {
+			return common.NewMessage("Copilot streaming must be true or false")
 		}
 	case CopilotVisibilityOptionKey:
 		if value != CopilotVisibilityAll && value != CopilotVisibilityDashboardOnly {

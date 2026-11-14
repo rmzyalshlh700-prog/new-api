@@ -50,6 +50,8 @@ const STATUS_RELATED_KEYS = new Set([
   'passkey.origins',
   'QuotaRemindEnabled',
   'QuotaRemindThreshold',
+  'console_setting.social_links_position',
+  'console_setting.social_icon_size',
   'maintenance_setting.enabled',
   'maintenance_setting.html',
   'maintenance_setting.whitelist',

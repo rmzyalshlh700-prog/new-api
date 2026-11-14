@@ -34,6 +34,7 @@ interface CopilotFormState {
   base_url: string
   api_key: string
   model: string
+  stream: boolean
   enabled_tools: AdminCopilotToolName[]
   visibility: AdminCopilotVisibility
 }
@@ -43,6 +44,7 @@ function toFormState(settings: AdminCopilotSettings): CopilotFormState {
     base_url: settings.base_url,
     api_key: '',
     model: settings.model,
+    stream: settings.stream,
     enabled_tools: settings.enabled_tools,
     visibility: settings.visibility,
   }
@@ -207,6 +209,7 @@ export function CopilotSettings() {
       base_url: form.base_url.trim(),
       api_key: form.api_key.trim() || undefined,
       model: form.model.trim(),
+      stream: form.stream,
       enabled_tools: form.enabled_tools,
       visibility: form.visibility,
     })
@@ -319,6 +322,26 @@ export function CopilotSettings() {
               'Fetch the model list from the provider, or type a model ID if it is not listed.'
             )}
           </p>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title={t('Streaming')}>
+        <div className='flex items-start justify-between gap-4'>
+          <div className='flex flex-col gap-1'>
+            <Label htmlFor='copilot-stream'>
+              {t('Stream responses from the provider')}
+            </Label>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'The proxy reads the provider stream as it arrives instead of buffering the whole response. The console shows the finished reply when the run completes.'
+              )}
+            </p>
+          </div>
+          <Switch
+            id='copilot-stream'
+            checked={form.stream}
+            onCheckedChange={(checked) => setForm({ ...form, stream: checked })}
+          />
         </div>
       </SettingsSection>
 

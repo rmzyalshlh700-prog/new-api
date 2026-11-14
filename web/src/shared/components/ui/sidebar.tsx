@@ -49,15 +49,16 @@ import { cn } from '@/shared/lib/utils'
 const SIDEBAR_COOKIE_NAME = 'sidebar_state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 /**
- * Expanded width in pixels. The default is wide enough for the longer Arabic
- * labels of the admin navigation; the resize handle lets each user adjust it.
+ * Expanded width in pixels. Kept compact so the sidebar does not eat the
+ * content column on laptops; labels that still do not fit truncate with a
+ * tooltip, and the resize handle lets each user adjust the width.
  */
-const SIDEBAR_WIDTH_DEFAULT = 240
-const SIDEBAR_WIDTH_MIN = 208
-const SIDEBAR_WIDTH_MAX = 416
+const SIDEBAR_WIDTH_DEFAULT = 224
+const SIDEBAR_WIDTH_MIN = 192
+const SIDEBAR_WIDTH_MAX = 352
 const SIDEBAR_WIDTH_STEP = 16
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar_width'
-const SIDEBAR_WIDTH_MOBILE = '17rem'
+const SIDEBAR_WIDTH_MOBILE = '15rem'
 const SIDEBAR_WIDTH_ICON = '2.75rem'
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
 
@@ -70,7 +71,9 @@ function clampSidebarWidth(width: number): number {
 
 function readSidebarWidth(): number {
   try {
-    const stored = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY))
+    const stored = Number(
+      window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
+    )
     if (Number.isFinite(stored) && stored > 0) return clampSidebarWidth(stored)
   } catch {
     // Storage blocked (private mode): fall back to the default width.
@@ -655,7 +658,7 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<'ul'>) {
     <ul
       data-slot='sidebar-menu'
       data-sidebar='menu'
-      className={cn('flex w-full min-w-0 flex-col gap-1', className)}
+      className={cn('flex w-full min-w-0 flex-col gap-0.5', className)}
       {...props}
     />
   )

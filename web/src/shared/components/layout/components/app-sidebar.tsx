@@ -18,16 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { SidebarContactLinks } from '@/shared/components/contact/contact-links'
+import { CONTACT_LINK_POSITIONS } from '@/shared/components/contact/contact-links-data'
 import {
   Sidebar,
   SidebarContent,
   SidebarRail,
   SidebarResizeHandle,
 } from '@/shared/components/ui/sidebar'
-import {
-  SidebarContactLinks,
-} from '@/shared/components/contact/contact-links'
-import { CONTACT_LINK_POSITIONS } from '@/shared/components/contact/contact-links-data'
 import { useLayout } from '@/shared/context/layout-provider'
 
 import type { NavGroup } from '../types'
@@ -50,7 +48,7 @@ export function AppSidebar(props: AppSidebarProps) {
 
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
-      <SidebarContent className='py-2'>
+      <SidebarContent className='py-1.5'>
         <SidebarContactLinks position={CONTACT_LINK_POSITIONS.sidebarTop} />
         <div className='flex flex-col'>
           {props.navGroups.map((group) => (

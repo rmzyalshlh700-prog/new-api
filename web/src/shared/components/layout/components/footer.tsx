@@ -21,6 +21,7 @@ import DOMPurify from 'dompurify'
 import { Fragment, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { FooterContactLinks } from '@/shared/components/contact/contact-links'
 import { useStatus } from '@/shared/hooks/use-status'
 import { useSystemConfig } from '@/shared/hooks/use-system-config'
 import { cn } from '@/shared/lib/utils'
@@ -310,7 +311,10 @@ export function Footer(props: FooterProps) {
             </span>
             <LegalLinks leadingSeparator />
           </div>
-          <ProjectAttribution currentYear={currentYear} />
+          <div className='flex items-center gap-4'>
+            <FooterContactLinks />
+            <ProjectAttribution currentYear={currentYear} />
+          </div>
         </div>
       </div>
     </footer>

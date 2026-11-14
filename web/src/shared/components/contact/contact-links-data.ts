@@ -60,6 +60,72 @@ export const CONTACT_LINK_POSITIONS = {
 export type ContactLinkPosition =
   (typeof CONTACT_LINK_POSITIONS)[keyof typeof CONTACT_LINK_POSITIONS]
 
+/** Sidebar slots a link can occupy. The administrator picks which slot renders. */
+export const SIDEBAR_LINK_POSITIONS: readonly ContactLinkPosition[] = [
+  CONTACT_LINK_POSITIONS.sidebarBottom,
+  CONTACT_LINK_POSITIONS.sidebarTop,
+]
+
+/**
+ * Placement of the whole sidebar social group, chosen in System Settings.
+ * `footer` keeps the links out of the sidebar entirely.
+ */
+export const SOCIAL_LINK_PLACEMENTS = {
+  sidebarBottom: CONTACT_LINK_POSITIONS.sidebarBottom,
+  sidebarTop: CONTACT_LINK_POSITIONS.sidebarTop,
+  footer: CONTACT_LINK_POSITIONS.footer,
+} as const
+
+export type SocialLinkPlacement =
+  (typeof SOCIAL_LINK_PLACEMENTS)[keyof typeof SOCIAL_LINK_PLACEMENTS]
+
+export const SOCIAL_ICON_SIZES = {
+  small: 'small',
+  medium: 'medium',
+  large: 'large',
+} as const
+
+export type SocialIconSize =
+  (typeof SOCIAL_ICON_SIZES)[keyof typeof SOCIAL_ICON_SIZES]
+
+export const DEFAULT_SOCIAL_LINK_PLACEMENT: SocialLinkPlacement =
+  SOCIAL_LINK_PLACEMENTS.sidebarBottom
+export const DEFAULT_SOCIAL_ICON_SIZE: SocialIconSize = SOCIAL_ICON_SIZES.medium
+
+/** Rendered icon edge length in pixels, matching the administrator's choice. */
+export const SOCIAL_ICON_SIZE_PX: Record<SocialIconSize, number> = {
+  small: 16,
+  medium: 20,
+  large: 24,
+}
+
+const SOCIAL_ICON_SIZE_CLASS: Record<SocialIconSize, string> = {
+  small: 'size-4',
+  medium: 'size-5',
+  large: 'size-6',
+}
+
+export function socialIconSizeClass(size: SocialIconSize): string {
+  return SOCIAL_ICON_SIZE_CLASS[size]
+}
+
+/** Coerce an API value into a renderable placement, defaulting to the bottom. */
+export function normalizeSocialLinkPlacement(
+  value: unknown
+): SocialLinkPlacement {
+  return value === SOCIAL_LINK_PLACEMENTS.sidebarTop ||
+    value === SOCIAL_LINK_PLACEMENTS.footer
+    ? value
+    : DEFAULT_SOCIAL_LINK_PLACEMENT
+}
+
+/** Coerce an API value into a renderable icon size, defaulting to medium. */
+export function normalizeSocialIconSize(value: unknown): SocialIconSize {
+  return value === SOCIAL_ICON_SIZES.small || value === SOCIAL_ICON_SIZES.large
+    ? value
+    : DEFAULT_SOCIAL_ICON_SIZE
+}
+
 export interface ContactLink {
   id: string
   title: string

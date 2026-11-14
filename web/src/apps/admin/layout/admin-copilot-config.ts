@@ -13,6 +13,7 @@ export type AdminCopilotVisibility = 'all' | 'dashboard_only'
 export interface AdminCopilotSettings {
   base_url: string
   model: string
+  stream: boolean
   enabled_tools: AdminCopilotToolName[]
   visibility: AdminCopilotVisibility
   api_key_configured: boolean
@@ -23,6 +24,7 @@ export interface UpdateAdminCopilotSettingsRequest {
   api_key?: string
   clear_api_key?: boolean
   model: string
+  stream?: boolean
   enabled_tools: AdminCopilotToolName[]
   visibility: AdminCopilotVisibility
 }
@@ -79,6 +81,7 @@ export interface AdminCopilotRuntimeSettings {
 export const defaultAdminCopilotSettings: AdminCopilotSettings = {
   base_url: '',
   model: '',
+  stream: false,
   enabled_tools: ALL_ADMIN_COPILOT_TOOLS,
   visibility: 'all',
   api_key_configured: false,

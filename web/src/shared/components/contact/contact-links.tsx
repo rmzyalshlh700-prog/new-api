@@ -18,16 +18,26 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/shared/components/ui/tooltip'
 import { cn } from '@/shared/lib/utils'
 
 import {
   CONTACT_LINK_POSITIONS,
   getContactLinkIcon,
+  SIDEBAR_LINK_POSITIONS,
+  socialIconSizeClass,
   type ContactLink,
   type ContactLinkPosition,
 } from './contact-links-data'
-import { useContactLinks } from './use-contact-links'
+import {
+  useContactLinkDisplayPreferences,
+  useContactLinks,
+} from './use-contact-links'
 
 function filterLinks(
   links: ContactLink[] | undefined,
@@ -45,6 +55,7 @@ interface ContactLinkButtonProps {
 
 export function ContactLinkButton(props: ContactLinkButtonProps) {
   const { t } = useTranslation()
+  const { iconSize } = useContactLinkDisplayPreferences()
   const Icon = getContactLinkIcon(props.link.icon)
 
   return (
@@ -58,13 +69,13 @@ export function ContactLinkButton(props: ContactLinkButtonProps) {
               rel='noopener noreferrer'
               aria-label={props.link.title}
               className={cn(
-                'text-muted-foreground hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors hover:bg-accent',
+                'inline-flex size-8 items-center justify-center rounded-md transition duration-200 hover:-translate-y-0.5 hover:bg-accent',
                 props.className
               )}
             />
           }
         >
-          <Icon className='size-4' />
+          <Icon className={socialIconSizeClass(iconSize)} />
           <span className='sr-only'>
             {props.link.title || t('Contact link')}
           </span>
@@ -80,18 +91,34 @@ interface SidebarContactLinksProps {
 }
 
 /**
- * Renders active contact links assigned to sidebar_top / sidebar_bottom
- * inside the application sidebar. sidebar_bottom sticks to the end of the
- * navigation menu (Join Telegram/Discord style); sidebar_top renders above
- * the navigation groups. Renders nothing when there are no matching links.
+ * Renders the social group in the sidebar slot the administrator selected.
+ *
+ * `position` names the slot this instance occupies: the group paints only
+ * when it matches the configured placement, so a "footer" placement keeps
+ * the links out of the sidebar entirely. Links are picked by their own
+ * sidebar placement, so changing the administrator's choice moves the whole
+ * group without rewriting each link. Renders nothing when there is no match.
  */
 export function SidebarContactLinks(props: SidebarContactLinksProps) {
   const { data: links, isLoading } = useContactLinks()
+  const { placement } = useContactLinkDisplayPreferences()
   if (isLoading) {
     return null
   }
 
-  const visible = filterLinks(links, props.position)
+  if (
+    placement === CONTACT_LINK_POSITIONS.footer ||
+    placement !== props.position
+  ) {
+    return null
+  }
+
+  const visible = (links ?? []).filter(
+    (link) =>
+      link.is_active &&
+      link.url &&
+      SIDEBAR_LINK_POSITIONS.includes(link.position)
+  )
   if (visible.length === 0) {
     return null
   }
@@ -109,6 +136,37 @@ export function SidebarContactLinks(props: SidebarContactLinksProps) {
     >
       {visible.map((link) => (
         <ContactLinkButton key={link.id} link={link} />
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Social links in the site footer. Links placed in the footer always render
+ * here; when the administrator picks "Footer Only", the links that would
+ * otherwise live in the sidebar move down here as well.
+ */
+export function FooterContactLinks() {
+  const { data: links, isLoading } = useContactLinks()
+  const { placement } = useContactLinkDisplayPreferences()
+  if (isLoading) {
+    return null
+  }
+
+  const footerOnly = placement === CONTACT_LINK_POSITIONS.footer
+  const visible = (links ?? []).filter((link) => {
+    if (!link.is_active || !link.url) return false
+    if (link.position === CONTACT_LINK_POSITIONS.footer) return true
+    return footerOnly && SIDEBAR_LINK_POSITIONS.includes(link.position)
+  })
+  if (visible.length === 0) {
+    return null
+  }
+
+  return (
+    <div className='flex shrink-0 items-center gap-1'>
+      {visible.map((link) => (
+        <ContactLinkButton key={link.id} link={link} className='size-7' />
       ))}
     </div>
   )

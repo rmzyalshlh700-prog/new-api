@@ -850,6 +850,42 @@ body:lang(ar) *::after {
   transform-origin: bottom left;
 }
 
+/* Compact composer: the library renders a 75px-minimum rounded box, which
+ * reads as a form field rather than a chat composer. A single-line input that
+ * grows to a small maximum keeps the panel focused on the conversation. */
+.admin-copilot-window .copilotKitInput {
+  min-height: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+}
+
+.admin-copilot-window .copilotKitInput > textarea {
+  min-height: 1.5rem;
+  max-height: 5.5rem;
+  overflow-y: auto;
+  line-height: 1.5rem;
+}
+
+.admin-copilot-window .copilotKitInputContainer {
+  padding-bottom: 0.75rem;
+}
+
+/* Header controls live in a normal flex row; the library's absolutely
+ * positioned close button and its fixed 56px bar are replaced by the custom
+ * header so the New chat, History and Close buttons sit in reading order and
+ * mirror under RTL without per-element overrides. */
+.admin-copilot-window .admin-copilot-header {
+  height: 3rem;
+  padding-inline: 0.75rem;
+  gap: 0.5rem;
+  color: inherit;
+}
+
+.admin-copilot-window .admin-copilot-header > button {
+  position: static;
+  transform: none;
+}
+
 /* The library pins the header's close button to `right`; mirror it in RTL. */
 [dir='rtl'] .admin-copilot-window .copilotKitHeader > button {
   right: auto;

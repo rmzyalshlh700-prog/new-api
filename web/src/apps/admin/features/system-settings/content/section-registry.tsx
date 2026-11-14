@@ -67,7 +67,12 @@ const CONTENT_SECTIONS = [
   {
     id: 'contact-links',
     titleKey: 'Contact & Social Links',
-    build: () => <ContactLinksSection />,
+    build: (settings: ContentSettings) => (
+      <ContactLinksSection
+        position={settings['console_setting.social_links_position']}
+        iconSize={settings['console_setting.social_icon_size']}
+      />
+    ),
   },
   {
     id: 'api-info',

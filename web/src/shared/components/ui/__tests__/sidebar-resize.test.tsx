@@ -74,7 +74,7 @@ describe('sidebar width', () => {
   it('starts wider than the previous fixed width so long labels fit', () => {
     const { wrapper } = renderSidebar()
 
-    expect(widthOf(wrapper)).toBe(240)
+    expect(widthOf(wrapper)).toBe(224)
   })
 
   it('widens the sidebar with the right arrow key in a left-to-right layout', () => {
@@ -82,8 +82,8 @@ describe('sidebar width', () => {
 
     fireEvent.keyDown(handle, { key: 'ArrowRight' })
 
-    expect(widthOf(wrapper)).toBe(256)
-    expect(localStorage.getItem(STORAGE_KEY)).toBe('256')
+    expect(widthOf(wrapper)).toBe(240)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('240')
   })
 
   it('widens the sidebar with the left arrow key in a right-to-left layout', () => {
@@ -91,7 +91,7 @@ describe('sidebar width', () => {
 
     fireEvent.keyDown(handle, { key: 'ArrowLeft' })
 
-    expect(widthOf(wrapper)).toBe(256)
+    expect(widthOf(wrapper)).toBe(240)
   })
 
   it('grows when the handle is dragged towards the page edge in a left-to-right layout', () => {
@@ -99,7 +99,7 @@ describe('sidebar width', () => {
 
     drag(handle, 200, 260)
 
-    expect(widthOf(wrapper)).toBe(300)
+    expect(widthOf(wrapper)).toBe(284)
   })
 
   it('grows when the handle is dragged towards the start edge in a right-to-left layout', () => {
@@ -107,37 +107,37 @@ describe('sidebar width', () => {
 
     drag(handle, 200, 140)
 
-    expect(widthOf(wrapper)).toBe(300)
+    expect(widthOf(wrapper)).toBe(284)
   })
 
   it('clamps the width to the supported range', () => {
     const { wrapper, handle } = renderSidebar()
 
     drag(handle, 200, 2000)
-    expect(widthOf(wrapper)).toBe(416)
+    expect(widthOf(wrapper)).toBe(352)
 
     fireEvent.keyDown(handle, { key: 'Home' })
-    expect(widthOf(wrapper)).toBe(208)
+    expect(widthOf(wrapper)).toBe(192)
   })
 
   it('restores the default width on double click', () => {
     const { wrapper, handle } = renderSidebar()
 
     drag(handle, 200, 300)
-    expect(widthOf(wrapper)).toBe(340)
+    expect(widthOf(wrapper)).toBe(324)
 
     fireEvent.doubleClick(handle)
 
-    expect(widthOf(wrapper)).toBe(240)
-    expect(localStorage.getItem(STORAGE_KEY)).toBe('240')
+    expect(widthOf(wrapper)).toBe(224)
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('224')
   })
 
   it('restores the width saved by a previous session', () => {
-    localStorage.setItem(STORAGE_KEY, '320')
+    localStorage.setItem(STORAGE_KEY, '288')
 
     const { wrapper } = renderSidebar()
 
-    expect(widthOf(wrapper)).toBe(320)
+    expect(widthOf(wrapper)).toBe(288)
   })
 
   it('ignores a stored width outside the supported range', () => {
@@ -145,6 +145,6 @@ describe('sidebar width', () => {
 
     const { wrapper } = renderSidebar()
 
-    expect(widthOf(wrapper)).toBe(416)
+    expect(widthOf(wrapper)).toBe(352)
   })
 })

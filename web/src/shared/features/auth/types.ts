@@ -137,6 +137,8 @@ export interface SystemStatus {
     custom_oauth_providers?: CustomOAuthProviderInfo[]
     maintenance_enabled?: boolean
     maintenance_html?: string
+    contact_links_position?: string
+    contact_links_icon_size?: string
     [key: string]: unknown
   }
   // Allow direct access to common properties
@@ -186,6 +188,10 @@ export interface SystemStatus {
   custom_oauth_providers?: CustomOAuthProviderInfo[]
   maintenance_enabled?: boolean
   maintenance_html?: string
+  /** Administrator-chosen placement of the social links in the client shell */
+  contact_links_position?: string
+  /** Administrator-chosen social icon size: small | medium | large */
+  contact_links_icon_size?: string
   log_export_enabled?: boolean
   log_max_range_days?: number
   quota_remind_enabled?: boolean

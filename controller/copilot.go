@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/hmac"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -521,6 +523,13 @@ func copilotDirectChat(c *gin.Context, request *dto.GeneralOpenAIRequest, baseUR
 	if err := service.ValidateSSRFProtectedFetchURL(endpoint); err != nil {
 		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
+	// The administrator can ask the provider to stream. The run still answers
+	// the CopilotKit GraphQL mutation once, with the assembled completion, so
+	// this setting changes how the proxy talks to the provider rather than the
+	// console's message rendering.
+	if setting.CopilotStreamEnabled() {
+		return copilotStreamChat(c, request, endpoint, apiKey)
+	}
 	httpRequest, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
@@ -565,6 +574,142 @@ func copilotDirectChat(c *gin.Context, request *dto.GeneralOpenAIRequest, baseUR
 		openaiResp.Id = fmt.Sprintf("chatcmpl-copilot-%d", time.Now().UnixNano())
 	}
 	return &openaiResp, nil
+}
+
+// copilotStreamChat performs the same upstream call as copilotDirectChat but
+// asks the provider for a server-sent event stream and assembles the deltas
+// into one completion. Streaming keeps the proxy from buffering the whole
+// upstream body, and the assembled result still carries every tool call the
+// console has to execute.
+func copilotStreamChat(c *gin.Context, request *dto.GeneralOpenAIRequest, endpoint string, apiKey string) (*dto.OpenAITextResponse, *types.NewAPIError) {
+	request.Stream = common.GetPointer(true)
+	body, err := common.Marshal(request)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeJsonMarshalFailed)
+	}
+	httpRequest, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest.Header.Set("Accept", "text/event-stream")
+	if apiKey != "" {
+		httpRequest.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	protectedClient := *service.GetSSRFProtectedHTTPClient()
+	protectedClient.Timeout = 120 * time.Second
+	response, err := protectedClient.Do(httpRequest)
+	if err != nil {
+		return nil, types.NewError(fmt.Errorf("copilot upstream stream failed: %w", err), types.ErrorCodeDoRequestFailed)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		errorBody, _ := io.ReadAll(io.LimitReader(response.Body, 8<<10))
+		message := strings.TrimSpace(string(errorBody))
+		if len(message) > 300 {
+			message = message[:300] + "..."
+		}
+		if message == "" {
+			message = response.Status
+		}
+		return nil, types.NewError(fmt.Errorf("copilot upstream rejected the request (%d): %s", response.StatusCode, message), types.ErrorCodeBadResponse)
+	}
+
+	var content strings.Builder
+	toolCalls := make(map[int]*dto.ToolCallResponse)
+	finishReason := ""
+	responseId := ""
+	model := request.Model
+	scanner := bufio.NewScanner(response.Body)
+	// Tool arguments arrive as a few large deltas, so the default 64 KiB line
+	// limit is not enough for long JSON schemas.
+	scanner.Buffer(make([]byte, 0, 64<<10), 4<<20)
+	for scanner.Scan() {
+		payload, ok := strings.CutPrefix(strings.TrimSpace(scanner.Text()), "data:")
+		if !ok {
+			continue
+		}
+		payload = strings.TrimSpace(payload)
+		if payload == "" || payload == "[DONE]" {
+			continue
+		}
+		var chunk dto.ChatCompletionsStreamResponse
+		if err := common.Unmarshal([]byte(payload), &chunk); err != nil {
+			return nil, types.NewError(fmt.Errorf("copilot upstream stream chunk is not valid JSON: %w", err), types.ErrorCodeBadResponseBody)
+		}
+		if chunk.Id != "" {
+			responseId = chunk.Id
+		}
+		if chunk.Model != "" {
+			model = chunk.Model
+		}
+		for _, choice := range chunk.Choices {
+			if choice.Delta.Content != nil {
+				content.WriteString(*choice.Delta.Content)
+			}
+			for _, delta := range choice.Delta.ToolCalls {
+				index := 0
+				if delta.Index != nil {
+					index = *delta.Index
+				}
+				call, exists := toolCalls[index]
+				if !exists {
+					call = &dto.ToolCallResponse{}
+					toolCalls[index] = call
+				}
+				if delta.ID != "" {
+					call.ID = delta.ID
+				}
+				if delta.Type != nil {
+					call.Type = delta.Type
+				}
+				call.Function.Name += delta.Function.Name
+				call.Function.Arguments += delta.Function.Arguments
+			}
+			if choice.FinishReason != nil && *choice.FinishReason != "" {
+				finishReason = *choice.FinishReason
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, types.NewError(fmt.Errorf("copilot upstream stream ended unexpectedly: %w", err), types.ErrorCodeReadResponseBodyFailed)
+	}
+
+	message := dto.Message{Role: "assistant", Content: content.String()}
+	if len(toolCalls) > 0 {
+		indexes := make([]int, 0, len(toolCalls))
+		for index := range toolCalls {
+			indexes = append(indexes, index)
+		}
+		slices.Sort(indexes)
+		ordered := make([]dto.ToolCallResponse, 0, len(indexes))
+		for _, index := range indexes {
+			call := toolCalls[index]
+			call.Index = nil
+			ordered = append(ordered, *call)
+		}
+		encoded, marshalErr := common.Marshal(ordered)
+		if marshalErr != nil {
+			return nil, types.NewError(marshalErr, types.ErrorCodeJsonMarshalFailed)
+		}
+		message.ToolCalls = encoded
+	}
+	if responseId == "" {
+		responseId = fmt.Sprintf("chatcmpl-copilot-%d", time.Now().UnixNano())
+	}
+	return &dto.OpenAITextResponse{
+		Id:      responseId,
+		Model:   model,
+		Object:  "chat.completion",
+		Created: time.Now().Unix(),
+		Choices: []dto.OpenAITextResponseChoice{{
+			Index:        0,
+			Message:      message,
+			FinishReason: finishReason,
+		}},
+	}, nil
 }
 
 // buildCopilotChatRequest converts the CopilotKit conversation, context and
