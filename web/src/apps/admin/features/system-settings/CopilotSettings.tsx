@@ -333,7 +333,7 @@ export function CopilotSettings() {
             </Label>
             <p className='text-muted-foreground text-xs'>
               {t(
-                'The proxy reads the provider stream as it arrives instead of buffering the whole response. The console shows the finished reply when the run completes.'
+                'The console renders the reply as the provider generates it instead of showing it all at once.'
               )}
             </p>
           </div>

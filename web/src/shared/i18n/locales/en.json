@@ -7994,7 +7994,7 @@
     "No saved chats yet": "No saved chats yet",
     "Delete chat": "Delete chat",
     "Stream responses from the provider": "Stream responses from the provider",
-    "The proxy reads the provider stream as it arrives instead of buffering the whole response. The console shows the finished reply when the run completes.": "The proxy reads the provider stream as it arrives instead of buffering the whole response. The console shows the finished reply when the run completes."
+    "The console renders the reply as the provider generates it instead of showing it all at once.": "The console renders the reply as the provider generates it instead of showing it all at once."
   },
   "Report date": "Report date",
   "Invoices": "Invoices",

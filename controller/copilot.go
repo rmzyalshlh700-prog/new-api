@@ -226,8 +226,29 @@ func AdminCopilotChatInfo(c *gin.Context) {
 // accepts a complete plain-JSON GraphQL response; the @stream/@defer directives
 // in its query degrade gracefully to a single full result.
 func AdminCopilotChat(c *gin.Context) {
+	body, readErr := readCopilotChatBody(c)
+	if readErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"errors": []gin.H{{"message": "could not read the request body: " + readErr.Error()}}})
+		return
+	}
+	var keys map[string]any
+	if err := common.Unmarshal(body, &keys); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"errors": []gin.H{{"message": "invalid request body: " + err.Error()}}})
+		return
+	}
+	// The chat panel speaks AG-UI and reads a server-sent event stream. The
+	// GraphQL mutation below is retained for CopilotTask compatibility.
+	if isCopilotAguiRequest(keys) {
+		var input copilotAguiInput
+		if err := common.Unmarshal(body, &input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"errors": []gin.H{{"message": "invalid AG-UI request: " + err.Error()}}})
+			return
+		}
+		AdminCopilotChatAgui(c, &input)
+		return
+	}
 	var payload copilotChatRequest
-	if err := common.UnmarshalBodyReusable(c, &payload); err != nil {
+	if err := common.Unmarshal(body, &payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"errors": []gin.H{{"message": "invalid GraphQL request: " + err.Error()}}})
 		return
 	}
@@ -407,22 +428,43 @@ func copilotToolCallCorrelationID(toolCallID string) string {
 // payload and executes it through the internal relay pipeline on a synthetic
 // gin context, mirroring how channel tests invoke Relay non-interactively.
 func copilotRelayChat(c *gin.Context, data *copilotChatRequestVariablesData, exchange copilotToolExchange) (*dto.OpenAITextResponse, *types.NewAPIError) {
-	userID := c.GetInt("id")
 	request, buildErr := buildCopilotChatRequest(data, exchange)
 	if buildErr != nil {
 		return nil, types.NewError(buildErr, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
+	return copilotCompletion(c, request, nil)
+}
 
+// copilotCompletion executes a synthesized completion against the dedicated
+// upstream when one is configured, or through the internal relay otherwise.
+// onDelta receives upstream text as it arrives; it is nil for callers that only
+// read the assembled result.
+func copilotCompletion(c *gin.Context, request *dto.GeneralOpenAIRequest, onDelta func(string)) (*dto.OpenAITextResponse, *types.NewAPIError) {
 	// When an administrator configured a dedicated upstream, the Copilot talks
 	// to it directly with the key bound to that URL instead of the internal
 	// channels.
-	if baseURL := setting.CopilotOption(setting.CopilotBaseURLOptionKey); baseURL != "" {
-		apiKey, unbound := copilotAPIKeyForBaseURL(baseURL)
-		if unbound {
-			return nil, types.NewError(fmt.Errorf("the saved Copilot API key is bound to a different base URL; re-enter the key in the Copilot settings"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
-		}
-		return copilotDirectChat(c, request, baseURL, apiKey)
+	baseURL := setting.CopilotOption(setting.CopilotBaseURLOptionKey)
+	if baseURL == "" {
+		return copilotRelayCompletion(c, request)
 	}
+	apiKey, unbound := copilotAPIKeyForBaseURL(baseURL)
+	if unbound {
+		return nil, types.NewError(fmt.Errorf("the saved Copilot API key is bound to a different base URL; re-enter the key in the Copilot settings"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if setting.CopilotStreamEnabled() {
+		endpoint := setting.CopilotV1Endpoint(baseURL, "chat/completions")
+		if err := service.ValidateSSRFProtectedFetchURL(endpoint); err != nil {
+			return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		}
+		return copilotStreamChatWithDeltas(c, request, endpoint, apiKey, onDelta)
+	}
+	return copilotDirectChat(c, request, baseURL, apiKey)
+}
+
+// copilotRelayCompletion executes the completion through the internal channel
+// relay on a synthetic gin context.
+func copilotRelayCompletion(c *gin.Context, request *dto.GeneralOpenAIRequest) (*dto.OpenAITextResponse, *types.NewAPIError) {
+	userID := c.GetInt("id")
 
 	// Serialize the synthesized request and re-read it through the ordinary
 	// relay entry point so validation, token counting and conversion all run.
@@ -582,6 +624,14 @@ func copilotDirectChat(c *gin.Context, request *dto.GeneralOpenAIRequest, baseUR
 // upstream body, and the assembled result still carries every tool call the
 // console has to execute.
 func copilotStreamChat(c *gin.Context, request *dto.GeneralOpenAIRequest, endpoint string, apiKey string) (*dto.OpenAITextResponse, *types.NewAPIError) {
+	return copilotStreamChatWithDeltas(c, request, endpoint, apiKey, nil)
+}
+
+// copilotStreamChatWithDeltas streams the upstream completion and reports each
+// text delta to onDelta as it arrives, while still assembling the completed
+// response. onDelta is called synchronously from the reading goroutine, so it
+// must not block for long.
+func copilotStreamChatWithDeltas(c *gin.Context, request *dto.GeneralOpenAIRequest, endpoint string, apiKey string, onDelta func(string)) (*dto.OpenAITextResponse, *types.NewAPIError) {
 	request.Stream = common.GetPointer(true)
 	body, err := common.Marshal(request)
 	if err != nil {
@@ -648,6 +698,9 @@ func copilotStreamChat(c *gin.Context, request *dto.GeneralOpenAIRequest, endpoi
 		for _, choice := range chunk.Choices {
 			if choice.Delta.Content != nil {
 				content.WriteString(*choice.Delta.Content)
+				if onDelta != nil && *choice.Delta.Content != "" {
+					onDelta(*choice.Delta.Content)
+				}
 			}
 			for _, delta := range choice.Delta.ToolCalls {
 				index := 0

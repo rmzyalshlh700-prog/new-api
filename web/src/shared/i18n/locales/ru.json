@@ -7994,7 +7994,7 @@
     "No saved chats yet": "Пока нет сохранённых чатов",
     "Delete chat": "Удалить чат",
     "Stream responses from the provider": "Потоковая передача ответов от провайдера",
-    "The proxy reads the provider stream as it arrives instead of buffering the whole response. The console shows the finished reply when the run completes.": "Прокси читает поток провайдера по мере поступления вместо буферизации всего ответа. Консоль показывает готовый ответ по завершении запуска."
+    "The console renders the reply as the provider generates it instead of showing it all at once.": "Консоль показывает ответ по мере его генерации провайдером, а не целиком в конце."
   },
   "Report date": "Дата отчёта",
   "Invoices": "Счета",

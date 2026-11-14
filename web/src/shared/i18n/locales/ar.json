@@ -7994,7 +7994,7 @@
     "No saved chats yet": "لا توجد محادثات محفوظة بعد",
     "Delete chat": "حذف المحادثة",
     "Stream responses from the provider": "بث الردود من المزود",
-    "The proxy reads the provider stream as it arrives instead of buffering the whole response. The console shows the finished reply when the run completes.": "يقرأ الوكيل بث المزود أثناء وصوله بدل تخزين الرد كاملاً. تعرض الواجهة الرد النهائي عند اكتمال التشغيل."
+    "The console renders the reply as the provider generates it instead of showing it all at once.": "يعرض الكونسول الرد أثناء توليده من المزوّد بدلًا من إظهاره كاملًا في النهاية."
   },
   "Report date": "تاريخ التقرير",
   "Invoices": "الفواتير",
