@@ -91,6 +91,29 @@ func TestSecurityHeadersNoHSTSBehindTrustedProxyStillHTTP(t *testing.T) {
 	assert.Empty(t, recorder.Header().Get("Strict-Transport-Security"))
 }
 
+func TestSecurityHeadersSetsDenyAllCSPOnAPIPaths(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(SecurityHeaders())
+	router.GET("/api/status", func(c *gin.Context) { c.Status(200) })
+	router.GET("/v1/chat/completions", func(c *gin.Context) { c.Status(200) })
+	router.GET("/", func(c *gin.Context) { c.Status(200) })
+
+	for _, path := range []string{"/api/status", "/v1/chat/completions"} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest("GET", path, nil))
+		baseSecurityHeaderAssertions(t, recorder)
+		assert.Equal(t, apiContentSecurityPolicy, recorder.Header().Get("Content-Security-Policy"), path)
+	}
+
+	// The console HTML is served with baseline headers only: its document policy
+	// depends on the operator's bundle, analytics and plugin frames.
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	baseSecurityHeaderAssertions(t, recorder)
+	assert.Empty(t, recorder.Header().Get("Content-Security-Policy"))
+}
+
 func TestSecurityHeadersEmitsHSTSOnDirectTLS(t *testing.T) {
 	router := securityHeadersRouter(t)
 

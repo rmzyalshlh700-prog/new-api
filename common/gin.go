@@ -282,10 +282,15 @@ func ApiError(c *gin.Context, err error) {
 
 // ApiErrorStatus is ApiError with another HTTP status. fields adds response
 // fields such as a stable error code or data.
+//
+// The message is passed through SanitizeDatabaseError: a driver error inlines
+// the values of the failing statement (and sometimes the statement itself), so
+// returning err.Error() verbatim would hand query data, table and column names
+// to whoever triggered the failure. Non-driver errors are unchanged.
 func ApiErrorStatus(c *gin.Context, status int, err error, fields ...gin.H) {
 	body := gin.H{
 		"success": false,
-		"message": err.Error(),
+		"message": SanitizeDatabaseError(err).Error(),
 	}
 	var message *Message
 	if errors.As(err, &message) {

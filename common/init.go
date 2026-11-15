@@ -256,7 +256,12 @@ func initPreConsumeMaxOutputTokensByModel() {
 
 func initConstantEnv() {
 	constant.StreamingTimeout = GetEnvOrDefault("STREAMING_TIMEOUT", 300)
-	constant.DifyDebug = GetEnvOrDefaultBool("DIFY_DEBUG", true)
+	// DIFY_DEBUG streams the upstream workflow and node identifiers to the
+	// client as reasoning content. It is diagnostic output rather than part of
+	// the answer, so it stays off unless an operator asks for it: leaking the
+	// upstream application's internal structure to API callers is not a safe
+	// default.
+	constant.DifyDebug = GetEnvOrDefaultBool("DIFY_DEBUG", false)
 	constant.MaxFileDownloadMB = GetEnvOrDefault("MAX_FILE_DOWNLOAD_MB", 64)
 	constant.StreamScannerMaxBufferMB = GetEnvOrDefault("STREAM_SCANNER_MAX_BUFFER_MB", 128)
 	// MaxRequestBodyMB 请求体最大大小（解压后），用于防止超大请求/zip bomb导致内存暴涨
