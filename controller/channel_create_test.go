@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -99,7 +100,7 @@ func TestAddChannelReturnsCreatedIDs(t *testing.T) {
 				_, err := model.BatchDeleteChannels(ids)
 				require.NoError(t, err)
 			})
-			channel := &model.Channel{Name: name, Type: tc.channelType, Key: tc.key, Models: "test-model", Group: "default", OtherSettings: tc.settings}
+			channel := &model.Channel{Name: name, Type: tc.channelType, Key: common.SecretString(tc.key), Models: "test-model", Group: "default", OtherSettings: tc.settings}
 			if channel.Type == 0 {
 				channel.Type = constant.ChannelTypeOpenAI
 			}
@@ -134,7 +135,7 @@ func TestAddChannelReturnsCreatedIDs(t *testing.T) {
 			for i, channel := range created {
 				assert.Positive(t, result.Data.IDs[i])
 				assert.Equal(t, channel.Id, result.Data.IDs[i])
-				assert.Equal(t, tc.wantKeys[i], channel.Key)
+				assert.Equal(t, tc.wantKeys[i], channel.Key.String())
 				assert.Equal(t, tc.mode == "multi_to_single", channel.ChannelInfo.IsMultiKey)
 			}
 			require.NotNil(t, result.Data.Results, "empty creations must return an empty results array")
@@ -173,7 +174,7 @@ func TestAddChannelInvalidVertexBatchDoesNotReturnResults(t *testing.T) {
 		for _, key := range []string{"[]", `["", "  "]`, "[{"} {
 			t.Run(mode+"/"+key, func(t *testing.T) {
 				request, err := common.Marshal(AddChannelRequest{Mode: mode, Channel: &model.Channel{
-					Name: "invalid-vertex-array", Type: constant.ChannelTypeVertexAi, Key: key,
+					Name: "invalid-vertex-array", Type: constant.ChannelTypeVertexAi, Key: common.SecretString(key),
 					Models: "test-model", Group: "default", Other: `{"default":"us-central1"}`,
 				}})
 				require.NoError(t, err)
@@ -194,22 +195,27 @@ func TestAddChannelInvalidVertexBatchDoesNotReturnResults(t *testing.T) {
 
 func TestAddChannelRollbackDoesNotReturnIDs(t *testing.T) {
 	rootID := setupChannelCreateTest(t)
-	// Force a real database error in the second chunk, after the first 50 rows
-	// received IDs. This constraint exists only in the isolated test database.
-	column := `"key"`
-	if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
-		column = "`key`(191)"
-	}
-	const indexName = "channel_create_test_unique_key"
-	require.NoError(t, model.DB.Exec("CREATE UNIQUE INDEX "+indexName+" ON channels ("+column+")").Error)
-	t.Cleanup(func() { require.NoError(t, model.DB.Migrator().DropIndex(&model.Channel{}, indexName)) })
+	// Force a real database error on the second chunk, after the first 50 rows
+	// received IDs. A unique index on the key column cannot fail here once keys
+	// are encrypted, because equal plaintext keys store different ciphertext.
+	database := model.DB
+	channelCreates := 0
+	const callback = "test:channel-create-failure"
+	require.NoError(t, database.Callback().Create().Before("gorm:create").Register(callback, func(tx *gorm.DB) {
+		if tx.Statement.Table == "channels" {
+			channelCreates++
+			if channelCreates == 2 {
+				tx.AddError(errors.New("the last channel chunk failed to store"))
+			}
+		}
+	}))
+	t.Cleanup(func() { require.NoError(t, database.Callback().Create().Remove(callback)) })
 	keys := make([]string, 51)
-	for i := range keys[:50] {
+	for i := range keys {
 		keys[i] = fmt.Sprintf("sk-create-rollback-%02d", i)
 	}
-	keys[50] = keys[0]
 	request, err := common.Marshal(AddChannelRequest{Mode: "batch", Channel: &model.Channel{
-		Name: "created-id-rollback", Type: 1, Key: strings.Join(keys, "\n"), Models: "test-model", Group: "default",
+		Name: "created-id-rollback", Type: 1, Key: common.SecretString(strings.Join(keys, "\n")), Models: "test-model", Group: "default",
 	}})
 	require.NoError(t, err)
 	response := postAddChannel(t, rootID, common.RoleRootUser, string(request))
@@ -245,7 +251,7 @@ func TestAddChannelPanicRollsBackWithoutSuccess(t *testing.T) {
 		keys[i] = fmt.Sprintf("sk-create-panic-%02d", i)
 	}
 	request, err := common.Marshal(AddChannelRequest{Mode: "batch", Channel: &model.Channel{
-		Name: "created-id-panic", Type: 1, Key: strings.Join(keys, "\n"), Models: "test-model", Group: "default",
+		Name: "created-id-panic", Type: 1, Key: common.SecretString(strings.Join(keys, "\n")), Models: "test-model", Group: "default",
 	}})
 	require.NoError(t, err)
 	require.PanicsWithValue(t, "second channel chunk failed", func() {

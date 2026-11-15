@@ -95,15 +95,15 @@ func TestUpdateChannelLocked(t *testing.T) {
 	InitChannelCache()
 
 	stored, err := UpdateChannelLocked(channel.Id, func(stored *Channel) error {
-		assert.Equal(t, "first", stored.Key)
+		assert.Equal(t, "first", stored.Key.String())
 		stored.Key = "second"
 		return nil
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "second", stored.Key)
+	assert.Equal(t, "second", stored.Key.String())
 	cached, err := CacheGetChannel(channel.Id)
 	require.NoError(t, err)
-	assert.Equal(t, "second", cached.Key, "the cache publishes the new key at once")
+	assert.Equal(t, "second", cached.Key.String(), "the cache publishes the new key at once")
 
 	failure := errors.New("plugin failed")
 	_, err = UpdateChannelLocked(channel.Id, func(stored *Channel) error {
@@ -121,7 +121,7 @@ func TestUpdateChannelLocked(t *testing.T) {
 	assert.ErrorIs(t, err, ErrChannelKeyChanged)
 	current, err := GetChannelById(channel.Id, true)
 	require.NoError(t, err)
-	assert.Equal(t, "edited", current.Key, "a lost race never overwrites the newer key")
+	assert.Equal(t, "edited", current.Key.String(), "a lost race never overwrites the newer key")
 
 	_, err = UpdateChannelLocked(channel.Id, func(stored *Channel) error {
 		// The polling cursor moves while the status changes.
@@ -134,7 +134,7 @@ func TestUpdateChannelLocked(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, common.ChannelStatusAutoDisabled, current.Status)
 	assert.Equal(t, 3, current.ChannelInfo.MultiKeyPollingIndex, "only the changed columns are written")
-	assert.Equal(t, "edited", current.Key)
+	assert.Equal(t, "edited", current.Key.String())
 	var enabled []bool
 	require.NoError(t, DB.Model(&Ability{}).Where("channel_id = ?", channel.Id).Pluck("enabled", &enabled).Error)
 	assert.Equal(t, []bool{false}, enabled, "a new status reaches the abilities")
@@ -313,10 +313,10 @@ func TestScheduledChannelLockedStatus(t *testing.T) {
 				return nil
 			})
 			require.NoError(t, err)
-			assert.Equal(t, "new", stored.Key)
+			assert.Equal(t, "new", stored.Key.String())
 			cached, err := CacheGetChannel(channel.Id)
 			require.NoError(t, err)
-			assert.Equal(t, "new", cached.Key)
+			assert.Equal(t, "new", cached.Key.String())
 			assert.Equal(t, common.ChannelStatusEnabled, cached.Status)
 			selected, err = GetRandomSatisfiedChannel("default", channel.Models, 0, nil)
 			require.NoError(t, err)
@@ -337,7 +337,7 @@ func TestScheduledChannelLockedStatus(t *testing.T) {
 			assert.ErrorIs(t, err, failure)
 			stored, err = GetChannelById(channel.Id, true)
 			require.NoError(t, err)
-			assert.Equal(t, "new", stored.Key)
+			assert.Equal(t, "new", stored.Key.String())
 			assert.Equal(t, common.ChannelStatusEnabled, stored.Status)
 			assert.Equal(t, before, channelsRevision(t), "a failed callback writes neither state nor a sync task")
 
@@ -453,7 +453,7 @@ func TestScheduledChannelLockedCancellation(t *testing.T) {
 	assert.Empty(t, sqlLogs.String(), "a failed credential write must produce no SQL diagnostics, even in debug mode")
 	stored, err := GetChannelById(channel.Id, true)
 	require.NoError(t, err)
-	assert.Equal(t, "old", stored.Key)
+	assert.Equal(t, "old", stored.Key.String())
 	assert.Equal(t, common.ChannelStatusAutoDisabled, stored.Status)
 
 }
@@ -491,7 +491,7 @@ func TestScheduledChannelDatabaseRowLock(t *testing.T) {
 	assert.False(t, called, "persistence does not apply to an uncommitted row")
 	require.NoError(t, <-first)
 	_, err = UpdateScheduledChannelLocked(context.Background(), channel.Id, func(stored *Channel) error {
-		assert.Equal(t, "new", stored.Key)
+		assert.Equal(t, "new", stored.Key.String())
 		assert.Equal(t, common.ChannelStatusEnabled, stored.Status)
 		return nil
 	})

@@ -197,7 +197,7 @@ func refreshPluginCredentialLine(channelID, keyIndex int, used string) (string, 
 		if err != nil {
 			return err
 		}
-		channelName, multiKey, autoBan, storedKey = channel.Name, channel.ChannelInfo.IsMultiKey, channel.GetAutoBan(), channel.Key
+		channelName, multiKey, autoBan, storedKey = channel.Name, channel.ChannelInfo.IsMultiKey, channel.GetAutoBan(), channel.Key.String()
 		plugin, ok := PluginOfChannel(channel)
 		if !ok || plugin.Meta.Key != usedCredential.Plugin {
 			return fmt.Errorf("channel #%d is not bound to plugin %s", channelID, usedCredential.Plugin)
@@ -249,13 +249,13 @@ func refreshPluginCredentialLine(channelID, keyIndex int, used string) (string, 
 			}
 			current, needsLogin = refreshed, result.Relogin
 			lines[index] = refreshed
-			channel.Key = strings.Join(lines, "\n")
+			channel.Key = common.SecretString(strings.Join(lines, "\n"))
 			return nil
 		})
 		if err != nil {
 			return err
 		}
-		storedKey = stored.Key
+		storedKey = stored.Key.String()
 		return nil
 	})
 	if err != nil {
@@ -424,13 +424,13 @@ func refreshedPluginCredential(stored jsplugin.Credential, result jsplugin.Crede
 // pluginCredentialKeyLines splits a channel key into its lines: the whole key
 // is the one line of a single-key channel. An empty key has none.
 func pluginCredentialKeyLines(channel *model.Channel) []string {
-	if strings.TrimSpace(channel.Key) == "" {
+	if strings.TrimSpace(channel.Key.String()) == "" {
 		return nil
 	}
 	if !channel.ChannelInfo.IsMultiKey {
-		return []string{channel.Key}
+		return []string{channel.Key.String()}
 	}
-	return strings.Split(strings.Trim(channel.Key, "\n"), "\n")
+	return strings.Split(strings.Trim(channel.Key.String(), "\n"), "\n")
 }
 
 // locatePluginCredentialLine finds the stored line of a used credential: at
@@ -651,18 +651,18 @@ func keyCredentialCandidates(key string) []string {
 	if key == "" {
 		return nil
 	}
-	return append([]string{key}, (&model.Channel{Key: key}).GetKeys()...)
+	return append([]string{key}, (&model.Channel{Key: common.SecretString(key)}).GetKeys()...)
 }
 
 // DropPluginCredentials removes the credential lines from the key of a
 // channel copy, since a credential belongs to the channel its login stored it
 // on. A task plugin copy left without a key waits for a login.
 func DropPluginCredentials(channel *model.Channel) {
-	if !strings.Contains(channel.Key, jsplugin.CredentialType) {
+	if !strings.Contains(channel.Key.String(), jsplugin.CredentialType) {
 		return
 	}
 	if !channel.ChannelInfo.IsMultiKey {
-		if _, ok := jsplugin.ParseCredential(channel.Key); ok {
+		if _, ok := jsplugin.ParseCredential(channel.Key.String()); ok {
 			channel.Key = ""
 		}
 	} else {
@@ -689,14 +689,14 @@ func DropPluginCredentials(channel *model.Channel) {
 		if len(kept) == len(keys) {
 			return
 		}
-		channel.Key = strings.Join(kept, "\n")
+		channel.Key = common.SecretString(strings.Join(kept, "\n"))
 		channel.Keys = nil
 		info.MultiKeySize = len(kept)
 		info.MultiKeyStatusList, info.MultiKeyDisabledReason, info.MultiKeyDisabledTime = statusList, reasons, times
 		info.MultiKeyPollingIndex = 0
 		channel.ChannelInfo = info
 	}
-	if strings.TrimSpace(channel.Key) == "" {
+	if strings.TrimSpace(channel.Key.String()) == "" {
 		PluginLoginNeededStatus(channel)
 	}
 }

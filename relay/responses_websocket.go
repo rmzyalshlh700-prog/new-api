@@ -656,7 +656,7 @@ func (s *responsesWSSession) restoreConnectionContext(c *gin.Context, model stri
 	if err != nil || channel == nil || channel.Status != common.ChannelStatusEnabled || !channel.GetSetting().ResponsesWebSocketEnabled {
 		return types.NewErrorWithStatusCode(errors.New("Responses WebSocket is disabled for this channel"), types.ErrorCode(appdto.FilterResponsesWebSocket), http.StatusForbidden, types.ErrOptionWithSkipRetry())
 	}
-	keyEnabled := channel.Key == s.lockedKey
+	keyEnabled := channel.Key.String() == s.lockedKey
 	if channel.ChannelInfo.IsMultiKey {
 		keys := channel.GetKeys()
 		status := channel.ChannelInfo.MultiKeyStatusList[s.lockedKeyIndex]

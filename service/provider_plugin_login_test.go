@@ -320,7 +320,7 @@ func TestPluginLoginCallbackRejections(t *testing.T) {
 			require.ErrorContains(t, err, tc.message)
 			assert.NotContains(t, err.Error(), "secret-detail")
 			assert.Zero(t, f.server.tokenCalls.Load(), "the plugin must not run on a rejected callback")
-			assert.Empty(t, storedChannel(t, f.channel.Id).Key)
+			assert.Empty(t, storedChannel(t, f.channel.Id).Key.String())
 
 			// The rightful callback still works: a rejection burns nothing.
 			done, err := CompletePluginLoginCallback(context.Background(), loginAdmin, key, callbackParams(visitAuthorize(t, started.Step.URL)))
@@ -496,7 +496,7 @@ func TestPluginLoginOnExistingCredential(t *testing.T) {
 	f.server.account.Store("acct-2")
 	_, err = CompletePluginLoginCallback(context.Background(), loginAdmin, "login-again", callbackParams(visitAuthorize(t, started.Step.URL)))
 	require.ErrorContains(t, err, "different account")
-	assert.Equal(t, line, storedChannel(t, f.channel.Id).Key)
+	assert.Equal(t, line, storedChannel(t, f.channel.Id).Key.String())
 	require.Eventually(t, func() bool { return f.server.revoked.Load() == 1 }, 5*time.Second, 5*time.Millisecond)
 	assert.Equal(t, "refresh-1", f.server.revokedToken.Load(), "a grant of an account stored nowhere is revoked")
 
@@ -507,8 +507,8 @@ func TestPluginLoginOnExistingCredential(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, done.Step.Credential.Index)
 	stored := storedChannel(t, f.channel.Id)
-	assert.NotContains(t, stored.Key, "\n")
-	assert.Contains(t, stored.Key, "access-2")
+	assert.NotContains(t, stored.Key.String(), "\n")
+	assert.Contains(t, stored.Key.String(), "access-2")
 
 	outOfRange := 3
 	_, err = StartPluginLogin(context.Background(), loginAdmin, f.channel.Id, &outOfRange, false)
@@ -522,7 +522,7 @@ func TestPluginLoginOneAccountPerPlugin(t *testing.T) {
 	started := f.start(t)
 	_, err := CompletePluginLoginCallback(context.Background(), loginAdmin, "login-account", callbackParams(visitAuthorize(t, started.Step.URL)))
 	require.ErrorContains(t, err, "already logged in on another credential")
-	assert.Empty(t, storedChannel(t, f.channel.Id).Key)
+	assert.Empty(t, storedChannel(t, f.channel.Id).Key.String())
 	// The account stays logged in on the other channel, so its new grant is
 	// kept: a vendor may end every session of the account on revoke. A revoke
 	// sent afterwards arrives alone.
@@ -589,7 +589,7 @@ func TestPluginLoginSingleKeyReplacesTheKey(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Zero(t, view.Index)
-	_, ok := jsplugin.ParseCredential(storedChannel(t, channel.Id).Key)
+	_, ok := jsplugin.ParseCredential(storedChannel(t, channel.Id).Key.String())
 	assert.True(t, ok)
 }
 
@@ -625,7 +625,7 @@ func TestPluginLoginAddAccount(t *testing.T) {
 			stored := storedChannel(t, channel.Id)
 			if tc.message != "" {
 				require.ErrorContains(t, err, tc.message)
-				assert.Equal(t, tc.key, stored.Key)
+				assert.Equal(t, tc.key, stored.Key.String())
 				assert.False(t, stored.ChannelInfo.IsMultiKey)
 				return
 			}

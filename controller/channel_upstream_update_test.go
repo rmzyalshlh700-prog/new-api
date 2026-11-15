@@ -31,7 +31,7 @@ func newAdvancedCustomModelListChannel(baseURL string, key string, upstreamPath 
 	}
 	channel := &model.Channel{
 		Type:    constant.ChannelTypeAdvancedCustom,
-		Key:     key,
+		Key:     common.SecretString(key),
 		BaseURL: &baseURL,
 	}
 	channel.SetOtherSettings(dto.ChannelOtherSettings{AdvancedCustom: config})

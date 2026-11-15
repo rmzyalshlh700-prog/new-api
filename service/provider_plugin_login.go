@@ -624,7 +624,7 @@ func StorePluginLoginCredential(channelID int, pluginKey string, keyIndex *int, 
 		if channel.GetSetting().TaskPluginKey != pluginKey {
 			return common.NewMessage("This channel's plugin does not support login")
 		}
-		if strings.HasPrefix(strings.TrimSpace(channel.Key), "[") {
+		if strings.HasPrefix(strings.TrimSpace(channel.Key.String()), "[") {
 			return common.NewMessage("This channel's key format cannot hold plugin credentials")
 		}
 		lines := pluginCredentialKeyLines(channel)
@@ -701,7 +701,7 @@ func StorePluginLoginCredential(channelID int, pluginKey string, keyIndex *int, 
 				info.MultiKeyDisabledTime[0] = common.GetTimestamp()
 			}
 		}
-		channel.Key = strings.Join(lines, "\n")
+		channel.Key = common.SecretString(strings.Join(lines, "\n"))
 		enablePluginLoginChannel(channel, index, len(lines))
 		view = PluginCredentialView{Index: index, Label: credential.Label, AccountID: credential.AccountID, ExpiresAt: credential.ExpiresAt}
 		return nil

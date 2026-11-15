@@ -349,7 +349,7 @@ func runScheduledPlugin(ctx context.Context, channel *model.Channel, plugin *jsp
 		}
 		if nextLine != prepared {
 			lines[keyIndex] = nextLine
-			current.Key = strings.Join(lines, "\n")
+			current.Key = common.SecretString(strings.Join(lines, "\n"))
 			current.Keys = nil
 		}
 		switch result.KeyStatus {

@@ -319,7 +319,7 @@ func updateBatchTasks(ctx context.Context, adaptor BatchTaskPollingAdaptor, chan
 		ChannelSetting:  ch.GetSetting(),
 		HeadersOverride: ch.GetHeaderOverride(),
 	}
-	info.ApiKey = ch.Key
+	info.ApiKey = ch.Key.String()
 	adaptor.Init(info)
 	// A batch query carries one credential, so it holds only the tasks one
 	// credential account submitted: another account's answer could report a
@@ -338,7 +338,7 @@ func updateBatchTasks(ctx context.Context, adaptor BatchTaskPollingAdaptor, chan
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if err := pollTaskBatch(ctx, adaptor, channelId, baseURL, ch.Key, proxy, batches[account]); err != nil {
+		if err := pollTaskBatch(ctx, adaptor, channelId, baseURL, ch.Key.String(), proxy, batches[account]); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -529,7 +529,7 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 		ChannelSetting:  cacheGetChannel.GetSetting(),
 		HeadersOverride: cacheGetChannel.GetHeaderOverride(),
 	}
-	info.ApiKey = cacheGetChannel.Key
+	info.ApiKey = cacheGetChannel.Key.String()
 	adaptor.Init(info)
 	disablePollingSleep := cacheGetChannel.GetOtherSettings().DisableTaskPollingSleep
 	for i, taskId := range taskIds {
@@ -568,7 +568,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		logger.LogError(ctx, common.LogText("Task %s not found in taskM", taskId))
 		return fmt.Errorf("task %s not found", taskId)
 	}
-	key := ch.Key
+	key := ch.Key.String()
 
 	privateData := task.PrivateData
 	if privateData.Key != "" {

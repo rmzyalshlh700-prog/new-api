@@ -118,7 +118,7 @@ func runMidjourneyTaskUpdateOnce(ctx context.Context, report func(processed, tot
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("mj-api-secret", midjourneyChannel.Key)
+		req.Header.Set("mj-api-secret", midjourneyChannel.Key.String())
 		channelSetting := midjourneyChannel.GetSetting()
 		client, clientErr := service.GetHttpClientWithProxySettings(channelSetting.Proxy, channelSetting)
 		if clientErr != nil {

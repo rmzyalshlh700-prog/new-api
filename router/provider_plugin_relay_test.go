@@ -161,7 +161,7 @@ func newRelayHarness(t *testing.T) *relayHarness {
 
 func (h *relayHarness) newChannel(channelType int, key string) *model.Channel {
 	baseURL := h.upstream.URL
-	return &model.Channel{Type: channelType, Key: key, Status: common.ChannelStatusEnabled, Name: "relay", Models: relayTestModel, Group: "default", BaseURL: &baseURL}
+	return &model.Channel{Type: channelType, Key: common.SecretString(key), Status: common.ChannelStatusEnabled, Name: "relay", Models: relayTestModel, Group: "default", BaseURL: &baseURL}
 }
 
 func (h *relayHarness) pluginChannel(pluginKey, key string) *model.Channel {

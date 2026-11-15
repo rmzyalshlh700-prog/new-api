@@ -151,7 +151,7 @@ func useCredentialTestDB(t *testing.T, models ...any) {
 
 func insertCredentialChannel(t *testing.T, pluginKey, baseURL, key string, multiKey bool) *model.Channel {
 	t.Helper()
-	stored := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: key, Status: common.ChannelStatusEnabled, Models: "cred-video", Group: "default", BaseURL: &baseURL}
+	stored := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: common.SecretString(key), Status: common.ChannelStatusEnabled, Models: "cred-video", Group: "default", BaseURL: &baseURL}
 	stored.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey})
 	if multiKey {
 		stored.ChannelInfo = model.ChannelInfo{IsMultiKey: true, MultiKeySize: len(strings.Split(key, "\n"))}
@@ -331,11 +331,11 @@ func TestTaskOnlyPluginLoginServesTasks(t *testing.T) {
 	require.NoError(t, err)
 	reloaded, err := model.GetChannelById(stored.Id, true)
 	require.NoError(t, err)
-	credential, ok := pluginruntime.ParseCredential(reloaded.Key)
+	credential, ok := pluginruntime.ParseCredential(reloaded.Key.String())
 	require.True(t, ok, "the login stored a credential")
 	assert.Equal(t, "acct-tok-9", credential.AccountID)
 
-	info := credentialTaskInfo(upstream.URL, reloaded.Key, constant.ChannelTypeTaskPlugin)
+	info := credentialTaskInfo(upstream.URL, reloaded.Key.String(), constant.ChannelTypeTaskPlugin)
 	info.ChannelId = stored.Id
 	adaptor := New(plugin)
 	adaptor.Init(info)
@@ -345,7 +345,7 @@ func TestTaskOnlyPluginLoginServesTasks(t *testing.T) {
 
 	task := model.InitTask(constant.TaskPlatform("61"), info)
 	task.PrivateData.UpstreamTaskID = "up-9"
-	resp, err := adaptor.FetchTask(upstream.URL, reloaded.Key, task, "")
+	resp, err := adaptor.FetchTask(upstream.URL, reloaded.Key.String(), task, "")
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 	assert.Equal(t, "Bearer tok-9", upstream.sent(t, "/tasks/up-9").Header.Get("Authorization"), "the poll carries the login's credential")
@@ -455,9 +455,9 @@ func TestExpiringTaskCredentialIsRefreshedFirst(t *testing.T) {
 		assert.Equal(t, "refresh-tok-1", upstream.sent(t, "/oauth/token").Body)
 		reloaded, err := model.GetChannelById(stored.Id, true)
 		require.NoError(t, err)
-		assert.Equal(t, reloaded.Key, info.ApiKey, "the request goes on with the stored refreshed line")
-		assert.Equal(t, reloaded.Key, common.GetContextKeyString(c, constant.ContextKeyChannelKey))
-		assert.Contains(t, reloaded.Key, "fresh-refresh")
+		assert.Equal(t, reloaded.Key.String(), info.ApiKey, "the request goes on with the stored refreshed line")
+		assert.Equal(t, reloaded.Key.String(), common.GetContextKeyString(c, constant.ContextKeyChannelKey))
+		assert.Contains(t, reloaded.Key.String(), "fresh-refresh")
 	})
 
 	t.Run("poll", func(t *testing.T) {
@@ -478,7 +478,7 @@ func TestExpiringTaskCredentialIsRefreshedFirst(t *testing.T) {
 		assert.Equal(t, "Bearer fresh-tok-b", upstream.sent(t, "/tasks/up-b").Header.Get("Authorization"))
 		reloaded, err := model.GetChannelById(stored.Id, true)
 		require.NoError(t, err)
-		lines := strings.Split(reloaded.Key, "\n")
+		lines := strings.Split(reloaded.Key.String(), "\n")
 		require.Len(t, lines, 2)
 		assert.Equal(t, strings.Split(key, "\n")[0], lines[0], "the other credential is untouched")
 		assert.Contains(t, lines[1], "fresh-tok-b")

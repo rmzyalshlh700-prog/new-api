@@ -116,7 +116,7 @@ func TestChannelOtherInfoWritesKeepConcurrentChanges(t *testing.T) {
 		require.NotNil(t, detail, stored.OtherInfo)
 		require.NotNil(t, detail.Amount)
 		assert.Equal(t, 7.0, *detail.Amount)
-		assert.Equal(t, "rotated-key", stored.Key)
+		assert.Equal(t, "rotated-key", stored.Key.String())
 		assert.Equal(t, int64(350), stored.UsedQuota)
 		assert.Equal(t, "concurrent-model", stored.Models)
 		assert.Equal(t, concurrentInfo, stored.ChannelInfo)

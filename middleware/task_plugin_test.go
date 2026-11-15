@@ -2337,7 +2337,7 @@ func TestRouteTaskPluginEndpointUsesSelectedChannel(t *testing.T) {
 									assert.Equal(t, body, got, "ordinary relay must receive the original body")
 								}
 								assert.Equal(t, expected.Id, common.GetContextKeyInt(c, constant.ContextKeyChannelId))
-								assert.Equal(t, expected.Key, common.GetContextKeyString(c, constant.ContextKeyChannelKey))
+								assert.Equal(t, expected.Key.String(), common.GetContextKeyString(c, constant.ContextKeyChannelKey))
 								if tc.retry {
 									next, _, err := service.CacheGetRandomSatisfiedChannel(&service.RetryParam{Ctx: c, TokenGroup: "route-test", ModelName: modelName, Retry: common.GetPointer(1)})
 									require.NoError(t, err)

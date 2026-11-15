@@ -58,7 +58,7 @@ func recordBuiltinBalance(channel *model.Channel, result channelBalanceResult, e
 		if stored == nil {
 			return nil, nil
 		}
-		stored.Error = balanceErrorText(err, channel.Key)
+		stored.Error = balanceErrorText(err, channel.Key.String())
 		return stored, nil
 	})
 	if updateErr != nil {
@@ -87,7 +87,7 @@ func pluginReportsBalance(plugin *jsplugin.LoadedPlugin) bool {
 // one. enabledOnly skips the disabled keys of a multi-key channel. err is the
 // failure when every queried key failed.
 func updatePluginChannelBalance(channel *model.Channel, plugin *jsplugin.LoadedPlugin, enabledOnly bool) ([]pluginKeyBalance, *model.ChannelBalanceDetail, error) {
-	keys := []string{strings.TrimSpace(channel.Key)}
+	keys := []string{strings.TrimSpace(channel.Key.String())}
 	if channel.ChannelInfo.IsMultiKey {
 		keys = channel.GetKeys()
 	}

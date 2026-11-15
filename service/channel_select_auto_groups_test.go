@@ -71,7 +71,7 @@ func createChannelSelectAutoGroupsChannel(t *testing.T, db *gorm.DB, id int, gro
 	require.NoError(t, db.Create(&model.Channel{
 		Id:       id,
 		Type:     constant.ChannelTypeOpenAI,
-		Key:      fmt.Sprintf("key-%d", id),
+		Key:      common.SecretString(fmt.Sprintf("key-%d", id)),
 		Status:   common.ChannelStatusEnabled,
 		Name:     fmt.Sprintf("channel-%d", id),
 		Weight:   &weight,

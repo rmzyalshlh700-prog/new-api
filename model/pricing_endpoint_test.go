@@ -36,7 +36,7 @@ func insertPricingEndpointChannel(t *testing.T, channelID int, channelType int, 
 	channel := &Channel{
 		Id:     channelID,
 		Type:   channelType,
-		Key:    fmt.Sprintf("key-%d", channelID),
+		Key:    common.SecretString(fmt.Sprintf("key-%d", channelID)),
 		Status: common.ChannelStatusEnabled,
 		Name:   fmt.Sprintf("channel-%d", channelID),
 	}

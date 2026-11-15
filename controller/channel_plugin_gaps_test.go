@@ -148,11 +148,11 @@ func TestGapsChannelConfigAndKeyCheckOnSave(t *testing.T) {
 		response, raw = update(`"key":"bad-new"`)
 		assert.False(t, response.Success, raw)
 		assert.Equal(t, "The plugin rejected the key: bad key bad-new for eu", response.Message, "the stored config reaches checkKey")
-		assert.Equal(t, "bad-stored", storedGapsChannel(t, channel.Id).Key)
+		assert.Equal(t, "bad-stored", storedGapsChannel(t, channel.Id).Key.String())
 
 		response, raw = update(`"key":"good-new"`)
 		require.True(t, response.Success, raw)
-		assert.Equal(t, "good-new", storedGapsChannel(t, channel.Id).Key)
+		assert.Equal(t, "good-new", storedGapsChannel(t, channel.Id).Key.String())
 
 		multi := insertPluginChannel(t, "gaps-config", "https://vendor.example", "bad-stored\ngood-1", true)
 		response, raw = callChannelAPI(t, UpdateChannel, http.MethodPut, "/api/channel", fmt.Sprintf(`{"id":%d,"key":"bad-stored\ngood-1\nbad-new"}`, multi.Id))
