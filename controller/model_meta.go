@@ -31,11 +31,25 @@ func listModelsMeta(c *gin.Context, keyword, vendor string) {
 		return
 	}
 
-	pageInfo := common.GetPageQuery(c)
-	if squareState != "" && (pageInfo.GetPage() < 1 || pageInfo.GetPageSize() < 1) {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid pagination"})
-		return
+	// GetPageQuery clamps non-positive values to the first page, so an explicit
+	// invalid p/page_size has to be rejected from the raw query instead of
+	// silently serving page 1.
+	if squareState != "" {
+		validPagination := true
+		for _, param := range []string{"p", "page_size"} {
+			if raw := strings.TrimSpace(c.Query(param)); raw != "" {
+				if value, err := strconv.Atoi(raw); err != nil || value < 1 {
+					validPagination = false
+					break
+				}
+			}
+		}
+		if !validPagination {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid pagination"})
+			return
+		}
 	}
+	pageInfo := common.GetPageQuery(c)
 	offset, limit := pageInfo.GetStartIdx(), pageInfo.GetPageSize()
 	if squareState != "" {
 		// Visibility depends on live channels and metadata rules. Filter the

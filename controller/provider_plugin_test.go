@@ -73,7 +73,7 @@ func (s *revokeServer) tokens() []string {
 
 func setupProviderPluginControllerTest(t *testing.T, pluginKey string) {
 	t.Helper()
-	setupTaskPluginBindChannelTest(t)
+	setupChannelControllerTest(t)
 	require.NoError(t, model.DB.AutoMigrate(&model.AuthFlow{}))
 	service.InitHttpClient()
 	_, err := jsplugin.DefaultRegistry.Register(strings.ReplaceAll(loginPluginSource, "%KEY%", pluginKey), jsplugin.Options{})
@@ -416,7 +416,7 @@ func TestPluginLoginAPI(t *testing.T) {
 }
 
 func TestFetchModelsOfAProviderChannel(t *testing.T) {
-	setupTaskPluginBindChannelTest(t)
+	setupChannelControllerTest(t)
 	service.InitHttpClient()
 	var converted atomic.Pointer[http.Request]
 	var vendorStatus atomic.Int32

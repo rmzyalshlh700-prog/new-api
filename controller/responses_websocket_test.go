@@ -844,6 +844,11 @@ func TestResponsesWebSocketInitialUpstreamRejectionRefundsReservation(t *testing
 					}
 				}
 			}))
+			// The refund restores the token and the user wallet from the same
+			// asynchronous worker, so the wait below tracks both balances; the
+			// token alone can settle first.
+			initialTokenQuota := fixture.token.RemainQuota
+			initialUserQuota := fixture.user.Quota
 			require.NoError(t, fixture.client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create","model":"ws-billing","input":"hi","max_output_tokens":10}`)))
 			rejection := readResponsesWSTestEvent(t, fixture.client)
 			assert.Equal(t, "error", rejection["type"])
@@ -856,7 +861,8 @@ func TestResponsesWebSocketInitialUpstreamRejectionRefundsReservation(t *testing
 			defer deadline.Stop()
 			for {
 				require.NoError(t, model.DB.First(fixture.token, fixture.token.Id).Error)
-				if fixture.token.RemainQuota == 3000 {
+				require.NoError(t, model.DB.First(fixture.user, fixture.user.Id).Error)
+				if fixture.token.RemainQuota == initialTokenQuota && fixture.user.Quota == initialUserQuota {
 					break
 				}
 				select {

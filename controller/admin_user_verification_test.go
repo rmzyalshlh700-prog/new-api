@@ -116,10 +116,10 @@ func TestAdminUserRiskOperationsRequireProofBeforeMutation(t *testing.T) {
 		},
 		{
 			name: "create administrator", method: http.MethodPost, path: "/api/user/", handler: CreateUser,
-			body: func(*model.User) string { return `{"username":"new-admin","password":"admin-password-1","role":10}` },
+			body: func(*model.User) string { return `{"username":"newadmin","password":"admin-password-1","role":10}` },
 			unchanged: func(t *testing.T, _ *model.User) {
 				var count int64
-				require.NoError(t, model.DB.Model(&model.User{}).Where("username = ?", "new-admin").Count(&count).Error)
+				require.NoError(t, model.DB.Model(&model.User{}).Where("username = ?", "newadmin").Count(&count).Error)
 				assert.Zero(t, count)
 			},
 		},
@@ -193,7 +193,7 @@ func TestAdminUserRiskOperationsRequireProofBeforeMutation(t *testing.T) {
 // Casbin policy store, which the security fixture does not provision.
 func TestAdminUserRoutineEditsDoNotRequireProof(t *testing.T) {
 	_, identity, target := setupAdminUserTest(t)
-	response := adminUserRequest(http.MethodPut, "/api/user/", fmt.Sprintf(`{"id":%d,"username":"managed-user","display_name":"Renamed","group":"default"}`, target.Id), "", identity, common.RoleAdminUser, nil, UpdateUser)
+	response := adminUserRequest(http.MethodPut, "/api/user/", fmt.Sprintf(`{"id":%d,"username":"manageduser","display_name":"Renamed","group":"default"}`, target.Id), "", identity, common.RoleAdminUser, nil, UpdateUser)
 	var result securityEnrollmentResponse
 	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
 	require.True(t, result.Success, response.Body.String())
@@ -202,11 +202,11 @@ func TestAdminUserRoutineEditsDoNotRequireProof(t *testing.T) {
 	assert.Equal(t, "Renamed", stored.DisplayName)
 	assert.True(t, common.ValidatePasswordAndHash("managed-password", stored.Password))
 
-	response = adminUserRequest(http.MethodPost, "/api/user/", `{"username":"new-member","password":"member-password-1","role":1}`, "", identity, common.RoleAdminUser, nil, CreateUser)
+	response = adminUserRequest(http.MethodPost, "/api/user/", `{"username":"newmember","password":"member-password-1","role":1}`, "", identity, common.RoleAdminUser, nil, CreateUser)
 	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
 	require.True(t, result.Success, response.Body.String())
 	var count int64
-	require.NoError(t, model.DB.Model(&model.User{}).Where("username = ?", "new-member").Count(&count).Error)
+	require.NoError(t, model.DB.Model(&model.User{}).Where("username = ?", "newmember").Count(&count).Error)
 	assert.EqualValues(t, 1, count)
 }
 
@@ -222,7 +222,7 @@ func TestCreateUserRejectsNonStandardRole(t *testing.T) {
 		{"between admin and root", 99, common.RoleRootUser},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			username := fmt.Sprintf("odd-role-%d", i)
+			username := fmt.Sprintf("oddrole%d", i)
 			body := fmt.Sprintf(`{"username":%q,"password":"member-password-1","role":%d}`, username, test.role)
 			response := adminUserRequest(http.MethodPost, "/api/user/", body, "", identity, test.operatorRole, nil, CreateUser)
 			var result securityEnrollmentResponse

@@ -61,7 +61,7 @@ export function parseBalance(ctx, response) {
 
 func setupChannelGapsTest(t *testing.T) {
 	t.Helper()
-	setupTaskPluginBindChannelTest(t)
+	setupChannelControllerTest(t)
 	service.InitHttpClient()
 	previousMemoryCache, previousInterval, previousRate := common.MemoryCacheEnabled, common.RequestInterval, operation_setting.USDExchangeRate
 	common.MemoryCacheEnabled, common.RequestInterval, operation_setting.USDExchangeRate = false, 0, 7.3

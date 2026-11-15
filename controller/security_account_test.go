@@ -515,7 +515,10 @@ func TestSecurityAccountPasswordPolicyAndHashCompatibility(t *testing.T) {
 		valid          bool
 	}{
 		{"common password accepted", "password123", true},
-		{"short", "seven77", false},
+		// The 8-character minimum was retired: only an empty or over-long
+		// password is rejected now.
+		{"empty", "", false},
+		{"single character accepted", "a", true},
 		{"too long", strings.Repeat("界", 129), false},
 		{"long Unicode", strings.Repeat("界🔒 ", 40), true},
 		{"whitespace preserved", "    phrase with whitespace    ", true},
@@ -704,23 +707,23 @@ func TestSecurityAccountMailsFollowTheOwnersLanguage(t *testing.T) {
 		require.NoError(t, model.DB.Model(user).Update("setting", string(setting)).Error)
 	}
 
-	saveLanguage("zhCN")
+	saveLanguage("ar")
 	require.NoError(t, model.DB.Model(user).Update("email", "previous@example.com").Error)
 	flow := startSecurityEmailBinding(t, identity, "new@example.com", service.VerificationMethodPassword)
 	request, err := common.Marshal(map[string]string{"flow_token": flow.FlowToken, "new_code": mailbox.code(t, flow.Email), "old_code": mailbox.code(t, "previous@example.com")})
 	require.NoError(t, err)
 	response := securityEnrollmentRequest("POST", "/api/oauth/email/bind", string(request), "", identity, EmailBind)
 	require.Contains(t, response.Body.String(), `"success":true`)
-	assert.Contains(t, mails("new@example.com"), "请确认将此邮箱地址绑定到您的账户。")
-	assert.Contains(t, mails("new@example.com"), "您的账户安全设置有变动：邮箱地址已确认。")
-	assert.Contains(t, mails("previous@example.com"), "您的账户正在申请更换邮箱地址，请确认替换当前邮箱。")
-	assert.Contains(t, mails("previous@example.com"), "您的账户安全设置有变动：邮箱地址已更换。")
+	assert.Contains(t, mails("new@example.com"), "تأكيد ربط عنوان البريد الإلكتروني هذا بحسابك.")
+	assert.Contains(t, mails("new@example.com"), "تم تأكيد عنوان البريد الإلكتروني")
+	assert.Contains(t, mails("previous@example.com"), "تم طلب تغيير عنوان البريد الإلكتروني لحسابك. أكّد استبدال عنوانك الحالي.")
+	assert.Contains(t, mails("previous@example.com"), "تم تغيير عنوان البريد الإلكتروني")
 
 	for _, tc := range []struct {
 		name, saved, acceptLanguage, receiver, want string
 	}{
-		{"request language when none is saved", "", "zh-TW", "tw@example.com", "您的帳戶安全設定有變動：已綁定登入帳號 &lt;b&gt;Corp&lt;/b&gt;。"},
-		{"saved language over the request", "en", "zh-CN", "en@example.com", "Your account security settings have changed: Login account linked: &lt;b&gt;Corp&lt;/b&gt;."},
+		{"request language when none is saved", "", "ar", "tw@example.com", "تم ربط حساب تسجيل الدخول: &lt;b&gt;Corp&lt;/b&gt;."},
+		{"saved language over the request", "en", "ru", "en@example.com", "Your account security settings have changed: Login account linked: &lt;b&gt;Corp&lt;/b&gt;."},
 		{"default language when neither states one", "", "", "default@example.com", "Your account security settings have changed: Login account linked: &lt;b&gt;Corp&lt;/b&gt;."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
