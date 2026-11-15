@@ -396,6 +396,9 @@ func InitResources() error {
 			common.SysError(common.LogText("failed to migrate sensitive words: %s", err.Error()))
 		}
 	}
+	// Encrypt credentials written before encryption was enabled. Idempotent and a
+	// no-op unless a stable CRYPTO_SECRET/SESSION_SECRET is configured.
+	model.EncryptPlaintextSecrets()
 	model.InitOptionMap()
 
 	// 清理旧的磁盘缓存文件
