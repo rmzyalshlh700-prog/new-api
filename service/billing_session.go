@@ -44,7 +44,10 @@ type BillingSession struct {
 func (s *BillingSession) Settle(actualQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.settled {
+	if s.settled || s.refunded {
+		// A refunded session is terminal: the pre-consumed amount is already on
+		// its way back to the user, so settling it now would move the same money
+		// twice (a negative delta credits the unused remainder a second time).
 		return nil
 	}
 	delta := actualQuota - s.preConsumedQuota
@@ -88,6 +91,8 @@ func (s *BillingSession) Refund(c *gin.Context) {
 		s.mu.Unlock()
 		return
 	}
+	// Marking the session refunded also blocks a later Settle (see Settle), so
+	// the two terminal paths can never both move money.
 	s.refunded = true
 	s.mu.Unlock()
 
@@ -96,6 +101,17 @@ func (s *BillingSession) Refund(c *gin.Context) {
 		logger.FormatQuota(s.tokenConsumed),
 		s.funding.Source(),
 	))
+
+	// Claim the refund durably before anything asynchronous runs: the pending
+	// record is what survives a crash, a process restart or a database blip
+	// between this point and the credit. The goroutine below then only applies
+	// the already-declared refund, and the sweep task finishes it if this
+	// process dies first.
+	if claimer, ok := s.funding.(interface{ ClaimRefund() error }); ok {
+		if err := claimer.ClaimRefund(); err != nil {
+			common.SysError(common.LogText("failed to record the wallet refund claim (will retry on settle): %s", err.Error()))
+		}
+	}
 
 	// 复制需要的值到闭包中
 	tokenId := s.relayInfo.TokenId

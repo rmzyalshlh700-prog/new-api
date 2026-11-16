@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -136,4 +137,48 @@ func TestWalletPreConsumeReservesEvenForHighBalanceUser(t *testing.T) {
 	var settled model.User
 	require.NoError(t, model.DB.Select("quota").First(&settled, user.Id).Error)
 	assert.Equal(t, start-(held-100), settled.Quota)
+}
+
+// A refunded session is terminal: a settlement that arrives afterwards (a
+// concurrent stream that reports its usage late, a retried path, or a caller
+// that ignores order) must not move money a second time. Before this guard the
+// negative delta credited the unused reservation again on top of the refund.
+func TestSettleAfterRefundDoesNotCreditTwice(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	truncate(t)
+	common.BatchUpdateEnabled = false
+	common.RedisEnabled = false
+
+	const (
+		startQuota = 1000
+		held       = 400
+	)
+	user := &model.User{Username: "refund-then-settle", Quota: startQuota, Status: common.UserStatusEnabled}
+	require.NoError(t, model.DB.Create(user).Error)
+	token := &model.Token{UserId: user.Id, Key: "refund-then-settle-token", Name: "refund-settle", Status: common.TokenStatusEnabled, RemainQuota: 10_000}
+	require.NoError(t, model.DB.Create(token).Error)
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	info := walletOnlyRelayInfo(user.Id, token.Id, token.Key)
+	require.Nil(t, PreConsumeBilling(ctx, held, info))
+
+	var reserved model.User
+	require.NoError(t, model.DB.Select("quota").First(&reserved, user.Id).Error)
+	require.Equal(t, startQuota-held, reserved.Quota)
+
+	info.Billing.Refund(ctx)
+	assert.Eventually(t, func() bool {
+		var refunded model.User
+		require.NoError(t, model.DB.Select("quota").First(&refunded, user.Id).Error)
+		return refunded.Quota == startQuota
+	}, 2*time.Second, 10*time.Millisecond, "the refund must return the reservation")
+
+	// Settling a refunded session must be a no-op, even with a negative delta
+	// that would otherwise be credited back to the wallet.
+	require.NoError(t, info.Billing.Settle(held-100))
+
+	var afterSettle model.User
+	require.NoError(t, model.DB.Select("quota").First(&afterSettle, user.Id).Error)
+	assert.Equal(t, startQuota, afterSettle.Quota, "a refunded session must never be settled")
 }

@@ -167,6 +167,9 @@ func main() {
 	// Subscription quota reset task (daily/weekly/monthly/custom)
 	service.StartSubscriptionQuotaResetTask()
 
+	// Wallet refund sweep: settles refund claims a crash or an outage left pending
+	service.StartWalletRefundSweepTask()
+
 	// Daily archive aggregation (previous day's metrics, at midnight)
 	service.StartDailyArchiveTask()
 	service.StartLiveMetricsSampler()
