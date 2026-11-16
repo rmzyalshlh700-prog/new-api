@@ -81,6 +81,20 @@ func (w *WalletFunding) Settle(delta int) error {
 	return nil
 }
 
+// ClaimRefund durably records the amount that must be returned, without moving
+// any money. It is called synchronously while the request is still running, so a
+// crash before the credit can never lose the debt: the claim stays pending and
+// the sweep task settles it.
+func (w *WalletFunding) ClaimRefund() error {
+	if w.consumed <= 0 {
+		return nil
+	}
+	if w.refundKey == "" {
+		return errors.New("wallet refund requires an idempotency key")
+	}
+	return model.ClaimWalletRefund(w.refundKey, w.userId, w.consumed)
+}
+
 func (w *WalletFunding) Refund() error {
 	if w.consumed <= 0 {
 		return nil
@@ -92,8 +106,14 @@ func (w *WalletFunding) Refund() error {
 	// 进程崩溃后的重放都会命中已提交的记录，不会重复 IncreaseUserQuota。
 	// 任务重试会以同一 relay request id 重新预扣，因此 key 由请求 id 加上本次
 	// 预扣的随机后缀组成，每笔预扣都能被退回。
+	// ClaimRefund 是幂等的，因此这里重复声明一次是安全的：它保证直接调用
+	// Refund 的路径（例如测试或其他调用方）也会留下持久记录。
 	return refundWithRetry(func() error {
-		return model.RefundWalletPreConsume(w.refundKey, w.userId, w.consumed)
+		if err := w.ClaimRefund(); err != nil {
+			return err
+		}
+		_, err := model.SettleWalletRefund(w.refundKey)
+		return err
 	})
 }
 
