@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,8 +60,10 @@ type copilotAguiTool struct {
 }
 
 // jsonRaw keeps an unknown JSON value so string and structured content can be
-// decoded lazily, without a second decoding pass over the body.
-type jsonRaw = []byte
+// decoded lazily, without a second decoding pass over the body. It aliases
+// json.RawMessage, not []byte: a bare []byte field makes encoding/json read a
+// JSON string as base64 and refuse the whole run with a 400.
+type jsonRaw = json.RawMessage
 
 // isCopilotAguiRequest reports whether the body is an AG-UI run rather than the
 // GraphQL mutation. The GraphQL envelope always carries a "variables" object.

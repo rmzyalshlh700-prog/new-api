@@ -163,3 +163,26 @@ func TestCopilotAguiStreamFramesEvents(t *testing.T) {
 	require.Equal(t, "no-cache", recorder.Header().Get("Cache-Control"))
 	require.Equal(t, "data: {\"type\":\"A\"}\n\ndata: {\"type\":\"B\"}\n\n", recorder.Body.String())
 }
+
+// TestCopilotAguiInputDecodesHTTPBody covers the wire shape CopilotKit posts to
+// the agent routes: message content as a plain string, as text parts, and a
+// tool's JSON-Schema parameters. Decoding this wrong rejects the whole run with
+// a 400 before the model is ever called, which is what the console showed as a
+// question with no answer.
+func TestCopilotAguiInputDecodesHTTPBody(t *testing.T) {
+	body := []byte(`{"threadId":"t1","runId":"r1","messages":[` +
+		`{"id":"m1","role":"user","content":"مرحبا"},` +
+		`{"id":"m2","role":"assistant","content":[{"type":"text","text":"hello"}]}],` +
+		`"tools":[{"name":"lookupUser","description":"d","parameters":{"type":"object","properties":{"q":{"type":"string"}}}}],` +
+		`"context":[{"description":"page","value":{"path":"/admin"}}],"forwardedProps":{"url":"/admin"}}`)
+
+	var input copilotAguiInput
+	require.NoError(t, common.Unmarshal(body, &input))
+	require.Len(t, input.Messages, 2)
+	require.Equal(t, "مرحبا", copilotAguiText(input.Messages[0].Content))
+	require.Equal(t, "hello", copilotAguiText(input.Messages[1].Content))
+	require.Len(t, input.Tools, 1)
+	require.Equal(t, "lookupUser", input.Tools[0].Name)
+	require.Len(t, input.Context, 1)
+	require.Contains(t, copilotAguiContextBlock(&input), "/admin")
+}
