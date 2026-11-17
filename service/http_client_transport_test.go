@@ -60,6 +60,16 @@ func withRelayHTTPTransportSettings(t *testing.T) {
 	})
 }
 
+// testDirectClientPolicy returns the default transport policy with the internal
+// network permission granted: these tests run a TLS server on the loopback
+// interface, and the dial-time SSRF guard refuses a private literal address
+// unless the channel is authorized for internal targets.
+func testDirectClientPolicy() HTTPTransportPolicy {
+	policy := defaultHTTPTransportPolicy()
+	policy.AllowPrivateNetwork = true
+	return policy
+}
+
 func initDefaultHTTPClientFixture(t *testing.T) *http.Client {
 	t.Helper()
 	withRelayHTTPTransportSettings(t)
@@ -158,7 +168,7 @@ func TestAutoOneShardNegotiatesHTTP2SingleConnection(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 
-	client := newHTTPClientWithPolicyAndTLS(defaultHTTPTransportPolicy(), testTLSClientConfig(t, server))
+	client := newHTTPClientWithPolicyAndTLS(testDirectClientPolicy(), testTLSClientConfig(t, server))
 	for range 4 {
 		resp, err := client.Get(server.URL)
 		require.NoError(t, err)
@@ -190,7 +200,7 @@ func TestFourShardHTTP2ReusesExactlyFourConnections(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 
-	policy := HTTPTransportPolicy{Protocol: dto.HTTPProtocolAuto, Shards: 4}
+	policy := HTTPTransportPolicy{Protocol: dto.HTTPProtocolAuto, Shards: 4, AllowPrivateNetwork: true}
 	client := newHTTPClientWithPolicyAndTLS(policy, testTLSClientConfig(t, server))
 	for range 8 {
 		resp, err := client.Get(server.URL)
@@ -217,7 +227,7 @@ func TestForcedHTTP1AgainstHTTP2Server(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 
-	policy := HTTPTransportPolicy{Protocol: dto.HTTPProtocolHTTP1, Shards: 1}
+	policy := HTTPTransportPolicy{Protocol: dto.HTTPProtocolHTTP1, Shards: 1, AllowPrivateNetwork: true}
 	client := newHTTPClientWithPolicyAndTLS(policy, testTLSClientConfig(t, server))
 	resp, err := client.Get(server.URL)
 	require.NoError(t, err)
@@ -256,7 +266,7 @@ func TestForcedHTTP1ConcurrentDistinctConnections(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 
-	policy := HTTPTransportPolicy{Protocol: dto.HTTPProtocolHTTP1, Shards: 1}
+	policy := HTTPTransportPolicy{Protocol: dto.HTTPProtocolHTTP1, Shards: 1, AllowPrivateNetwork: true}
 	client := newHTTPClientWithPolicyAndTLS(policy, testTLSClientConfig(t, server))
 
 	errCh := make(chan error, k)
@@ -380,6 +390,12 @@ func TestChannelTLSInsecureSkipVerifyAcceptsUntrustedUpstream(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// The upstream is a loopback stub, and the dial-time SSRF guard
+			// refuses an internal literal address unless the channel is
+			// authorized for internal targets. The proxy cases reach it
+			// through the proxy, which resolves the target itself, so the
+			// permission changes nothing for them.
+			tc.settings.AllowPrivateNetwork = true
 			client, err := GetHttpClientWithProxySettings(tc.proxy, tc.settings)
 			require.NoError(t, err)
 			resp, err := client.Get(upstream.URL)
@@ -570,7 +586,7 @@ func TestCloseIdleConnectionsRedialsHTTP2(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 
-	client := newHTTPClientWithPolicyAndTLS(defaultHTTPTransportPolicy(), testTLSClientConfig(t, server))
+	client := newHTTPClientWithPolicyAndTLS(testDirectClientPolicy(), testTLSClientConfig(t, server))
 	resp, err := client.Get(server.URL)
 	require.NoError(t, err)
 	drainClose(t, resp)
@@ -690,7 +706,7 @@ func TestRelayHTTP2HealthCheck(t *testing.T) {
 			}
 			server.StartTLS()
 			t.Cleanup(server.Close)
-			client := newHTTPClientWithPolicyAndTLS(defaultHTTPTransportPolicy(), testTLSClientConfig(t, server))
+			client := newHTTPClientWithPolicyAndTLS(testDirectClientPolicy(), testTLSClientConfig(t, server))
 			client.Timeout = 7 * time.Second
 			if tc.idleTimeout == 0 {
 				client.Timeout = 3 * time.Second

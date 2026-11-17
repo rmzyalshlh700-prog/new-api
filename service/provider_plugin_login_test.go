@@ -526,7 +526,7 @@ func TestPluginLoginOneAccountPerPlugin(t *testing.T) {
 	// The account stays logged in on the other channel, so its new grant is
 	// kept: a vendor may end every session of the account on revoke. A revoke
 	// sent afterwards arrives alone.
-	RevokePluginCredentials("login-account", f.server.URL, "", f.channel.Id, nil, []string{expiringLine(t, "login-account", "later", "acct-9", 0)})
+	RevokePluginCredentials("login-account", f.server.URL, "", f.channel.Id, nil, []string{expiringLine(t, "login-account", "later", "acct-9", 0)}, true)
 	require.Eventually(t, func() bool { return f.server.revokedToken.Load() == "later" }, 5*time.Second, 5*time.Millisecond)
 	assert.EqualValues(t, 1, f.server.revoked.Load())
 

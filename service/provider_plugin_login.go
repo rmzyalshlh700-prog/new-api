@@ -484,7 +484,7 @@ func (f *pluginLoginFlow) call(ctx context.Context, input any) (PluginLoginStepV
 	codeChallenge := sha256.Sum256([]byte(f.payload.CodeVerifier))
 	hookCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), pluginCredentialHookTimeout)
 	defer cancel()
-	hookCtx = PluginCredentialHookContext(hookCtx, f.plugin, f.channel.GetBaseURL(), f.channel.GetSetting().Proxy)
+	hookCtx = PluginCredentialHookContext(hookCtx, f.plugin, f.channel.GetBaseURL(), f.channel.GetSetting().Proxy, f.channel.GetSetting().AllowPrivateNetwork)
 	step, err := f.plugin.CallLogin(hookCtx, f.channel.GetBaseURL(), jsplugin.LoginContext{
 		State:         f.token,
 		Nonce:         f.payload.Nonce,
@@ -575,7 +575,7 @@ func (f *pluginLoginFlow) finish(step jsplugin.LoginStep) (PluginLoginStepView, 
 		if step.Result.AccountID != "" && pluginAccountLoggedIn(f.plugin.Meta.Key, step.Result.AccountID) {
 			return
 		}
-		revokePluginCredentialData(f.plugin.Meta.Key, f.channel.GetBaseURL(), f.channel.GetSetting().Proxy, f.payload.ChannelID, f.channel.GetOtherSettings().PluginConfig, []json.RawMessage{step.Result.Credential})
+		revokePluginCredentialData(f.plugin.Meta.Key, f.channel.GetBaseURL(), f.channel.GetSetting().Proxy, f.payload.ChannelID, f.channel.GetOtherSettings().PluginConfig, []json.RawMessage{step.Result.Credential}, f.channel.GetSetting().AllowPrivateNetwork)
 	}
 	if _, err := model.ConsumeAuthFlow(f.token, f.match()); err != nil {
 		revoke()

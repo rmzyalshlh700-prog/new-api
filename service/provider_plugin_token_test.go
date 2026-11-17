@@ -91,7 +91,7 @@ func TestGapsPluginKeyTokenCache(t *testing.T) {
 	noConfig := json.RawMessage(`{}`)
 	token := func(t *testing.T, channelID int, line string, config json.RawMessage) string {
 		t.Helper()
-		exchanged, err := PluginKeyToken(context.Background(), plugin, channelID, line, config, server.URL, "")
+		exchanged, err := PluginKeyToken(context.Background(), plugin, channelID, line, config, server.URL, "", true)
 		require.NoError(t, err)
 		return string(exchanged)
 	}
@@ -161,11 +161,11 @@ func TestGapsPluginKeyTokenCache(t *testing.T) {
 		// to a loopback address, whatever the SSRF setting says, so the case is
 		// expressed with the one thing the cache key actually varies on.
 		other := newTokenServer(t)
-		exchanged, err := PluginKeyToken(context.Background(), plugin, base+5, "sk-a", eu, other.URL, "")
+		exchanged, err := PluginKeyToken(context.Background(), plugin, base+5, "sk-a", eu, other.URL, "", true)
 		require.NoError(t, err)
 		assert.NotEmpty(t, exchanged, "the other base URL exchanges its own token")
 		assert.EqualValues(t, 1, other.exchanges.Load())
-		_, err = PluginKeyToken(context.Background(), plugin, base+5, "sk-a", eu, other.URL, "")
+		_, err = PluginKeyToken(context.Background(), plugin, base+5, "sk-a", eu, other.URL, "", true)
 		require.NoError(t, err)
 		assert.EqualValues(t, 1, other.exchanges.Load(), "and keeps it cached under its own key")
 	})
@@ -179,7 +179,7 @@ func TestGapsPluginKeyTokenCache(t *testing.T) {
 			var group sync.WaitGroup
 			for index := range results {
 				group.Go(func() {
-					exchanged, err := PluginKeyToken(context.Background(), plugin, base+7, "sk-a", noConfig, server.URL, "")
+					exchanged, err := PluginKeyToken(context.Background(), plugin, base+7, "sk-a", noConfig, server.URL, "", true)
 					assert.NoError(t, err)
 					results[index] = string(exchanged)
 				})
@@ -194,14 +194,14 @@ func TestGapsPluginKeyTokenCache(t *testing.T) {
 	t.Run("a throw is a failed exchange and is not cached", func(t *testing.T) {
 		assert.EqualValues(t, 2, exchangedDuring(func() {
 			for range 2 {
-				_, err := PluginKeyToken(context.Background(), plugin, base+8, "sk-broken", noConfig, server.URL, "")
+				_, err := PluginKeyToken(context.Background(), plugin, base+8, "sk-broken", noConfig, server.URL, "", true)
 				require.ErrorIs(t, err, ErrPluginKeyExchangeFailed)
 			}
 		}))
 	})
 
 	t.Run("a returned error keeps its status", func(t *testing.T) {
-		_, err := PluginKeyToken(context.Background(), plugin, base+9, "sk-reject", noConfig, server.URL, "")
+		_, err := PluginKeyToken(context.Background(), plugin, base+9, "sk-reject", noConfig, server.URL, "", true)
 		var upstreamErr *jsplugin.UpstreamError
 		require.ErrorAs(t, err, &upstreamErr)
 		assert.Equal(t, http.StatusUnauthorized, upstreamErr.Status)

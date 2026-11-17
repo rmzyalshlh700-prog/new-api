@@ -606,7 +606,7 @@ func (a *Adaptor) useToken(c *gin.Context, info *relaycommon.RelayInfo) error {
 	if a.credential != nil || !a.plugin.HasProviderHook("exchangeKey") {
 		return nil
 	}
-	token, err := service.PluginKeyToken(c.Request.Context(), a.plugin, info.ChannelId, info.ApiKey, a.config, info.ChannelBaseUrl, info.ChannelSetting.Proxy)
+	token, err := service.PluginKeyToken(c.Request.Context(), a.plugin, info.ChannelId, info.ApiKey, a.config, info.ChannelBaseUrl, info.ChannelSetting.Proxy, info.ChannelSetting.AllowPrivateNetwork)
 	if err != nil {
 		return keyExchangeError(err)
 	}
