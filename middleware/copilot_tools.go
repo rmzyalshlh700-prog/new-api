@@ -22,11 +22,17 @@ func RequireCopilotTool(tool string) func(c *gin.Context) {
 		// A guard for a tool the catalog does not know would be a typo that
 		// silently leaves an endpoint reachable; fail closed instead.
 		if _, ok := setting.CopilotToolByName(tool); !ok {
-			abortWithWebMessage(c, http.StatusForbidden, "", common.NewMessage("This Copilot tool is not available"))
+			abortWithWebMessage(c, http.StatusForbidden, "PERMISSION_DENIED", common.NewMessage("Permission Denied: this Copilot capability does not exist"))
 			return
 		}
-		if _, enabled := setting.CopilotEnabledToolSet()[tool]; !enabled {
-			abortWithWebMessage(c, http.StatusForbidden, "", common.NewMessage("This Copilot tool is disabled in the Copilot settings"))
+		// CopilotToolEnabled folds in the master control switch: while it is
+		// on every catalog tool is granted, and a single tool switched off
+		// turns the master switch off in the settings API in the same save.
+		if !setting.CopilotToolEnabled(tool) {
+			// The wording is part of the contract: the assistant is told
+			// "Permission Denied" when the operator switched a capability off,
+			// so it can say so plainly instead of retrying another tool.
+			abortWithWebMessage(c, http.StatusForbidden, "PERMISSION_DENIED", common.NewMessage("Permission Denied: this Copilot capability is switched off in the Copilot permissions"))
 			return
 		}
 		c.Next()

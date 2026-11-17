@@ -16,13 +16,17 @@ const (
 	CopilotToolGetFinancialSummary = "getFinancialSummary"
 	CopilotToolLookupUser          = "lookupUser"
 	CopilotToolListUsers           = "listUsers"
+	CopilotToolCreateUser          = "createUser"
+	CopilotToolDeleteUser          = "deleteUser"
 	CopilotToolAdjustUserQuota     = "adjustUserQuota"
+	CopilotToolDeductUserQuota     = "deductUserQuota"
 	CopilotToolSetUserStatus       = "setUserStatus"
 
 	CopilotToolListChannels     = "listChannels"
 	CopilotToolGetChannel       = "getChannel"
 	CopilotToolCreateChannel    = "createChannel"
 	CopilotToolUpdateChannel    = "updateChannel"
+	CopilotToolSetChannelKey    = "setChannelKey"
 	CopilotToolSetChannelStatus = "setChannelStatus"
 	CopilotToolTestChannel      = "testChannel"
 	CopilotToolDeleteChannel    = "deleteChannel"
@@ -31,27 +35,39 @@ const (
 	CopilotToolSetChannelModels = "setChannelModels"
 
 	CopilotToolSearchLogs       = "searchLogs"
+	CopilotToolExportLogs       = "exportLogs"
 	CopilotToolListRedemptions  = "listRedemptions"
 	CopilotToolCreateRedemption = "createRedemption"
 
-	CopilotToolGetSystemHealth = "getSystemHealth"
+	CopilotToolReadPayments         = "readPayments"
+	CopilotToolUpdatePaymentGateway = "updatePaymentGateway"
+	CopilotToolUpdateGroupRatio     = "updateGroupRatio"
+	CopilotToolUpdateModelPricing   = "updateModelPricing"
+
+	CopilotToolReadMonitoring      = "readMonitoring"
+	CopilotToolConfigureMonitoring = "configureMonitoring"
+	CopilotToolToggleMaintenance   = "toggleMaintenanceMode"
+	CopilotToolGetSystemHealth     = "getSystemHealth"
+
+	CopilotToolListAnnouncements   = "listAnnouncements"
+	CopilotToolPublishAnnouncement = "publishAnnouncement"
 )
 
 // Tool groups. Each group names the admin area a tool acts on, so the operator
 // can grant a whole area (channels, users, billing) or a single capability.
 const (
-	CopilotGroupFinancials  = "financials"
-	CopilotGroupUsers       = "users"
-	CopilotGroupChannels    = "channels"
-	CopilotGroupModels      = "models"
-	CopilotGroupLogs        = "logs"
-	CopilotGroupRedemptions = "redemptions"
-	CopilotGroupSystem      = "system"
+	CopilotGroupSystem        = "system"
+	CopilotGroupUsers         = "users"
+	CopilotGroupCommercial    = "commercial"
+	CopilotGroupChannels      = "channels"
+	CopilotGroupModels        = "models"
+	CopilotGroupData          = "data"
+	CopilotGroupNotifications = "notifications"
 )
 
 // Risk levels. "read" only inspects data, "write" changes platform state and is
-// reversible by hand, "destructive" removes data that cannot be recovered from
-// the console.
+// reversible by hand, "destructive" removes data or balance that cannot be
+// recovered from the console.
 const (
 	CopilotRiskRead        = "read"
 	CopilotRiskWrite       = "write"
@@ -68,30 +84,62 @@ type CopilotTool struct {
 // CopilotToolCatalog lists every capability, in the order the console shows
 // them. A tool that is not listed here cannot be enabled, called or validated.
 var CopilotToolCatalog = []CopilotTool{
-	{Name: CopilotToolGetFinancialSummary, Group: CopilotGroupFinancials, Risk: CopilotRiskRead},
+	// System and operations.
+	{CopilotToolGetSystemHealth, CopilotGroupSystem, CopilotRiskRead},
+	{CopilotToolReadMonitoring, CopilotGroupSystem, CopilotRiskRead},
+	{CopilotToolConfigureMonitoring, CopilotGroupSystem, CopilotRiskWrite},
+	{CopilotToolToggleMaintenance, CopilotGroupSystem, CopilotRiskWrite},
 
-	{Name: CopilotToolLookupUser, Group: CopilotGroupUsers, Risk: CopilotRiskRead},
-	{Name: CopilotToolListUsers, Group: CopilotGroupUsers, Risk: CopilotRiskRead},
-	{Name: CopilotToolAdjustUserQuota, Group: CopilotGroupUsers, Risk: CopilotRiskWrite},
-	{Name: CopilotToolSetUserStatus, Group: CopilotGroupUsers, Risk: CopilotRiskWrite},
+	// Users and authentication.
+	{CopilotToolLookupUser, CopilotGroupUsers, CopilotRiskRead},
+	{CopilotToolListUsers, CopilotGroupUsers, CopilotRiskRead},
+	{CopilotToolCreateUser, CopilotGroupUsers, CopilotRiskWrite},
+	{CopilotToolDeleteUser, CopilotGroupUsers, CopilotRiskDestructive},
+	{CopilotToolAdjustUserQuota, CopilotGroupUsers, CopilotRiskWrite},
+	{CopilotToolDeductUserQuota, CopilotGroupUsers, CopilotRiskDestructive},
+	{CopilotToolSetUserStatus, CopilotGroupUsers, CopilotRiskWrite},
 
-	{Name: CopilotToolListChannels, Group: CopilotGroupChannels, Risk: CopilotRiskRead},
-	{Name: CopilotToolGetChannel, Group: CopilotGroupChannels, Risk: CopilotRiskRead},
-	{Name: CopilotToolCreateChannel, Group: CopilotGroupChannels, Risk: CopilotRiskWrite},
-	{Name: CopilotToolUpdateChannel, Group: CopilotGroupChannels, Risk: CopilotRiskWrite},
-	{Name: CopilotToolSetChannelStatus, Group: CopilotGroupChannels, Risk: CopilotRiskWrite},
-	{Name: CopilotToolTestChannel, Group: CopilotGroupChannels, Risk: CopilotRiskWrite},
-	{Name: CopilotToolDeleteChannel, Group: CopilotGroupChannels, Risk: CopilotRiskDestructive},
+	// Commercial: revenue, payments, groups and pricing.
+	{CopilotToolGetFinancialSummary, CopilotGroupCommercial, CopilotRiskRead},
+	{CopilotToolReadPayments, CopilotGroupCommercial, CopilotRiskRead},
+	{CopilotToolUpdatePaymentGateway, CopilotGroupCommercial, CopilotRiskWrite},
+	{CopilotToolUpdateGroupRatio, CopilotGroupCommercial, CopilotRiskWrite},
+	{CopilotToolUpdateModelPricing, CopilotGroupCommercial, CopilotRiskWrite},
 
-	{Name: CopilotToolListModels, Group: CopilotGroupModels, Risk: CopilotRiskRead},
-	{Name: CopilotToolSetChannelModels, Group: CopilotGroupModels, Risk: CopilotRiskWrite},
+	// Channels and upstream providers.
+	{CopilotToolListChannels, CopilotGroupChannels, CopilotRiskRead},
+	{CopilotToolGetChannel, CopilotGroupChannels, CopilotRiskRead},
+	{CopilotToolCreateChannel, CopilotGroupChannels, CopilotRiskWrite},
+	{CopilotToolUpdateChannel, CopilotGroupChannels, CopilotRiskWrite},
+	{CopilotToolSetChannelKey, CopilotGroupChannels, CopilotRiskWrite},
+	{CopilotToolSetChannelStatus, CopilotGroupChannels, CopilotRiskWrite},
+	{CopilotToolTestChannel, CopilotGroupChannels, CopilotRiskWrite},
+	{CopilotToolDeleteChannel, CopilotGroupChannels, CopilotRiskDestructive},
 
-	{Name: CopilotToolSearchLogs, Group: CopilotGroupLogs, Risk: CopilotRiskRead},
+	// Model catalogue and channel model lists.
+	{CopilotToolListModels, CopilotGroupModels, CopilotRiskRead},
+	{CopilotToolSetChannelModels, CopilotGroupModels, CopilotRiskWrite},
 
-	{Name: CopilotToolListRedemptions, Group: CopilotGroupRedemptions, Risk: CopilotRiskRead},
-	{Name: CopilotToolCreateRedemption, Group: CopilotGroupRedemptions, Risk: CopilotRiskWrite},
+	// Data, logs and redemption codes.
+	{CopilotToolSearchLogs, CopilotGroupData, CopilotRiskRead},
+	{CopilotToolExportLogs, CopilotGroupData, CopilotRiskRead},
+	{CopilotToolListRedemptions, CopilotGroupData, CopilotRiskRead},
+	{CopilotToolCreateRedemption, CopilotGroupData, CopilotRiskWrite},
 
-	{Name: CopilotToolGetSystemHealth, Group: CopilotGroupSystem, Risk: CopilotRiskRead},
+	// Notifications.
+	{CopilotToolListAnnouncements, CopilotGroupNotifications, CopilotRiskRead},
+	{CopilotToolPublishAnnouncement, CopilotGroupNotifications, CopilotRiskWrite},
+}
+
+// CopilotToolGroups lists every group in the order the console renders them.
+var CopilotToolGroups = []string{
+	CopilotGroupSystem,
+	CopilotGroupUsers,
+	CopilotGroupCommercial,
+	CopilotGroupChannels,
+	CopilotGroupModels,
+	CopilotGroupData,
+	CopilotGroupNotifications,
 }
 
 // CopilotToolNames lists every tool in catalog order. It replaces the literal

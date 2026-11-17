@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -78,5 +79,41 @@ func TestRequireCopilotToolFailsClosedOnUnknownTool(t *testing.T) {
 	}
 	if code != http.StatusForbidden {
 		t.Fatalf("got status %d, want %d", code, http.StatusForbidden)
+	}
+}
+
+// The refusal has to be recognisable as a permission problem, not a generic
+// failure: the assistant reports exactly this to the operator.
+func TestRequireCopilotToolRefusalNamesPermissionDenied(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	common.OptionMap[setting.CopilotEnabledToolsOptionKey] = setting.CopilotEnabledToolsToJSON([]string{})
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		delete(common.OptionMap, setting.CopilotEnabledToolsOptionKey)
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.POST("/tool", RequireCopilotTool(setting.CopilotToolDeleteChannel), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/tool", nil))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("got status %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, "Permission Denied") {
+		t.Fatalf("the refusal does not name the permission problem: %s", body)
+	}
+	if !strings.Contains(body, "PERMISSION_DENIED") {
+		t.Fatalf("the refusal does not carry the permission code: %s", body)
 	}
 }

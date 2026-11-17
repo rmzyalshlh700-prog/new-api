@@ -9,11 +9,7 @@ import (
 // duplicate or an ungrouped entry would silently change the permission set.
 func TestCopilotToolCatalogIsWellFormed(t *testing.T) {
 	seen := make(map[string]struct{}, len(CopilotToolCatalog))
-	groups := []string{
-		CopilotGroupFinancials, CopilotGroupUsers, CopilotGroupChannels,
-		CopilotGroupModels, CopilotGroupLogs, CopilotGroupRedemptions,
-		CopilotGroupSystem,
-	}
+	groups := CopilotToolGroups
 	risks := []string{CopilotRiskRead, CopilotRiskWrite, CopilotRiskDestructive}
 	for _, tool := range CopilotToolCatalog {
 		if tool.Name == "" {
@@ -46,11 +42,7 @@ func TestCopilotToolNamesFollowCatalogOrder(t *testing.T) {
 // Every group the console renders must be reachable, otherwise its switch would
 // toggle nothing.
 func TestEveryCopilotGroupHasTools(t *testing.T) {
-	for _, group := range []string{
-		CopilotGroupFinancials, CopilotGroupUsers, CopilotGroupChannels,
-		CopilotGroupModels, CopilotGroupLogs, CopilotGroupRedemptions,
-		CopilotGroupSystem,
-	} {
+	for _, group := range CopilotToolGroups {
 		if len(CopilotToolsInGroup(group)) == 0 {
 			t.Fatalf("group %q has no tools", group)
 		}
