@@ -39,7 +39,6 @@ import {
   getPaymentOrdersStats,
   getProfitStats,
 } from './api'
-import { WidgetErrorBoundary } from './components/widget-error-boundary'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
 import { OverviewStatCards } from './components/overview-stat-cards'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
@@ -49,6 +48,7 @@ import { RevenuePanel } from './components/revenue-panel'
 import { TokenUsagePanel } from './components/token-usage-panel'
 import { TopModelsPanel } from './components/top-models-panel'
 import { UserCharts } from './components/user-analytics'
+import { WidgetErrorBoundary } from './components/widget-error-boundary'
 import { ALL_TIME_REFRESH_MS, LIVE_REFRESH_MS } from './constants'
 import {
   buildDailyRevenue,
@@ -65,9 +65,7 @@ const TOP_MODEL_LIMIT = 6
 
 /** A timestamp is queryable only when it is a finite, non-negative number. */
 function isValidTimestamp(value: number | undefined): value is number {
-  return (
-    typeof value === 'number' && Number.isFinite(value) && value >= 0
-  )
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
 /** Clamp the window so start <= end and the span cannot be negative. */
@@ -310,6 +308,15 @@ export function AdminOverview() {
                 </WidgetErrorBoundary>
               </FadeIn>
 
+              <FadeIn delay={0.03}>
+                <WidgetErrorBoundary>
+                  <PaymentOrdersWidget
+                    groups={paymentOrdersQuery.data?.data}
+                    loading={paymentOrdersQuery.isLoading}
+                  />
+                </WidgetErrorBoundary>
+              </FadeIn>
+
               <FadeIn delay={0.05}>
                 <WidgetErrorBoundary>
                   <PerformanceOverview />
@@ -345,7 +352,7 @@ export function AdminOverview() {
                 </WidgetErrorBoundary>
               </FadeIn>
 
-              <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3'>
+              <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2'>
                 <FadeIn delay={0.15}>
                   <WidgetErrorBoundary>
                     <TokenUsagePanel
@@ -363,14 +370,6 @@ export function AdminOverview() {
                       models={topModels}
                       totalTokens={totalModelTokens}
                       loading={quotaQuery.isLoading}
-                    />
-                  </WidgetErrorBoundary>
-                </FadeIn>
-                <FadeIn delay={0.22} className='lg:col-span-2 xl:col-span-1'>
-                  <WidgetErrorBoundary>
-                    <PaymentOrdersWidget
-                      groups={paymentOrdersQuery.data?.data}
-                      loading={paymentOrdersQuery.isLoading}
                     />
                   </WidgetErrorBoundary>
                 </FadeIn>
