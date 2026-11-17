@@ -400,7 +400,7 @@ func migrateDB() error {
 			return err
 		}
 	}
-	ensurePerformanceIndexes(DB, "main database", mainDatabaseIndexes)
+	ensurePerformanceIndexes(DB, "main database", mainDatabaseIndexes, common.UsingMainDatabase(common.DatabaseTypePostgreSQL))
 	return nil
 }
 
@@ -435,7 +435,7 @@ func migrateLOGDB() error {
 	if err := LOG_DB.AutoMigrate(&Log{}); err != nil {
 		return err
 	}
-	ensurePerformanceIndexes(LOG_DB, "log database", logDatabaseIndexes)
+	ensurePerformanceIndexes(LOG_DB, "log database", logDatabaseIndexes, common.UsingLogDatabase(common.DatabaseTypePostgreSQL))
 	return nil
 }
 

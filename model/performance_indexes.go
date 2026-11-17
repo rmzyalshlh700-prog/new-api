@@ -36,7 +36,15 @@ var logDatabaseIndexes = []performanceIndex{
 	{table: "logs", name: "idx_logs_created_at_type_user_id", columns: "created_at, type, user_id"},
 }
 
-func ensurePerformanceIndexes(db *gorm.DB, label string, indexes []performanceIndex) {
+// ensurePerformanceIndexes creates the indexes a database is missing.
+//
+// concurrently builds each one with CREATE INDEX CONCURRENTLY, which PostgreSQL
+// needs so a build does not hold a write lock on the table for its whole
+// duration: these run at startup and `logs` is the largest table the gateway
+// owns. That form cannot run inside a transaction, so this function must stay
+// outside one — it is called from the migration path, never from a transaction.
+// MySQL and SQLite have no such form and keep the plain statement.
+func ensurePerformanceIndexes(db *gorm.DB, label string, indexes []performanceIndex, concurrently bool) {
 	if db == nil {
 		return
 	}
@@ -45,9 +53,21 @@ func ensurePerformanceIndexes(db *gorm.DB, label string, indexes []performanceIn
 			continue
 		}
 		if db.Migrator().HasIndex(index.table, index.name) {
+			// A CONCURRENTLY build that was interrupted leaves the index in
+			// place but invalid: PostgreSQL will not use it, will not build it
+			// again, and HasIndex still reports it, so it would cost writes
+			// forever without serving a query. Say so instead of starting up
+			// silently with it.
+			if concurrently && indexIsInvalid(db, index.name) {
+				common.SysError(common.LogText("%s performance index %s exists but is invalid, left by an interrupted build; drop it to let the next start rebuild it: DROP INDEX CONCURRENTLY %s", label, index.name, index.name))
+			}
 			continue
 		}
-		statement := "CREATE INDEX " + index.name + " ON " + index.table + " (" + index.columns + ")"
+		create := "CREATE INDEX "
+		if concurrently {
+			create = "CREATE INDEX CONCURRENTLY "
+		}
+		statement := create + index.name + " ON " + index.table + " (" + index.columns + ")"
 		if err := db.Exec(statement).Error; err != nil {
 			// Several instances can migrate at the same time; losing that race
 			// is not an error because the index then exists.
@@ -59,6 +79,18 @@ func ensurePerformanceIndexes(db *gorm.DB, label string, indexes []performanceIn
 			common.SysError(common.LogText("%s performance index %s could not be created: %s", label, index.name, err.Error()))
 		}
 	}
+}
+
+// indexIsInvalid reports whether PostgreSQL marked an index invalid. Any other
+// database, and a read that fails, answer false so the caller keeps its
+// behaviour.
+func indexIsInvalid(db *gorm.DB, name string) bool {
+	var invalid bool
+	row := db.Raw("SELECT NOT i.indisvalid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = ?", name).Row()
+	if err := row.Scan(&invalid); err != nil {
+		return false
+	}
+	return invalid
 }
 
 func isExistingIndexError(err error) bool {
