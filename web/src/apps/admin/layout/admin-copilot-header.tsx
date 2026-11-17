@@ -1,7 +1,7 @@
 import { useCopilotChatInternal } from '@copilotkit/react-core'
 import { useChatContext } from '@copilotkit/react-ui'
-import { History, Plus, Trash2, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { History, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -13,83 +13,127 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu'
 import { cn } from '@/shared/lib/utils'
-import { useAuthStore } from '@/shared/stores/auth-store'
 
 import {
-  adminCopilotHistoryKey,
-  historyTitle,
-  readAdminCopilotHistory,
-  removeAdminCopilotThread,
-  toHistoryMessages,
-  upsertAdminCopilotThread,
-  writeAdminCopilotHistory,
-  type AdminCopilotHistoryThread,
-} from './admin-copilot-history'
+  createAdminCopilotChat,
+  deleteAdminCopilotChat,
+  getAdminCopilotChat,
+  listAdminCopilotChats,
+  saveAdminCopilotChatMessages,
+  type AdminCopilotChat,
+  type AdminCopilotChatTurn,
+} from './admin-copilot-chats'
+import { historyTitle, toHistoryMessages } from './admin-copilot-history'
 
 const HEADER_BUTTON_CLASS =
   'inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50'
+
+/**
+ * Reduces CopilotKit's message list to the text turns worth saving.
+ *
+ * Tool calls, results and reasoning turns are dropped: a result can carry
+ * another user's data and none of it is needed to replay the conversation.
+ */
+function toChatTurns(
+  messages: readonly { id?: unknown; role?: unknown; content?: unknown }[]
+): AdminCopilotChatTurn[] {
+  return toHistoryMessages(messages).map((message) => ({
+    role: message.role,
+    content: message.content,
+  }))
+}
 
 /**
  * Chat header for the Admin Copilot: title on the start edge, then New Chat,
  * History and Close on the end edge. Rendering the controls here keeps them
  * inside the panel, in reading order, and mirrored in Arabic — the library's
  * own close button is absolutely positioned to the physical right edge.
+ *
+ * History lives on the server, keyed to the signed-in administrator, so it
+ * survives a reload and follows them to another browser.
  */
 export function AdminCopilotHeader() {
   const { t } = useTranslation()
   const { labels, setOpen } = useChatContext()
   const { messages, setMessages, isLoading } = useCopilotChatInternal()
-  const userId = useAuthStore((state) => state.auth.user?.id)
-  const storageKey = adminCopilotHistoryKey(userId)
-  // The thread being appended to. A ref, not state: persisting must never
+  // The conversation being appended to. A ref, not state: persisting must never
   // trigger another render while a run is streaming.
-  const activeThreadId = useRef<string | null>(null)
-  const [threads, setThreads] = useState<AdminCopilotHistoryThread[]>([])
+  const activeChatId = useRef<number | null>(null)
+  const [chats, setChats] = useState<AdminCopilotChat[]>([])
+  const [busy, setBusy] = useState(false)
 
-  // Persist the running transcript after every completed turn.
+  const refresh = useCallback(async () => {
+    try {
+      setChats(await listAdminCopilotChats())
+    } catch {
+      // A history read is never worth interrupting the chat for.
+    }
+  }, [])
+
+  // Save the transcript after every finished exchange. The server replaces the
+  // stored turns, so a repeated or interrupted save cannot duplicate a turn.
   useEffect(() => {
     if (isLoading) return
-    const historyMessages = toHistoryMessages(messages)
-    if (historyMessages.length === 0) return
-    const thread: AdminCopilotHistoryThread = {
-      id: activeThreadId.current ?? `thread-${Date.now()}`,
-      title: historyTitle(historyMessages),
-      updatedAt: Date.now(),
-      messages: historyMessages,
+    const turns = toChatTurns(messages)
+    if (turns.length === 0) return
+    const title = historyTitle(toHistoryMessages(messages))
+    let abandoned = false
+    void (async () => {
+      try {
+        if (activeChatId.current === null) {
+          const chat = await createAdminCopilotChat({ title, messages: turns })
+          if (abandoned) return
+          activeChatId.current = chat.id
+        } else {
+          await saveAdminCopilotChatMessages(activeChatId.current, {
+            title,
+            messages: turns,
+          })
+        }
+        if (!abandoned) await refresh()
+      } catch {
+        // History is best effort: a failed save must not break the answer.
+      }
+    })()
+    return () => {
+      abandoned = true
     }
-    activeThreadId.current = thread.id
-    writeAdminCopilotHistory(
-      storageKey,
-      upsertAdminCopilotThread(readAdminCopilotHistory(storageKey), thread)
-    )
-  }, [isLoading, messages, storageKey])
+  }, [isLoading, messages, refresh])
 
   const startNewChat = () => {
-    activeThreadId.current = null
+    activeChatId.current = null
     setMessages([])
   }
 
-  const loadThread = (thread: AdminCopilotHistoryThread) => {
-    activeThreadId.current = thread.id
-    setMessages(
-      thread.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-      }))
-    )
+  const loadChat = async (id: number) => {
+    setBusy(true)
+    try {
+      const stored = await getAdminCopilotChat(id)
+      activeChatId.current = stored.chat.id
+      setMessages(
+        stored.messages.map((message, index) => ({
+          id: `stored-${stored.chat.id}-${index}`,
+          role: message.role,
+          content: message.content,
+        }))
+      )
+    } catch {
+      // Leave the current transcript in place if the chat cannot be read.
+    } finally {
+      setBusy(false)
+    }
   }
 
-  const deleteThread = (id: string) => {
-    const remaining = removeAdminCopilotThread(
-      readAdminCopilotHistory(storageKey),
-      id
-    )
-    writeAdminCopilotHistory(storageKey, remaining)
-    setThreads(remaining)
-    if (activeThreadId.current === id) {
-      activeThreadId.current = null
+  const deleteChat = async (id: number) => {
+    try {
+      await deleteAdminCopilotChat(id)
+    } catch {
+      return
     }
+    if (activeChatId.current === id) {
+      activeChatId.current = null
+    }
+    await refresh()
   }
 
   return (
@@ -101,7 +145,7 @@ export function AdminCopilotHeader() {
           className={HEADER_BUTTON_CLASS}
           aria-label={t('New chat')}
           title={t('New chat')}
-          disabled={isLoading}
+          disabled={isLoading || busy}
           onClick={startNewChat}
         >
           <Plus className='size-4' aria-hidden='true' />
@@ -109,7 +153,7 @@ export function AdminCopilotHeader() {
 
         <DropdownMenu
           onOpenChange={(open) => {
-            if (open) setThreads(readAdminCopilotHistory(storageKey))
+            if (open) void refresh()
           }}
         >
           <DropdownMenuTrigger
@@ -122,23 +166,21 @@ export function AdminCopilotHeader() {
           <DropdownMenuContent align='end' className='max-h-80 w-72'>
             <DropdownMenuLabel>{t('Chat history')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {threads.length === 0 ? (
+            {chats.length === 0 ? (
               <p className='text-muted-foreground px-2 py-3 text-xs'>
                 {t('No saved chats yet')}
               </p>
             ) : (
-              threads.map((thread) => (
+              chats.map((chat) => (
                 <DropdownMenuItem
-                  key={thread.id}
+                  key={chat.id}
                   className='flex items-center justify-between gap-2'
+                  disabled={busy || isLoading}
                   onClick={() => {
-                    loadThread(thread)
-                    setThreads(readAdminCopilotHistory(storageKey))
+                    void loadChat(chat.id)
                   }}
                 >
-                  <span className='min-w-0 flex-1 truncate'>
-                    {thread.title}
-                  </span>
+                  <span className='min-w-0 flex-1 truncate'>{chat.title}</span>
                   <button
                     type='button'
                     className='text-muted-foreground hover:text-destructive shrink-0 rounded p-1'
@@ -147,7 +189,7 @@ export function AdminCopilotHeader() {
                     onClick={(event) => {
                       event.stopPropagation()
                       event.preventDefault()
-                      deleteThread(thread.id)
+                      void deleteChat(chat.id)
                     }}
                   >
                     <Trash2 className='size-3.5' aria-hidden='true' />
@@ -168,6 +210,12 @@ export function AdminCopilotHeader() {
           <X className='size-4' aria-hidden='true' />
         </button>
       </div>
+      {busy && (
+        <Loader2
+          className='text-muted-foreground size-3.5 animate-spin'
+          aria-hidden='true'
+        />
+      )}
     </div>
   )
 }
