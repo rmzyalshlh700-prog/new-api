@@ -16,28 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type SVGProps } from 'react'
+import { lazy } from 'react'
 
-import { cn } from '@/shared/lib/utils'
-
-export function Logo({ className, ...props }: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      id='newapi-logo'
-      viewBox='0 0 24 24'
-      xmlns='http://www.w3.org/2000/svg'
-      height='24'
-      width='24'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-      className={cn('size-6', className)}
-      {...props}
-    >
-      <title>New API</title>
-      <path d='M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3' />
-    </svg>
-  )
-}
+/**
+ * VChart (@visactor + zrender) is ~2 MB raw / ~560 kB gzipped and is only
+ * needed once a chart actually renders. Importing it lazily keeps it out of
+ * every route chunk that merely mentions a chart. Render inside <Suspense>
+ * with a fixed-height container so the swap does not shift layout.
+ */
+export const VChart = lazy(() =>
+  import('@visactor/react-vchart').then((module) => ({
+    default: module.VChart,
+  }))
+)

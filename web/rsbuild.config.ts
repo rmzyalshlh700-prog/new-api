@@ -39,12 +39,18 @@ export default defineConfig(({ envMode }) => {
           name: 'admin',
           chunks: 'async',
           priority: 40,
+          // A portal group with no ceiling swallows every route under it, which
+          // defeats `autoCodeSplitting`: the first admin route would download
+          // every admin feature. With maxSize the group keeps portal isolation
+          // but breaks into route-sized chunks.
+          maxSize: 400_000,
         },
         client: {
           test: /src[\\/]apps[\\/]client[\\/]/,
           name: 'client',
           chunks: 'async',
           priority: 30,
+          maxSize: 300_000,
         },
         'vendor-react': {
           test: /node_modules[\\/](react|react-dom)[\\/]/,
@@ -65,6 +71,27 @@ export default defineConfig(({ envMode }) => {
           name: 'vendor-tanstack',
           chunks: 'all',
           priority: 0,
+          enforce: true,
+        },
+        // Heavy libraries that are now only ever reached through a dynamic
+        // import. One chunk each keeps them out of every route that merely
+        // mentions a chart or a spreadsheet, and lets the browser cache them
+        // across releases independently of app code.
+        'vendor-vchart': {
+          test: /node_modules[\\/](@visactor|zrender)[\\/]/,
+          name: 'vendor-vchart',
+          // 'async' on purpose: `dashboard/lib/charts.ts` imports a 4 kB colour
+          // scheme synchronously. With 'all' that tiny module would drag the
+          // whole 2 MB VChart chunk into the dashboard route as a sync asset.
+          chunks: 'async',
+          priority: 20,
+          enforce: true,
+        },
+        'vendor-xlsx': {
+          test: /node_modules[\\/]xlsx[\\/]/,
+          name: 'vendor-xlsx',
+          chunks: 'all',
+          priority: 20,
           enforce: true,
         },
       },

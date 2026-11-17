@@ -135,7 +135,7 @@ export async function exportArchiveDay(
     throw new Error(envelope.message || 'Failed to export archive')
   }
   const payload = envelope.data as ArchiveExportPayload
-  const blob = buildArchiveWorkbook({
+  const blob = await buildArchiveWorkbook({
     date: payload.date || date,
     summary: payload.summary,
     invoices: payload.invoices ?? [],

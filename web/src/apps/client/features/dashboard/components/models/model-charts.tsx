@@ -16,14 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { VChart } from '@visactor/react-vchart'
 import { PieChart as PieChartIcon } from 'lucide-react'
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconBadge } from '@/shared/components/ui/icon-badge'
-import { useThemeCustomization } from '@/shared/context/theme-customization-provider'
-import { useTheme } from '@/shared/context/theme-provider'
 import {
   DEFAULT_TIME_GRANULARITY,
   MODEL_ANALYTICS_CHART_OPTIONS,
@@ -33,6 +29,10 @@ import type {
   ModelAnalyticsChartTab,
   QuotaDataItem,
 } from '@/apps/client/features/dashboard/types'
+import { IconBadge } from '@/shared/components/ui/icon-badge'
+import { useThemeCustomization } from '@/shared/context/theme-customization-provider'
+import { useTheme } from '@/shared/context/theme-provider'
+import { VChart } from '@/shared/lib/lazy-vchart'
 import { useThemeRadiusPx } from '@/shared/lib/theme-radius'
 import type { TimeGranularity } from '@/shared/lib/time'
 import { VCHART_OPTION } from '@/shared/lib/vchart'
@@ -153,15 +153,17 @@ export function ModelCharts(props: ModelChartsProps) {
 
       <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
         {themeReady && spec && (
-          <VChart
-            key={chartKey}
-            spec={{
-              ...spec,
-              theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-              background: 'transparent',
-            }}
-            option={VCHART_OPTION}
-          />
+          <Suspense fallback={null}>
+            <VChart
+              key={chartKey}
+              spec={{
+                ...spec,
+                theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+                background: 'transparent',
+              }}
+              option={VCHART_OPTION}
+            />
+          </Suspense>
         )}
       </div>
     </div>
