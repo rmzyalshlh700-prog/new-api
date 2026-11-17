@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -292,6 +293,13 @@ func AdminCopilotChatAgui(c *gin.Context, input *copilotAguiInput) {
 	if input.RunID == "" {
 		input.RunID = "run-" + common.GetUUID()
 	}
+
+	// Bound the whole run: the provider answer, the relay call and the tool
+	// round trip all share this deadline, so a silent upstream becomes a
+	// RUN_ERROR the console can show instead of a stream that never closes.
+	runCtx, cancel := context.WithTimeout(c.Request.Context(), copilotRunTimeout)
+	defer cancel()
+	c.Request = c.Request.WithContext(runCtx)
 
 	stream := newCopilotAguiStream(c)
 	stream.event(gin.H{"type": "RUN_STARTED", "threadId": input.ThreadID, "runId": input.RunID})

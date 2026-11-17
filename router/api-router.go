@@ -463,6 +463,14 @@ func SetApiRouter(router *gin.Engine) {
 		copilotRoute.POST("/chat/agent/:agentId/run", middleware.UserCriticalRateLimit("copilot"), controller.AdminCopilotChat)
 		copilotRoute.POST("/chat/agent/:agentId/connect", controller.AdminCopilotChatAgentConnect)
 		copilotRoute.POST("/chat/agent/:agentId/stop/:threadId", controller.AdminCopilotChatAgentStop)
+		// Saved conversations. The runtime stays stateless, so history is a
+		// separate resource the console reads after a reload and writes after
+		// every finished exchange; it belongs to the signed-in administrator.
+		copilotRoute.GET("/chats", controller.ListCopilotChats)
+		copilotRoute.POST("/chats", controller.CreateCopilotChat)
+		copilotRoute.GET("/chats/:id", controller.GetCopilotChat)
+		copilotRoute.PUT("/chats/:id/messages", controller.ReplaceCopilotChatMessages)
+		copilotRoute.DELETE("/chats/:id", controller.DeleteCopilotChat)
 		copilotRoute.POST("/fetch-models", middleware.RequireVisibleSection("system_settings"), controller.FetchCopilotModels)
 		// CopilotKit v1.87+ handshake probe before the first chat exchange.
 		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)
