@@ -848,6 +848,431 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
     },
   })
 
+
+  useCopilotAction({
+    name: 'readMonitoring',
+    description: t(
+      'Read the metrics collection settings: whether it is on, the flush interval, the bucket size and the retention days'
+    ),
+    parameters: [],
+    handler: async () =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<{ settings: Record<string, string> }>>(
+          '/api/admin/copilot/tools/system/monitoring'
+        ),
+        t('Failed to read the monitoring settings.')
+      ),
+  })
+
+  useCopilotAction({
+    name: 'configureMonitoring',
+    description: t(
+      'Change one monitoring setting such as perf_metrics_setting.enabled or perf_metrics_setting.retention_days. Confirm the new value with the operator first'
+    ),
+    parameters: [
+      {
+        name: 'key',
+        type: 'string',
+        description: 'Monitoring option key',
+        required: true,
+      },
+      {
+        name: 'value',
+        type: 'string',
+        description: 'New value for that option',
+        required: true,
+      },
+    ],
+    handler: async ({ key, value }) => {
+      if (!key) return { error: t('A monitoring option key is required.') }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/system/monitoring',
+          { key, value }
+        ),
+        t('Failed to change the monitoring settings.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'toggleMaintenanceMode',
+    description: t(
+      'Put the platform into maintenance mode, or take it out again. While it is on the console and the API are closed to everyone but the whitelist. Always confirm with the operator first'
+    ),
+    parameters: [
+      {
+        name: 'enabled',
+        type: 'boolean',
+        description: 'true enters maintenance mode, false leaves it',
+        required: true,
+      },
+    ],
+    handler: async ({ enabled }) =>
+      loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/system/maintenance',
+          { enabled }
+        ),
+        t('Failed to change maintenance mode.')
+      ),
+  })
+
+  useCopilotAction({
+    name: 'createUser',
+    description: t(
+      'Create a user account with a username, a password and a role. The password is written once and never read back. Confirm the username and role with the operator first'
+    ),
+    parameters: [
+      {
+        name: 'username',
+        type: 'string',
+        description: 'Letters and digits only, up to 20 characters',
+        required: true,
+      },
+      {
+        name: 'password',
+        type: 'string',
+        description: 'Initial password the operator will hand over',
+        required: true,
+      },
+      {
+        name: 'display_name',
+        type: 'string',
+        description: 'Display name shown in the console',
+        required: false,
+      },
+      {
+        name: 'role',
+        type: 'number',
+        description: '1 for a common user, 10 for an administrator',
+        required: false,
+      },
+    ],
+    handler: async ({ username, password, display_name, role }) => {
+      if (!username || !password) {
+        return { error: t('A username and a password are required.') }
+      }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>('/api/admin/copilot/tools/users/create', {
+          username,
+          password,
+          display_name,
+          role,
+        }),
+        t('Failed to create the user.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'deductUserQuota',
+    description: t(
+      'Take credit away from a user balance. A deduction cannot be undone from the console, so confirm the user and the amount with the operator before calling this'
+    ),
+    parameters: [
+      {
+        name: 'id',
+        type: 'number',
+        description: 'Numeric user id',
+        required: true,
+      },
+      {
+        name: 'quota',
+        type: 'number',
+        description: 'Positive amount to deduct',
+        required: true,
+      },
+    ],
+    handler: async ({ id, quota }) => {
+      if (!id || !quota || quota <= 0) {
+        return { error: t('A user id and a positive amount are required.') }
+      }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>('/api/admin/copilot/tools/users/deduct', {
+          id,
+          quota,
+        }),
+        t('Failed to deduct the user quota.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'readPayments',
+    description: t(
+      'Page through the top-up and payment records with their trade number, amount and state'
+    ),
+    parameters: [
+      {
+        name: 'keyword',
+        type: 'string',
+        description: 'Trade number or username fragment',
+        required: false,
+      },
+      {
+        name: 'page',
+        type: 'number',
+        description: 'Page number, starting at 1',
+        required: false,
+      },
+    ],
+    handler: async (args) =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<unknown>>('/api/admin/copilot/tools/payments', {
+          params: cleanParams(args),
+        }),
+        t('Failed to read the payment records.')
+      ),
+  })
+
+  useCopilotAction({
+    name: 'updatePaymentGateway',
+    description: t(
+      'Write one payment gateway setting, such as PayAddress, StripeApiSecret or MinTopUp. A credential is written once and never read back. Confirm the key with the operator first'
+    ),
+    parameters: [
+      {
+        name: 'key',
+        type: 'string',
+        description: 'Payment option key',
+        required: true,
+      },
+      {
+        name: 'value',
+        type: 'string',
+        description: 'New value for that option',
+        required: true,
+      },
+    ],
+    handler: async ({ key, value }) => {
+      if (!key) return { error: t('A payment option key is required.') }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/payments/gateway',
+          { key, value }
+        ),
+        t('Failed to change the payment gateway setting.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'updateGroupRatio',
+    description: t(
+      'Merge new values into the group ratio table, which changes what every group is billed. Ratios arrives as a JSON object of group name to number. Confirm with the operator first'
+    ),
+    parameters: [
+      {
+        name: 'ratios',
+        type: 'string',
+        description: 'JSON object, for example {"vip": 0.8}',
+        required: true,
+      },
+    ],
+    handler: async ({ ratios }) => {
+      let parsed: Record<string, number>
+      try {
+        parsed = JSON.parse(ratios) as Record<string, number>
+      } catch {
+        return { error: t('ratios must be a JSON object of numbers.') }
+      }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/commercial/group-ratio',
+          { ratios: parsed }
+        ),
+        t('Failed to change the group ratios.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'updateModelPricing',
+    description: t(
+      'Merge new values into the model ratio, completion ratio or fixed price tables. Pass the table you are changing as a JSON object of model name to number, and leave the others empty. Confirm with the operator first'
+    ),
+    parameters: [
+      {
+        name: 'model_ratios',
+        type: 'string',
+        description: 'JSON object of model name to ratio',
+        required: false,
+      },
+      {
+        name: 'completion_ratios',
+        type: 'string',
+        description: 'JSON object of model name to completion ratio',
+        required: false,
+      },
+      {
+        name: 'model_prices',
+        type: 'string',
+        description: 'JSON object of model name to fixed price',
+        required: false,
+      },
+    ],
+    handler: async ({ model_ratios, completion_ratios, model_prices }) => {
+      const parse = (raw?: string) => {
+        if (!raw) return undefined
+        try {
+          return JSON.parse(raw) as Record<string, number>
+        } catch {
+          return null
+        }
+      }
+      const body = {
+        model_ratios: parse(model_ratios),
+        completion_ratios: parse(completion_ratios),
+        model_prices: parse(model_prices),
+      }
+      if (Object.values(body).some((value) => value === null)) {
+        return { error: t('Each pricing table must be a JSON object of numbers.') }
+      }
+      if (Object.values(body).every((value) => value === undefined)) {
+        return { error: t('Provide at least one pricing table.') }
+      }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/commercial/model-pricing',
+          body
+        ),
+        t('Failed to change the model pricing.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'setChannelKey',
+    description: t(
+      'Write a new upstream key for a channel. The key is write-only: it is never read back and never shown in a reply. Confirm the channel with the operator first'
+    ),
+    parameters: [
+      {
+        name: 'id',
+        type: 'number',
+        description: 'Numeric channel id',
+        required: true,
+      },
+      {
+        name: 'key',
+        type: 'string',
+        description: 'New upstream key',
+        required: true,
+      },
+    ],
+    handler: async ({ id, key }) => {
+      if (!id || !key) {
+        return { error: t('A channel id and a key are required.') }
+      }
+      return loadCopilotTool(
+        api.put<ApiEnvelope<unknown>>(
+          `/api/admin/copilot/tools/channels/${id}/key`,
+          { key }
+        ),
+        t('Failed to replace the channel key.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'exportLogs',
+    description: t(
+      'Export the usage log for a filter as CSV, up to a bounded number of rows, for a report'
+    ),
+    parameters: [
+      {
+        name: 'username',
+        type: 'string',
+        description: 'Exact username',
+        required: false,
+      },
+      {
+        name: 'model',
+        type: 'string',
+        description: 'Exact model name',
+        required: false,
+      },
+      {
+        name: 'start_timestamp',
+        type: 'number',
+        description: 'Unix timestamp, inclusive lower bound',
+        required: false,
+      },
+      {
+        name: 'end_timestamp',
+        type: 'number',
+        description: 'Unix timestamp, inclusive upper bound',
+        required: false,
+      },
+      {
+        name: 'limit',
+        type: 'number',
+        description: 'Rows to export, up to 1000',
+        required: false,
+      },
+    ],
+    handler: async (args) =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<{ csv: string; rows: number; total: number }>>(
+          '/api/admin/copilot/tools/logs/export',
+          { params: cleanParams(args) }
+        ),
+        t('Failed to export the usage log.')
+      ),
+  })
+
+  useCopilotAction({
+    name: 'listAnnouncements',
+    description: t('Read the announcements the console shows to users'),
+    parameters: [],
+    handler: async () =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<{ items: unknown[]; total: number }>>(
+          '/api/admin/copilot/tools/announcements'
+        ),
+        t('Failed to read the announcements.')
+      ),
+  })
+
+  useCopilotAction({
+    name: 'publishAnnouncement',
+    description: t(
+      'Publish an announcement to the console, which every user sees. Confirm the wording with the operator before calling this'
+    ),
+    parameters: [
+      {
+        name: 'content',
+        type: 'string',
+        description: 'Announcement text, up to 500 characters',
+        required: true,
+      },
+      {
+        name: 'type',
+        type: 'string',
+        description: 'default, ongoing, success, warning or error',
+        required: false,
+      },
+      {
+        name: 'extra',
+        type: 'string',
+        description: 'Short optional note, up to 100 characters',
+        required: false,
+      },
+    ],
+    handler: async ({ content, type, extra }) => {
+      if (!content) return { error: t('Announcement content is required.') }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>('/api/admin/copilot/tools/announcements', {
+          content,
+          type,
+          extra,
+        }),
+        t('Failed to publish the announcement.')
+      )
+    },
+  })
+
   const context = useMemo(() => ({ page: pageContext }), [pageContext])
   return context
 }

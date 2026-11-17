@@ -29,8 +29,30 @@ const SETTINGS = {
   base_url: 'https://api.example.com/v1',
   model: 'gpt-test',
   enabled_tools: ['getFinancialSummary', 'lookupUser', 'getSystemHealth'],
+  master_control: false,
   visibility: 'all',
   api_key_configured: true,
+}
+
+const SETTINGS_URL = '/api/admin/system-settings/copilot'
+const PERMISSIONS_URL = '/api/admin/copilot/permissions'
+
+// The page reads two endpoints; answering both from one mock keeps a test that
+// is about the settings load from failing on the second request.
+const PERMISSIONS = {
+  master_control: false,
+  permissions: { lookupUser: true, getSystemHealth: true },
+  catalog: [],
+  groups: [],
+}
+
+function answer(url: string) {
+  const data = url === PERMISSIONS_URL ? PERMISSIONS : SETTINGS
+  return { data: { success: true, message: '', data } }
+}
+
+function settingsCalls(spy: { mock: { calls: unknown[][] } }) {
+  return spy.mock.calls.filter(([url]) => url === SETTINGS_URL)
 }
 
 function renderSettings() {
@@ -64,12 +86,15 @@ describe('Copilot settings page states', () => {
   })
 
   it('replaces the endless loading state with a retryable error card', async () => {
-    const get = vi
-      .spyOn(api, 'get')
-      .mockRejectedValueOnce(new Error('Copilot settings unavailable'))
-      .mockResolvedValue({
-        data: { success: true, message: '', data: SETTINGS },
-      })
+    // The first settings request fails and every later one succeeds, which is
+    // what the Retry button is there for.
+    let settingsAttempts = 0
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
+      if (url === SETTINGS_URL && settingsAttempts++ === 0) {
+        throw new Error('Copilot settings unavailable')
+      }
+      return answer(url)
+    })
     const user = renderSettings()
 
     expect(
@@ -82,7 +107,7 @@ describe('Copilot settings page states', () => {
     await user.click(screen.getByRole('button', { name: 'Retry' }))
 
     expect(await screen.findByLabelText('Model ID')).toHaveValue('gpt-test')
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(settingsCalls(get).length).toBe(2))
   })
 
   it('shows a 500 failure as an error card whose retry recovers the form', async () => {
@@ -99,12 +124,13 @@ describe('Copilot settings page states', () => {
         },
       }
     )
-    const get = vi
-      .spyOn(api, 'get')
-      .mockRejectedValueOnce(serverError)
-      .mockResolvedValue({
-        data: { success: true, message: '', data: SETTINGS },
-      })
+    let settingsAttempts = 0
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
+      if (url === SETTINGS_URL && settingsAttempts++ === 0) {
+        throw serverError
+      }
+      return answer(url)
+    })
     const user = renderSettings()
 
     expect(
@@ -120,16 +146,14 @@ describe('Copilot settings page states', () => {
     await user.click(screen.getByRole('button', { name: 'Retry' }))
 
     expect(await screen.findByLabelText('Model ID')).toHaveValue('gpt-test')
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(settingsCalls(get).length).toBe(2))
     expect(
       screen.queryByRole('button', { name: 'Retry' })
     ).not.toBeInTheDocument()
   })
 
   it('labels the model combobox so the field has an accessible name', async () => {
-    vi.spyOn(api, 'get').mockResolvedValue({
-      data: { success: true, message: '', data: SETTINGS },
-    })
+    vi.spyOn(api, 'get').mockImplementation(async (url: string) => answer(url))
     renderSettings()
 
     expect(await screen.findByLabelText('Model ID')).toHaveAttribute(
