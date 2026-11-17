@@ -83,11 +83,23 @@ function cleanParams(
  * Registers the admin Copilot's tools with CopilotKit and publishes the current
  * page as readable context so the assistant knows where the admin is looking.
  *
- * Every tool is registered but marked unavailable unless the operator granted
- * it; the server refuses a disabled tool as well, so a stale client cannot
- * reach past the permission set. Writes go through the same admin handlers the
- * console uses, which record them in the audit log under the signed-in
- * administrator.
+ * Every tool is registered unconditionally and its configuration never
+ * changes shape between renders. Both details are load-bearing:
+ *
+ * - `available: 'disabled'` is not the way to switch a tool off here. In
+ *   @copilotkit/react-core 1.87 an action carrying that flag is registered as a
+ *   different hook type, so flipping it makes useCopilotAction throw "Action
+ *   configuration changed between renders" — and because these tools render
+ *   under a null error boundary, that throw silently unmounted the whole
+ *   registration and left the assistant with no tools at all.
+ * - The permission set is therefore enforced by the server, which trims the
+ *   tool list of every run (buildCopilotAguiChatRequest) and refuses each
+ *   endpoint of a disabled tool (RequireCopilotTool). The granted names are
+ *   published to the agent as context only, so it can say a capability is
+ *   switched off rather than invent an answer.
+ *
+ * Writes go through the same admin handlers the console uses, which record them
+ * in the audit log under the signed-in administrator.
  */
 export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
   const { t } = useTranslation()
@@ -97,9 +109,17 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
   const pageContext = useRouterState({
     select: (state) => state.location.href,
   })
-  const availability = (tool: AdminCopilotToolName) =>
-    enabledTools.includes(tool) ? 'enabled' : 'disabled'
   const adminUser = useAuthStore((state) => state.auth.user)
+
+  // The granted set is published to the agent as context, so it can say a
+  // capability is switched off instead of quietly answering from memory. The
+  // tool list itself is trimmed by the server (see below), which is the only
+  // place that decides what the agent may call.
+  const enabledToolKey = enabledTools.join(',')
+  const grantedTools = useMemo(
+    () => new Set(enabledToolKey.split(',')),
+    [enabledToolKey]
+  )
 
   useCopilotReadable({
     description: t(
@@ -110,17 +130,32 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
 
   // Who is asking. The tool results are platform-wide, so the model needs the
   // operator's own role and name to answer "what can I do" style questions.
+  // A fresh object per render would re-register this context on every render,
+  // because the hook keys on the value's identity; memoize it on the fields.
+  const adminUserContext = useMemo(
+    () =>
+      adminUser
+        ? {
+            id: adminUser.id,
+            username: adminUser.username,
+            display_name: adminUser.display_name ?? adminUser.username,
+            role: adminUser.role,
+            group: adminUser.group,
+          }
+        : null,
+    [adminUser]
+  )
+
   useCopilotReadable({
     description: t('The signed-in administrator account'),
-    value: adminUser
-      ? {
-          id: adminUser.id,
-          username: adminUser.username,
-          display_name: adminUser.display_name ?? adminUser.username,
-          role: adminUser.role,
-          group: adminUser.group,
-        }
-      : null,
+    value: adminUserContext,
+  })
+
+  useCopilotReadable({
+    description: t(
+      'The Copilot capabilities the administrator granted. A capability that is not listed here is switched off and cannot be used.'
+    ),
+    value: [...grantedTools].sort().join(', '),
   })
 
   useCopilotAction({
@@ -129,7 +164,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
       'Fetch the platform financial summary: today and this month revenue, cost and profit stats'
     ),
     parameters: [],
-    available: availability('getFinancialSummary'),
     handler: async () =>
       loadCopilotTool(
         api.get<ApiEnvelope<FinancialSummary>>(
@@ -145,7 +179,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
       'Fetch current server health: CPU usage, memory usage, load average and network throughput'
     ),
     parameters: [],
-    available: availability('getSystemHealth'),
     handler: async () =>
       loadCopilotTool(
         api.get<ApiEnvelope<SystemHealth>>('/api/admin/copilot/tools/health'),
@@ -173,7 +206,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('lookupUser'),
     handler: async ({ id, keyword }) => {
       const trimmedKeyword = keyword?.trim() ?? ''
       if (!id && !trimmedKeyword) {
@@ -217,7 +249,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('listUsers'),
     handler: async ({ keyword, group, page }) =>
       loadCopilotTool(
         api.get<ApiEnvelope<{ items: CopilotUser[]; total: number }>>(
@@ -247,7 +278,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: true,
       },
     ],
-    available: availability('adjustUserQuota'),
     handler: async ({ id, quota }) => {
       if (!id || !quota) {
         return { error: t('A user id and a non-zero amount are required.') }
@@ -281,15 +311,15 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: true,
       },
     ],
-    available: availability('setUserStatus'),
     handler: async ({ id, status }) => {
       if (!id) return { error: t('A user id is required.') }
-      const action = status === 'enable' ? 'enable' : status === 'disable' ? 'disable' : ''
-      if (!action) return { error: t('status must be enable or disable.') }
+      if (status !== 'enable' && status !== 'disable') {
+        return { error: t('status must be enable or disable.') }
+      }
       return loadCopilotTool(
         api.post<ApiEnvelope<unknown>>('/api/admin/copilot/tools/users/status', {
           id,
-          status: action,
+          status,
         }),
         t('Failed to change the user status.')
       )
@@ -333,7 +363,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('listChannels'),
     handler: async ({ keyword, group, model, status, page }) =>
       loadCopilotTool(
         api.get<ApiEnvelope<{ items: unknown[]; total: number }>>(
@@ -357,7 +386,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: true,
       },
     ],
-    available: availability('getChannel'),
     handler: async ({ id }) => {
       if (!id) return { error: t('A channel id is required.') }
       return loadCopilotTool(
@@ -422,7 +450,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('createChannel'),
     handler: async ({ name, type, key, models, base_url, group, priority, weight }) =>
       loadCopilotTool(
         api.post<ApiEnvelope<unknown>>('/api/admin/copilot/tools/channels', {
@@ -491,7 +518,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('updateChannel'),
     handler: async ({ id, ...fields }) => {
       if (!id) return { error: t('A channel id is required.') }
       return loadCopilotTool(
@@ -523,7 +549,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: true,
       },
     ],
-    available: availability('setChannelStatus'),
     handler: async ({ id, status }) => {
       if (!id) return { error: t('A channel id is required.') }
       if (status !== 1 && status !== 2) {
@@ -558,7 +583,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('testChannel'),
     handler: async ({ id, model }) => {
       if (!id) return { error: t('A channel id is required.') }
       return loadCopilotTool(
@@ -585,7 +609,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: true,
       },
     ],
-    available: availability('deleteChannel'),
     handler: async ({ id }) => {
       if (!id) return { error: t('A channel id is required.') }
       return loadCopilotTool(
@@ -616,7 +639,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('listModels'),
     handler: async ({ keyword, page }) =>
       loadCopilotTool(
         api.get<ApiEnvelope<{ items: unknown[]; total: number }>>(
@@ -658,7 +680,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('setChannelModels'),
     handler: async ({ id, add, remove, models }) => {
       if (!id) return { error: t('A channel id is required.') }
       const split = (value?: string) =>
@@ -737,7 +758,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('searchLogs'),
     handler: async (args) =>
       loadCopilotTool(
         api.get<ApiEnvelope<{ items: unknown[]; total: number }>>(
@@ -773,7 +793,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('listRedemptions'),
     handler: async ({ keyword, status, page }) =>
       loadCopilotTool(
         api.get<ApiEnvelope<{ items: unknown[]; total: number }>>(
@@ -815,7 +834,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         required: false,
       },
     ],
-    available: availability('createRedemption'),
     handler: async ({ name, quota, count, expired_time }) => {
       if (!name || !quota || !count) {
         return { error: t('A name, a quota and a count are required.') }

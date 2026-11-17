@@ -161,7 +161,11 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
   return (
     <CopilotKit runtimeUrl='/api/admin/copilot/chat' headers={headers}>
       <CopilotNullErrorBoundary>
-        {!hideCopilot && <AdminCopilotTools enabledTools={enabledTools} />}
+        {/* The tools stay mounted even when the popup is hidden by the
+            dashboard-only visibility rule: registration is what makes the
+            assistant useful, and unmounting it on navigation left the panel
+            answering "I have no tools" for the rest of the session. */}
+        <AdminCopilotTools enabledTools={enabledTools} />
       </CopilotNullErrorBoundary>
       {children}
       {!hideCopilot && (
