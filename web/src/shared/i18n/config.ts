@@ -97,6 +97,12 @@ export async function ensureLanguageResources(
   return code
 }
 
+/**
+ * Remember a *manual* language choice. Only `changeInterfaceLanguage` calls
+ * this: a language merely detected from the browser must not be stored, or the
+ * detection becomes one-shot and an OS language change is never followed again.
+ * The presence of `i18nextLng` therefore means "the user chose this".
+ */
 function persistInterfaceLanguage(code: string) {
   try {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, code)
@@ -161,12 +167,15 @@ export async function initializeI18n(instance: I18n = i18n): Promise<void> {
 
   await instance.init({
     // Resolved above so the matching locale chunk ships with the first render.
-    // The detector still caches later manual choices under `i18nextLng`.
     lng: startupLanguage,
     detection: {
       order: ['localStorage', 'navigator', 'htmlTag'],
       lookupLocalStorage: LANGUAGE_STORAGE_KEY,
-      caches: ['localStorage'],
+      // Read-only: this detector must never cache. Booting with `lng` makes
+      // i18next call changeLanguage, which caches through this option, and a
+      // cached auto-detected language would freeze browser detection after the
+      // first visit. Only a manual switch writes the key (persistInterfaceLanguage).
+      caches: [],
     },
     resources: startupBundle
       ? { en, [startupLanguage]: startupBundle }
@@ -188,8 +197,6 @@ export async function initializeI18n(instance: I18n = i18n): Promise<void> {
   if (instance.language !== code) {
     await instance.changeLanguage(code)
   }
-
-  persistInterfaceLanguage(code)
 }
 
 /**
