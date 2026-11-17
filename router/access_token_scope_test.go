@@ -67,6 +67,12 @@ var accessTokenExemptRoutes = []string{
 	"GET /api/subscription/epay/return",
 	"POST /api/subscription/epay/return",
 
+	// Anonymous operational and callback routes: no dashboard authentication,
+	// so a personal access token has no rule to satisfy.
+	"GET /api/status/maintenance",
+	"GET /api/public/contact_links",
+	"POST /api/webhooks/nowpayments",
+
 	// API key authentication (TokenAuthReadOnly).
 	"GET /api/usage/token/",
 	"GET /api/log/token",

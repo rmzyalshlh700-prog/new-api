@@ -258,11 +258,14 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/data/flow":                        accessTokenScopeRule("log:read"),
 	"GET /api/data/flow/self":                   accessTokenScopeRule("usage:read"),
 	"GET /api/admin/profit_stats":               accessTokenScopeRule("log:read"),
-	"GET /api/admin/backup/export":            accessTokenScopeRule("ops:read"),
-	"GET /api/admin/metrics/live":             accessTokenScopeRule("dashboard:read"),
+	"GET /api/admin/backup/export":              accessTokenScopeRule("ops:read"),
+	// The live OS metrics stream backs the dashboard overview, and the
+	// sibling /api/data/metrics reads the same data under log:read. dashboard is
+	// not a resource in the scope catalog, so no token could hold it.
+	"GET /api/admin/metrics/live": accessTokenScopeRule("log:read"),
 
 	// router/api-router.go: /api/admin/copilot
-	"GET /api/admin/copilot/chat/info":        accessTokenScopeRule("user:read"),
+	"GET /api/admin/copilot/chat/info": accessTokenScopeRule("user:read"),
 
 	// router/api-router.go: /api/group, /api/prefill_group
 	"GET /api/group/":               accessTokenScopeRule("group:read"),
@@ -321,6 +324,54 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 
 	// router/relay-router.go
 	"POST /pg/chat/completions": accessTokenSessionRule,
+
+	// router/api-router.go: /api/admin/archive (AdminAuth + dashboard section).
+	// Historical logs and payments, so the read scope of each family applies.
+	"GET /api/admin/archive/summary":  accessTokenScopeRule("log:read"),
+	"GET /api/admin/archive/logs":     accessTokenScopeRule("log:read"),
+	"GET /api/admin/archive/payments": accessTokenScopeRule("billing:read"),
+	"GET /api/admin/archive/export":   accessTokenScopeRule("billing:read"),
+
+	// router/api-router.go: /api/admin/copilot and /api/admin/system-settings/copilot.
+	// The chat proxy spends platform credits and reads across every section, so it
+	// needs the operations scope; the settings routes mirror the visible section.
+	"POST /api/admin/copilot/chat":            accessTokenScopeRule("ops:write"),
+	"POST /api/admin/copilot/fetch-models":    accessTokenScopeRule("option:read"),
+	"GET /api/admin/copilot/settings":         accessTokenScopeRule("option:read"),
+	"GET /api/admin/copilot/tools/financials": accessTokenScopeRule("billing:read"),
+	"GET /api/admin/copilot/tools/users":      accessTokenScopeRule("user:read"),
+	"GET /api/admin/copilot/tools/health":     accessTokenScopeRule("ops:read"),
+	"GET /api/admin/system-settings/copilot":  accessTokenScopeRule("option:read"),
+	"PUT /api/admin/system-settings/copilot":  accessTokenScopeRule("option:write"),
+
+	// router/api-router.go: /api/admin/contact_links (AdminAuth + system_settings).
+	"GET /api/admin/contact_links/":       accessTokenScopeRule("option:read"),
+	"POST /api/admin/contact_links/":      accessTokenScopeRule("option:write"),
+	"PUT /api/admin/contact_links/":       accessTokenScopeRule("option:write"),
+	"DELETE /api/admin/contact_links/:id": accessTokenScopeRule("option:write"),
+
+	// router/api-router.go: dashboard metrics and top-up order statistics.
+	"GET /api/data/metrics":            accessTokenScopeRule("log:read"),
+	"GET /api/topup/orders_stats":      accessTokenScopeRule("billing:read"),
+	"GET /api/user/topup/orders_stats": accessTokenScopeRule("wallet:read"),
+
+	// router/api-router.go: NowPayments top-up from the wallet page.
+	"POST /api/user/nowpayments/amount": accessTokenScopeRule("wallet:write"),
+	"POST /api/user/nowpayments/pay":    accessTokenScopeRule("wallet:write"),
+
+	// router/api-router.go: /api/user/support. A ticket is the user's own
+	// conversation with support, so it rides on the profile scope; triaging
+	// someone else's ticket is a user-management action.
+	"GET /api/user/support/tickets":                     accessTokenScopeRule("profile:read"),
+	"POST /api/user/support/tickets":                    accessTokenScopeRule("profile:write"),
+	"GET /api/user/support/tickets/:id/messages":        accessTokenScopeRule("profile:read"),
+	"POST /api/user/support/tickets/:id/messages":       accessTokenScopeRule("profile:write"),
+	"GET /api/user/support/unread_count":                accessTokenScopeRule("profile:read"),
+	"GET /api/user/support/admin/tickets":               accessTokenScopeRule("user:read"),
+	"GET /api/user/support/admin/tickets/:id/messages":  accessTokenScopeRule("user:read"),
+	"POST /api/user/support/admin/tickets/:id/messages": accessTokenScopeRule("user:write"),
+	"PUT /api/user/support/admin/tickets/:id/status":    accessTokenScopeRule("user:write"),
+	"GET /api/user/support/admin/unread_count":          accessTokenScopeRule("user:read"),
 }
 
 var (
