@@ -61,8 +61,8 @@ async function renderDirectionProvider() {
 }
 
 beforeEach(async () => {
-  // The module-level boot settles before a test seeds storage, otherwise its
-  // async tail would persist the default language over the seeded choice.
+  // Settle the module-level boot before seeding storage, so its async tail
+  // cannot interleave with the seeded choice.
   await i18nReady
   window.localStorage.clear()
   document.documentElement.removeAttribute('dir')
@@ -92,7 +92,22 @@ describe('interface language boot sequence', () => {
 
     expect(i18n.language).toBe('ar')
     expect(i18n.t('Account Info')).toBe(ARABIC_TRANSLATION)
-    expect(window.localStorage.getItem('i18nextLng')).toBe('ar')
+    // Detection must not be cached: only a manual choice writes the key.
+    expect(window.localStorage.getItem('i18nextLng')).toBeNull()
+  })
+
+  test('follows the browser language on a later visit until one is chosen', async () => {
+    stubBrowserLanguage('ar-EG')
+    const arabicVisit = await bootApp()
+    expect(arabicVisit.language).toBe('ar')
+    expect(window.localStorage.getItem('i18nextLng')).toBeNull()
+
+    // The same user's OS switches to Russian: nothing was stored, so the next
+    // load detects again instead of staying stuck on the first visit's language.
+    stubBrowserLanguage('ru-RU')
+    const russianVisit = await bootApp()
+    expect(russianVisit.language).toBe('ru')
+    expect(window.localStorage.getItem('i18nextLng')).toBeNull()
   })
 
   test('a manual switch to Arabic survives a reload', async () => {
