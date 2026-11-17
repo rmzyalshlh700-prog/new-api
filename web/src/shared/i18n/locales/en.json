@@ -2628,6 +2628,8 @@
     "failed": "failed",
     "Failed": "Failed",
     "Failed API requests logged today": "Failed API requests logged today",
+    "From model providers": "From model providers",
+    "Rejected before a provider": "Rejected before a provider",
     "Failed Requests Today": "Failed Requests Today",
     "Failed to {{action}} user": "Failed to {{action}} user",
     "Failed to adjust quota": "Failed to adjust quota",

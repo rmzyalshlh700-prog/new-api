@@ -122,6 +122,11 @@ export interface DashboardMetrics {
   total_liabilities_quota: number
   active_visitors_today: number
   failed_requests_today: number
+  /** Failed requests that reached a channel: the model provider refused them. */
+  provider_errors_today: number
+  /** Failed requests rejected before a channel was chosen: bad key, no quota,
+   * unknown model, malformed body. */
+  rejected_requests_today: number
   /** API keys (tokens) users created since the server's local midnight. */
   api_keys_created_today: number
   /** Every API key that still exists, including the ones created today. */

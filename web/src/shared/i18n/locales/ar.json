@@ -2628,6 +2628,8 @@
     "failed": "فشل",
     "Failed": "فشل",
     "Failed API requests logged today": "عدد طلبات API الفاشلة المسجلة اليوم",
+    "From model providers": "أخطاء من مزوّدي النماذج",
+    "Rejected before a provider": "طلبات مرفوضة قبل المزوّد",
     "Failed Requests Today": "الطلبات الفاشلة اليوم",
     "Failed to {{action}} user": "فشل تنفيذ الإجراء \"{{action}}\" على المستخدم",
     "Failed to adjust quota": "فشل تعديل الحصة",

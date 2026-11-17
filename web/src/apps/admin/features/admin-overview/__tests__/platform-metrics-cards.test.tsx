@@ -9,6 +9,8 @@ const metrics: DashboardMetrics = {
   total_liabilities_quota: 500000,
   active_visitors_today: 42,
   failed_requests_today: 7,
+  provider_errors_today: 5,
+  rejected_requests_today: 2,
   api_keys_created_today: 9,
   api_keys_total: 9,
 }
@@ -29,6 +31,11 @@ describe('platform metrics cards', () => {
     expect(screen.getByText('42')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
     expect(screen.getByText('Total API keys: 9')).toBeInTheDocument()
+    // The failed-request total splits into provider errors and rejections.
+    expect(screen.getByText('From model providers')).toBeInTheDocument()
+    expect(screen.getByText('Rejected before a provider')).toBeInTheDocument()
+    expect(screen.getByText('5')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
   })
 
   it('hides values while loading and keeps card titles', () => {

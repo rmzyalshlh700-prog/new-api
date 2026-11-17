@@ -2628,6 +2628,8 @@
     "failed": "ошибка",
     "Failed": "Неудача",
     "Failed API requests logged today": "Неудачные API-запросы, зафиксированные сегодня",
+    "From model providers": "Ошибки провайдеров моделей",
+    "Rejected before a provider": "Отклонено до провайдера",
     "Failed Requests Today": "Неудачные запросы сегодня",
     "Failed to {{action}} user": "Не удалось выполнить {{action}} для пользователя",
     "Failed to adjust quota": "Не удалось изменить квоту",

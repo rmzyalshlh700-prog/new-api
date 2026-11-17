@@ -99,6 +99,24 @@ export function PlatformMetricsCards(props: PlatformMetricsCardsProps) {
           title={t('Failed Requests Today')}
           value={metrics ? formatInteger(metrics.failed_requests_today) : '—'}
           description={t('Failed API requests logged today')}
+          // The total splits by where the request failed: a provider that
+          // refused or broke, or a request rejected before one was chosen.
+          details={
+            metrics
+              ? [
+                  {
+                    label: t('From model providers'),
+                    value: formatInteger(metrics.provider_errors_today),
+                    tone: 'destructive',
+                  },
+                  {
+                    label: t('Rejected before a provider'),
+                    value: formatInteger(metrics.rejected_requests_today),
+                    tone: 'muted',
+                  },
+                ]
+              : undefined
+          }
           icon={AlertTriangle}
           iconTone='destructive'
           loading={props.loading}
