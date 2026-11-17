@@ -13,6 +13,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service/authz"
 
 	"github.com/gin-gonic/gin"
 )
@@ -188,6 +189,19 @@ func copilotChannelSummaryFrom(channel *model.Channel) copilotChannelSummary {
 	return summary
 }
 
+// copilotRequireChannelPermission refuses a channel tool unless the operator
+// holds the authorization permission the console route for the same action
+// requires. The Copilot switch grants a capability; this check keeps the
+// operator's role grants in force as well, because a tool calls the admin
+// handler directly and therefore skips the route middleware.
+func copilotRequireChannelPermission(c *gin.Context, permission authz.Permission) bool {
+	if authz.Can(c.GetInt("id"), c.GetInt("role"), permission) {
+		return true
+	}
+	common.ApiErrorMsg(c, "Your account does not hold the channel permission this Copilot tool requires")
+	return false
+}
+
 // copilotChannelStatusFilter maps a readable status to the stored value. An
 // empty filter keeps every status.
 func copilotChannelStatusFilter(raw string) (int, bool) {
@@ -207,6 +221,10 @@ func copilotChannelStatusFilter(raw string) (int, bool) {
 
 // GetCopilotChannelList serves the listChannels tool.
 func GetCopilotChannelList(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelRead); !ok {
+		return
+	}
+
 	statusFilter, ok := copilotChannelStatusFilter(c.Query("status"))
 	if !ok {
 		common.ApiErrorMsg(c, "status must be enabled, disabled or auto_disabled")
@@ -246,6 +264,10 @@ func GetCopilotChannelList(c *gin.Context) {
 
 // GetCopilotChannel serves the getChannel tool for one channel.
 func GetCopilotChannel(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelRead); !ok {
+		return
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
 		common.ApiErrorMsg(c, "A channel id is required")
@@ -283,6 +305,10 @@ func copilotChannelBody(c *gin.Context) (map[string]any, error) {
 
 // CreateCopilotChannel serves the createChannel tool through the admin handler.
 func CreateCopilotChannel(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelSensitiveWrite); !ok {
+		return
+	}
+
 	payload, err := copilotChannelBody(c)
 	if err != nil {
 		common.ApiError(c, err)
@@ -307,6 +333,10 @@ func CreateCopilotChannel(c *gin.Context) {
 // treats the body as a patch, so only the fields the operator asked to change
 // are sent.
 func UpdateCopilotChannel(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelWrite); !ok {
+		return
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
 		common.ApiErrorMsg(c, "A channel id is required")
@@ -326,6 +356,10 @@ func UpdateCopilotChannel(c *gin.Context) {
 
 // DeleteCopilotChannel serves the deleteChannel tool.
 func DeleteCopilotChannel(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelSensitiveWrite); !ok {
+		return
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
 		common.ApiErrorMsg(c, "A channel id is required")
@@ -339,6 +373,10 @@ func DeleteCopilotChannel(c *gin.Context) {
 
 // SetCopilotChannelStatus serves the setChannelStatus tool.
 func SetCopilotChannelStatus(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelOperate); !ok {
+		return
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
 		common.ApiErrorMsg(c, "A channel id is required")
@@ -360,6 +398,10 @@ func SetCopilotChannelStatus(c *gin.Context) {
 // TestCopilotChannel serves the testChannel tool. The query carries the model,
 // endpoint type and streaming flag the admin test page sends.
 func TestCopilotChannel(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelOperate); !ok {
+		return
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
 		common.ApiErrorMsg(c, "A channel id is required")
@@ -456,6 +498,10 @@ func GetCopilotModelList(c *gin.Context) {
 // or removes from the model list a channel offers, then saves it through the
 // admin update handler so abilities and caches follow.
 func SetCopilotChannelModels(c *gin.Context) {
+	if ok := copilotRequireChannelPermission(c, authz.ChannelWrite); !ok {
+		return
+	}
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
 		common.ApiErrorMsg(c, "A channel id is required")
@@ -545,43 +591,10 @@ type copilotLogEntry struct {
 
 // GetCopilotLogs serves the searchLogs tool over the usage log database.
 func GetCopilotLogs(c *gin.Context) {
-	var filter model.LogFilter
-	filter.Username = strings.TrimSpace(c.Query("username"))
-	filter.ModelName = strings.TrimSpace(c.Query("model"))
-	filter.TokenName = strings.TrimSpace(c.Query("token_name"))
-	filter.Group = strings.TrimSpace(c.Query("group"))
-	filter.RequestId = strings.TrimSpace(c.Query("request_id"))
-	if raw := strings.TrimSpace(c.Query("type")); raw != "" {
-		value, err := strconv.Atoi(raw)
-		if err != nil {
-			common.ApiErrorMsg(c, "type must be a number")
-			return
-		}
-		filter.Type = value
-	}
-	if raw := strings.TrimSpace(c.Query("channel_id")); raw != "" {
-		value, err := strconv.Atoi(raw)
-		if err != nil {
-			common.ApiErrorMsg(c, "channel_id must be a number")
-			return
-		}
-		filter.Channel = value
-	}
-	if raw := strings.TrimSpace(c.Query("start_timestamp")); raw != "" {
-		value, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil {
-			common.ApiErrorMsg(c, "start_timestamp must be a unix timestamp")
-			return
-		}
-		filter.StartTimestamp = value
-	}
-	if raw := strings.TrimSpace(c.Query("end_timestamp")); raw != "" {
-		value, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil {
-			common.ApiErrorMsg(c, "end_timestamp must be a unix timestamp")
-			return
-		}
-		filter.EndTimestamp = value
+	filter, err := copilotLogFilterFromQuery(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
 	}
 	pageSize := copilotPageSize(c)
 	start := copilotPageStart(c, pageSize)
@@ -723,7 +736,8 @@ func GetCopilotUserList(c *gin.Context) {
 
 // AdjustCopilotUserQuota serves the adjustUserQuota tool. A positive quota adds
 // to a user's balance and a negative one takes away; the admin handler records
-// who changed whose balance.
+// who changed whose balance. The direction is passed as the adjustment mode the
+// handler expects, not as the sign of the amount.
 func AdjustCopilotUserQuota(c *gin.Context) {
 	var request struct {
 		ID    int `json:"id"`
@@ -741,10 +755,17 @@ func AdjustCopilotUserQuota(c *gin.Context) {
 		common.ApiErrorMsg(c, "A non-zero quota change is required")
 		return
 	}
+	mode := "add"
+	amount := request.Quota
+	if amount < 0 {
+		mode = "subtract"
+		amount = -amount
+	}
 	data, err := copilotCallAdminHandler(c, ManageUser, http.MethodPost, "/api/user/manage", gin.H{
 		"id":     request.ID,
 		"action": "add_quota",
-		"value":  request.Quota,
+		"mode":   mode,
+		"value":  amount,
 	}, nil)
 	copilotRespondData(c, data, err)
 }

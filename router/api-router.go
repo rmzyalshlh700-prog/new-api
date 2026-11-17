@@ -467,6 +467,11 @@ func SetApiRouter(router *gin.Engine) {
 		// CopilotKit v1.87+ handshake probe before the first chat exchange.
 		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)
 		copilotRoute.GET("/settings", controller.GetCopilotRuntimeSettings)
+		// The permission matrix the assistant is held to. Reading it only needs
+		// the admin session; writing it is a security decision, so it is bound
+		// to the system settings section like the settings page it mirrors.
+		copilotRoute.GET("/permissions", controller.GetCopilotPermissions)
+		copilotRoute.PUT("/permissions", middleware.RequireVisibleSection("system_settings"), controller.UpdateCopilotPermissions)
 		// Copilot tool endpoints. Each one is gated twice: by the admin section
 		// the tool reads, so a restricted administrator cannot reach data their
 		// console hides, and by the Copilot permission switch for that tool, so
@@ -494,6 +499,24 @@ func SetApiRouter(router *gin.Engine) {
 
 		copilotRoute.GET("/tools/redemptions", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolListRedemptions), controller.GetCopilotRedemptions)
 		copilotRoute.POST("/tools/redemptions", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolCreateRedemption), controller.CreateCopilotRedemption)
+		copilotRoute.GET("/tools/logs/export", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolExportLogs), controller.ExportCopilotLogs)
+
+		// Platform operations: maintenance, monitoring and the payment and
+		// pricing settings behind them. Each handler re-checks the root role,
+		// because these change the platform for every user.
+		copilotRoute.GET("/tools/system/monitoring", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolReadMonitoring), controller.GetCopilotMonitoringSettings)
+		copilotRoute.POST("/tools/system/monitoring", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolConfigureMonitoring), controller.ConfigureCopilotMonitoring)
+		copilotRoute.POST("/tools/system/maintenance", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolToggleMaintenance), controller.ToggleCopilotMaintenanceMode)
+		copilotRoute.POST("/tools/users/create", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolCreateUser), controller.CreateCopilotUser)
+		copilotRoute.POST("/tools/users/deduct", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolDeductUserQuota), controller.DeductCopilotUserQuota)
+		copilotRoute.POST("/tools/users/delete", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolDeleteUser), controller.DeleteCopilotUser)
+		copilotRoute.GET("/tools/payments", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolReadPayments), controller.ReadCopilotPayments)
+		copilotRoute.POST("/tools/payments/gateway", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolUpdatePaymentGateway), controller.UpdateCopilotPaymentGateway)
+		copilotRoute.POST("/tools/commercial/group-ratio", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateGroupRatio), controller.UpdateCopilotGroupRatio)
+		copilotRoute.POST("/tools/commercial/model-pricing", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateModelPricing), controller.UpdateCopilotModelPricing)
+		copilotRoute.PUT("/tools/channels/:id/key", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelKey), controller.SetCopilotChannelKey)
+		copilotRoute.GET("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolListAnnouncements), controller.ListCopilotAnnouncements)
+		copilotRoute.POST("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolPublishAnnouncement), controller.PublishCopilotAnnouncement)
 		copilotSettingsRoute := apiRouter.Group("/admin/system-settings/copilot")
 		copilotSettingsRoute.Use(middleware.AdminAuth())
 		copilotSettingsRoute.Use(middleware.RequireVisibleSection("system_settings"))

@@ -21,6 +21,10 @@ const (
 	CopilotModelOptionKey         = "copilot_model"
 	CopilotStreamOptionKey        = "copilot_stream"
 	CopilotEnabledToolsOptionKey  = "copilot_enabled_tools"
+	// CopilotMasterControlOptionKey is the "master control" switch. While it is
+	// on, every tool in the catalog is granted and the stored list is kept as
+	// the operator left it, so switching the master off restores their choice.
+	CopilotMasterControlOptionKey = "copilot_master_control"
 	CopilotVisibilityOptionKey    = "copilot_visibility"
 )
 
@@ -75,9 +79,25 @@ func CopilotStreamOptionValue(enabled bool) string {
 	return "false"
 }
 
-// CopilotEnabledTools parses the enabled tool list. Missing or invalid values
-// fall back to every known tool so an upgrade never silently disables tools.
-func CopilotEnabledTools() []string {
+// CopilotMasterControl reports whether the master control switch is on. While
+// it is on, every tool is granted and the operator's stored list is ignored.
+func CopilotMasterControl() bool {
+	return CopilotOption(CopilotMasterControlOptionKey) == "true"
+}
+
+// CopilotMasterControlOptionValue renders the stored boolean for the settings
+// API and the option validator.
+func CopilotMasterControlOptionValue(enabled bool) string {
+	if enabled {
+		return "true"
+	}
+	return "false"
+}
+
+// CopilotStoredTools parses the operator's stored tool list. Missing or invalid
+// values fall back to every known tool so an upgrade never silently disables
+// tools.
+func CopilotStoredTools() []string {
 	raw := CopilotOption(CopilotEnabledToolsOptionKey)
 	if raw == "" {
 		return append([]string(nil), CopilotToolNames...)
@@ -89,6 +109,15 @@ func CopilotEnabledTools() []string {
 	return NormalizeCopilotTools(tools)
 }
 
+// CopilotEnabledTools returns the tools the server will actually accept: the
+// whole catalog while the master control is on, otherwise the stored list.
+func CopilotEnabledTools() []string {
+	if CopilotMasterControl() {
+		return append([]string(nil), CopilotToolNames...)
+	}
+	return CopilotStoredTools()
+}
+
 // CopilotEnabledToolSet returns the enabled tools as a lookup set.
 func CopilotEnabledToolSet() map[string]struct{} {
 	tools := CopilotEnabledTools()
@@ -97,6 +126,20 @@ func CopilotEnabledToolSet() map[string]struct{} {
 		set[tool] = struct{}{}
 	}
 	return set
+}
+
+// CopilotToolEnabled reports whether one tool is granted right now. The master
+// control and the stored list are both consulted here so the middleware, the
+// chat runtime and the settings API cannot disagree.
+func CopilotToolEnabled(name string) bool {
+	if _, known := CopilotToolByName(name); !known {
+		return false
+	}
+	if CopilotMasterControl() {
+		return true
+	}
+	_, enabled := CopilotEnabledToolSet()[name]
+	return enabled
 }
 
 // CopilotVisibility returns the effective visibility mode.
@@ -187,6 +230,10 @@ func ValidateCopilotOption(key string, value string) error {
 		if value != CopilotVisibilityAll && value != CopilotVisibilityDashboardOnly {
 			return common.NewMessage("Copilot visibility must be all or dashboard_only")
 		}
+	case CopilotMasterControlOptionKey:
+		if value != "true" && value != "false" {
+			return common.NewMessage("Copilot master control must be true or false")
+		}
 	case CopilotEnabledToolsOptionKey:
 		var tools []string
 		if err := common.Unmarshal([]byte(value), &tools); err != nil {
@@ -197,4 +244,38 @@ func ValidateCopilotOption(key string, value string) error {
 		}
 	}
 	return nil
+}
+
+// CopilotPermissionMap renders a tool list as the tool -> granted map the
+// permissions API publishes. Every catalog tool appears, so a caller can read
+// "off" from a missing name without knowing the catalog.
+func CopilotPermissionMap(tools []string) map[string]bool {
+	granted := make(map[string]bool, len(CopilotToolNames))
+	for _, tool := range tools {
+		granted[tool] = true
+	}
+	permissions := make(map[string]bool, len(CopilotToolNames))
+	for _, tool := range CopilotToolNames {
+		permissions[tool] = granted[tool]
+	}
+	return permissions
+}
+
+// CopilotToolsFromPermissionMap turns a tool -> granted map back into the stored
+// list, in catalog order. A name the catalog does not know is refused rather
+// than ignored: silently dropping it would let a client believe it granted a
+// capability that does not exist.
+func CopilotToolsFromPermissionMap(permissions map[string]bool) ([]string, error) {
+	for name := range permissions {
+		if _, known := CopilotToolByName(name); !known {
+			return nil, common.NewMessage("unknown Copilot tool: " + name)
+		}
+	}
+	enabled := make([]string, 0, len(CopilotToolNames))
+	for _, tool := range CopilotToolNames {
+		if permissions[tool] {
+			enabled = append(enabled, tool)
+		}
+	}
+	return enabled, nil
 }

@@ -21,10 +21,14 @@ import (
 // copilotSettingsResponse is the sanitized view of the Copilot configuration.
 // The API key itself is never returned: admins only learn whether one is set.
 type copilotSettingsResponse struct {
-	BaseURL          string                `json:"base_url"`
-	Model            string                `json:"model"`
-	Stream           bool                  `json:"stream"`
-	EnabledTools     []string              `json:"enabled_tools"`
+	BaseURL      string   `json:"base_url"`
+	Model        string   `json:"model"`
+	Stream       bool     `json:"stream"`
+	EnabledTools []string `json:"enabled_tools"`
+	// MasterControl mirrors the switch at the top of the permissions page: it is
+	// on while the switch is on, or while every catalog tool is granted, so a
+	// single tool switched off always shows the master switch off too.
+	MasterControl    bool                  `json:"master_control"`
 	ToolCatalog      []setting.CopilotTool `json:"tool_catalog"`
 	Visibility       string                `json:"visibility"`
 	APIKeyConfigured bool                  `json:"api_key_configured"`
@@ -37,7 +41,10 @@ type updateCopilotSettingsRequest struct {
 	Model        string   `json:"model"`
 	Stream       *bool    `json:"stream"`
 	EnabledTools []string `json:"enabled_tools"`
-	Visibility   string   `json:"visibility"`
+	// MasterControl is the explicit state of the master switch. nil leaves it
+	// untouched, true grants every tool, false keeps only the listed tools.
+	MasterControl *bool  `json:"master_control"`
+	Visibility    string `json:"visibility"`
 }
 
 // copilotAPIKeyForBaseURL resolves the API key to use for baseURL. The stored
@@ -58,11 +65,14 @@ func copilotAPIKeyForBaseURL(baseURL string) (apiKey string, unbound bool) {
 }
 
 func currentCopilotSettings() copilotSettingsResponse {
+	enabledTools := setting.CopilotEnabledTools()
 	return copilotSettingsResponse{
 		BaseURL:      setting.CopilotOption(setting.CopilotBaseURLOptionKey),
 		Model:        setting.CopilotOption(setting.CopilotModelOptionKey),
 		Stream:       setting.CopilotStreamEnabled(),
-		EnabledTools: setting.CopilotEnabledTools(),
+		EnabledTools: enabledTools,
+		MasterControl: setting.CopilotMasterControl() ||
+			len(enabledTools) == len(setting.CopilotToolNames),
 		// The catalog travels with the settings so the console renders the
 		// permission matrix from the server's list instead of a second copy
 		// that could fall behind it.
@@ -127,15 +137,25 @@ func UpdateCopilotSettings(c *gin.Context) {
 	if request.Stream != nil {
 		values[setting.CopilotStreamOptionKey] = setting.CopilotStreamOptionValue(*request.Stream)
 	}
-	// An absent enabled_tools field means "leave the permissions alone"; only
-	// an explicit array (including an empty one) rewrites the tool set.
-	if request.EnabledTools != nil {
+	// The master switch is the coarse control: on grants the whole catalog, off
+	// keeps only the listed tools. Editing the individual switches (an
+	// enabled_tools array without master_control=true) turns the master switch
+	// off, which is the rule the settings page renders.
+	switch {
+	case request.MasterControl != nil && *request.MasterControl:
+		values[setting.CopilotMasterControlOptionKey] = setting.CopilotMasterControlOptionValue(true)
+		values[setting.CopilotEnabledToolsOptionKey] = setting.DefaultCopilotEnabledToolsJSON()
+	case request.EnabledTools != nil:
 		tools := setting.NormalizeCopilotTools(request.EnabledTools)
 		if len(tools) != len(dedupeStrings(request.EnabledTools)) {
 			common.ApiErrorMsg(c, "Copilot tools contain unknown tool names")
 			return
 		}
 		values[setting.CopilotEnabledToolsOptionKey] = setting.CopilotEnabledToolsToJSON(tools)
+		values[setting.CopilotMasterControlOptionKey] = setting.CopilotMasterControlOptionValue(false)
+	case request.MasterControl != nil:
+		// Explicitly switching the master off keeps the stored list as it is.
+		values[setting.CopilotMasterControlOptionKey] = setting.CopilotMasterControlOptionValue(false)
 	}
 	// The API key is bound to the base URL it was entered for. Saving a
 	// different base URL while a key is stored would hand the operator's
