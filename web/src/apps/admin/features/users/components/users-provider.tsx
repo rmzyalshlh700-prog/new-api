@@ -22,7 +22,7 @@ import {
   SecureVerificationDialog,
   useSecureVerification,
 } from '@/shared/features/auth/secure-verification'
-import useDialogState from '@/shared/hooks/use-dialog'
+import { useDialogState } from '@/shared/hooks/use-dialog'
 
 import type { User, UsersDialogType } from '../types'
 

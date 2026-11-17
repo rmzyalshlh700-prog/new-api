@@ -16,11 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { VChart } from '@visactor/react-vchart'
 import { PieChart } from 'lucide-react'
-import { useMemo } from 'react'
+import { Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { VChart } from '@/shared/lib/lazy-vchart'
 import { useChartTheme } from '@/shared/lib/use-chart-theme'
 import { VCHART_OPTION } from '@/shared/lib/vchart'
 
@@ -227,15 +227,17 @@ export function MarketShareSection(props: MarketShareSectionProps) {
       <div className='px-5 pb-5'>
         <div className='h-60 sm:h-72'>
           {themeReady && spec ? (
-            <VChart
-              key={`vendor-share-${resolvedTheme}-${props.period}`}
-              spec={{
-                ...spec,
-                theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-                background: 'transparent',
-              }}
-              option={VCHART_OPTION}
-            />
+            <Suspense fallback={null}>
+              <VChart
+                key={`vendor-share-${resolvedTheme}-${props.period}`}
+                spec={{
+                  ...spec,
+                  theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+                  background: 'transparent',
+                }}
+                option={VCHART_OPTION}
+              />
+            </Suspense>
           ) : (
             <div className='text-muted-foreground/80 flex h-full items-center justify-center text-xs'>
               {t('No history data available')}

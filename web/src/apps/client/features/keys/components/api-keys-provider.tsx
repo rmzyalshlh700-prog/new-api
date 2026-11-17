@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import useDialogState from '@/shared/hooks/use-dialog'
+import { useDialogState } from '@/shared/hooks/use-dialog'
 import { handleServerError } from '@/shared/lib/handle-server-error'
 
 import { fetchTokenKey, fetchTokenKeysBatch } from '../api'

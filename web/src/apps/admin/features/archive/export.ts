@@ -16,12 +16,28 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import * as XLSX from 'xlsx'
+import type * as XlsxNamespace from 'xlsx'
 
+import type { PaymentLogEntry } from '@/apps/admin/features/payment-logs/types'
 import { formatTimestampToDate } from '@/shared/lib/format'
 
 import type { ArchiveLog, ArchiveNewKeyEntry, DailyArchive } from './api'
-import type { PaymentLogEntry } from '@/apps/admin/features/payment-logs/types'
+
+type XlsxModule = typeof XlsxNamespace
+
+let xlsxLoader: Promise<XlsxModule> | null = null
+
+/**
+ * xlsx is ~900 kB and only needed once someone exports a report, so it is
+ * loaded on demand instead of sitting in the archive route's chunk.
+ */
+function loadXlsx(): Promise<XlsxModule> {
+  xlsxLoader ??= import('xlsx').then(
+    (module) =>
+      ((module as { default?: XlsxModule }).default ?? module) as XlsxModule
+  )
+  return xlsxLoader
+}
 
 export interface ArchiveExportData {
   date: string
@@ -46,13 +62,10 @@ function safeCell(value: string): string {
   return value
 }
 
-function aoaToSheet(rows: (string | number)[][]) {
-  const sheet = XLSX.utils.aoa_to_sheet(rows)
+function aoaToSheet(xlsx: XlsxModule, rows: (string | number)[][]) {
+  const sheet = xlsx.utils.aoa_to_sheet(rows)
   sheet['!cols'] = rows[0].map((_, i) => ({
-    wch: Math.max(
-      12,
-      ...rows.map((row) => String(row[i] ?? '').length + 2)
-    ),
+    wch: Math.max(12, ...rows.map((row) => String(row[i] ?? '').length + 2)),
   }))
   return sheet
 }
@@ -63,11 +76,14 @@ function aoaToSheet(rows: (string | number)[][]) {
  * fetched by the archive queries, so the file layout can stay presentation
  * quality (headers, formatting, column widths) without backend coupling.
  */
-export function buildArchiveWorkbook(data: ArchiveExportData): Blob {
+export async function buildArchiveWorkbook(
+  data: ArchiveExportData
+): Promise<Blob> {
+  const XLSX = await loadXlsx()
   const wb = XLSX.utils.book_new()
 
   const s = data.summary
-  aoaAddSheet(wb, 'Summary', [
+  aoaAddSheet(XLSX, wb, 'Summary', [
     ['Metric', 'Value'],
     ['Date', data.date],
     ['Revenue', s?.total_revenue ?? 0],
@@ -80,8 +96,18 @@ export function buildArchiveWorkbook(data: ArchiveExportData): Blob {
     ['Top-up Amount', s?.top_up_amount ?? 0],
   ])
 
-  aoaAddSheet(wb, 'Invoices', [
-    ['Trade No', 'User', 'User ID', 'Amount', 'Paid', 'Method', 'Provider', 'Status', 'Time'],
+  aoaAddSheet(XLSX, wb, 'Invoices', [
+    [
+      'Trade No',
+      'User',
+      'User ID',
+      'Amount',
+      'Paid',
+      'Method',
+      'Provider',
+      'Status',
+      'Time',
+    ],
     ...data.invoices.map((inv) => [
       safeCell(inv.trade_no),
       safeCell(inv.username || inv.user_email || `#${inv.user_id}`),
@@ -95,7 +121,7 @@ export function buildArchiveWorkbook(data: ArchiveExportData): Blob {
     ]),
   ])
 
-  aoaAddSheet(wb, 'New API Keys', [
+  aoaAddSheet(XLSX, wb, 'New API Keys', [
     ['Key Name', 'User', 'User ID', 'Creation Time'],
     ...data.newKeys.map((key) => [
       safeCell(key.name),
@@ -105,7 +131,7 @@ export function buildArchiveWorkbook(data: ArchiveExportData): Blob {
     ]),
   ])
 
-  aoaAddSheet(wb, 'Usage Logs', [
+  aoaAddSheet(XLSX, wb, 'Usage Logs', [
     ['Time', 'User', 'Model', 'Prompt Tokens', 'Completion Tokens', 'Quota'],
     ...data.logs.map((log) => [
       formatTimestampToDate(log.created_at),
@@ -123,6 +149,11 @@ export function buildArchiveWorkbook(data: ArchiveExportData): Blob {
   })
 }
 
-function aoaAddSheet(wb: XLSX.WorkBook, name: string, rows: (string | number)[][]) {
-  XLSX.utils.book_append_sheet(wb, aoaToSheet(rows), name)
+function aoaAddSheet(
+  XLSX: XlsxModule,
+  wb: XlsxNamespace.WorkBook,
+  name: string,
+  rows: (string | number)[][]
+) {
+  XLSX.utils.book_append_sheet(wb, aoaToSheet(XLSX, rows), name)
 }

@@ -17,16 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { VChart } from '@visactor/react-vchart'
 import { Users, Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconBadge } from '@/shared/components/ui/icon-badge'
-import { Skeleton } from '@/shared/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
-import { TitledCard } from '@/shared/components/ui/titled-card'
-import { useTheme } from '@/shared/context/theme-provider'
 import {
   TIME_GRANULARITY_OPTIONS,
   TIME_RANGE_PRESETS,
@@ -40,6 +41,12 @@ import type {
   ProcessedUserChartData,
   UserChartsFilters,
 } from '@/apps/client/features/dashboard/types'
+import { IconBadge } from '@/shared/components/ui/icon-badge'
+import { Skeleton } from '@/shared/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
+import { TitledCard } from '@/shared/components/ui/titled-card'
+import { useTheme } from '@/shared/context/theme-provider'
+import { VChart } from '@/shared/lib/lazy-vchart'
 import { requireServerSuccess } from '@/shared/lib/server-error-message'
 import { getRollingDateRange, type TimeGranularity } from '@/shared/lib/time'
 import { VCHART_OPTION } from '@/shared/lib/vchart'
@@ -253,15 +260,17 @@ export function UserCharts(props: UserChartsProps) {
                   ) : (
                     themeReady &&
                     spec && (
-                      <VChart
-                        key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}`}
-                        spec={{
-                          ...spec,
-                          theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-                          background: 'transparent',
-                        }}
-                        option={VCHART_OPTION}
-                      />
+                      <Suspense fallback={null}>
+                        <VChart
+                          key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}`}
+                          spec={{
+                            ...spec,
+                            theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+                            background: 'transparent',
+                          }}
+                          option={VCHART_OPTION}
+                        />
+                      </Suspense>
                     )
                   )}
                 </div>
