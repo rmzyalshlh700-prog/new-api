@@ -16,10 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+/**
+ * `shortLabel` is what the header shows beside the globe, so it stays native and
+ * compact: a reader recognises their own language without opening the menu.
+ */
 export const INTERFACE_LANGUAGE_OPTIONS = [
-  { code: 'en', label: 'English' },
-  { code: 'ru', label: 'Русский' },
-  { code: 'ar', label: 'العربية' },
+  { code: 'en', label: 'English', shortLabel: 'EN' },
+  { code: 'ru', label: 'Русский', shortLabel: 'RU' },
+  { code: 'ar', label: 'العربية', shortLabel: 'عربي' },
 ] as const
 
 export type InterfaceLanguageCode =

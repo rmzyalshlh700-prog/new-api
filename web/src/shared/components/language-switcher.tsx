@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Languages, Check } from 'lucide-react'
+import { Globe, Check } from 'lucide-react'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -40,6 +40,9 @@ export function LanguageSwitcher() {
   const { i18n, t } = useTranslation()
   const user = useAuthStore((s) => s.auth.user)
   const currentLanguage = normalizeInterfaceLanguage(i18n.language)
+  const currentShortLabel =
+    INTERFACE_LANGUAGE_OPTIONS.find((lang) => lang.code === currentLanguage)
+      ?.shortLabel ?? currentLanguage.toUpperCase()
   const handleChangeLanguage = useCallback(
     async (code: string) => {
       await changeInterfaceLanguage(code)
@@ -51,16 +54,29 @@ export function LanguageSwitcher() {
         }
       }
     },
-    [i18n, user]
+    [user]
   )
 
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
-        render={<Button variant='ghost' size='icon' className='h-9 w-9' />}
+        render={
+          <Button
+            variant='ghost'
+            className='text-muted-foreground h-9 gap-1 px-2'
+            aria-label={t('Change language')}
+            title={t('Change language')}
+          />
+        }
       >
-        <Languages className='size-[1.2rem]' />
-        <span className='sr-only'>{t('Change language')}</span>
+        <Globe className='size-[1.2rem]' />
+        {/*
+          The code is hidden on the narrowest headers, where the row is already
+          tight; the globe carries the meaning on its own there.
+        */}
+        <span className='hidden text-sm font-medium sm:inline'>
+          {currentShortLabel}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>
         {INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
