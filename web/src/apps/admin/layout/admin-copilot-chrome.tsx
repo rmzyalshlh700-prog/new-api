@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useChatContext, type WindowProps } from '@copilotkit/react-ui'
 import { Sparkles } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/shared/lib/utils'
@@ -55,6 +56,11 @@ const FAB_POSITION_STORAGE_KEY = 'admin-copilot-fab:position'
  * pixels, kept inside the viewport and remembered in `localStorage`, so the
  * launcher reopens where the operator put it. A drag never counts as a tap,
  * and a tap still opens the panel.
+ *
+ * The button is portalled to `document.body` so its `fixed` coordinates are
+ * measured against the viewport. Inside the library's popup wrapper — which is
+ * itself `position: fixed` and may grow a transform or `overflow` — the drag
+ * could otherwise be offset or clipped at the screen edges.
  */
 export function AdminCopilotFab() {
   const { t } = useTranslation()
@@ -77,7 +83,11 @@ export function AdminCopilotFab() {
     return null
   }
 
-  return (
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  return createPortal(
     <button
       ref={buttonRef}
       type='button'
@@ -107,7 +117,8 @@ export function AdminCopilotFab() {
       }}
     >
       <Sparkles className='size-5' aria-hidden='true' />
-    </button>
+    </button>,
+    document.body
   )
 }
 

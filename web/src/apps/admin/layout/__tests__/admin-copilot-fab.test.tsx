@@ -117,6 +117,15 @@ test('opens at the bottom corner of the reading direction with the smaller size'
   expect(topOf(fab)).toBe(DEFAULT_Y)
 })
 
+test('renders in a portal so its fixed coordinates follow the viewport', () => {
+  render(<AdminCopilotFab />)
+  const fab = getFab()
+
+  // Not inside the library's popup wrapper, which is itself `position: fixed`
+  // and could offset or clip a dragged button.
+  expect(fab.parentElement).toBe(document.body)
+})
+
 test('a press without movement still opens the chat', () => {
   render(<AdminCopilotFab />)
   const fab = getFab()
