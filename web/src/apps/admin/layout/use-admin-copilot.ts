@@ -7,6 +7,7 @@ import { api } from '@/shared/lib/http-client'
 import { getServerErrorMessage } from '@/shared/lib/server-error-message'
 import { useAuthStore } from '@/shared/stores/auth-store'
 
+import { useAdminCopilotConfirmations } from './use-admin-copilot-confirmations'
 import type { AdminCopilotToolName } from './admin-copilot-config'
 
 export interface FinancialSummary {
@@ -110,6 +111,10 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
     select: (state) => state.location.href,
   })
   const adminUser = useAuthStore((state) => state.auth.user)
+
+  // Destructive capabilities are confirmation cards, not chat questions: the
+  // operator approves the exact arguments on a card before anything is sent.
+  useAdminCopilotConfirmations()
 
   // The granted set is published to the agent as context, so it can say a
   // capability is switched off instead of quietly answering from memory. The
@@ -597,30 +602,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
   })
 
   useCopilotAction({
-    name: 'deleteChannel',
-    description: t(
-      'Delete a channel permanently. Ask the operator to confirm the channel name first; this cannot be undone from the console'
-    ),
-    parameters: [
-      {
-        name: 'id',
-        type: 'number',
-        description: 'Numeric channel id',
-        required: true,
-      },
-    ],
-    handler: async ({ id }) => {
-      if (!id) return { error: t('A channel id is required.') }
-      return loadCopilotTool(
-        api.delete<ApiEnvelope<unknown>>(
-          `/api/admin/copilot/tools/channels/${id}`
-        ),
-        t('Failed to delete the channel.')
-      )
-    },
-  })
-
-  useCopilotAction({
     name: 'listModels',
     description: t(
       'List every model the channels serve, with how many channels carry it, how many are enabled and which groups use it'
@@ -896,29 +877,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
   })
 
   useCopilotAction({
-    name: 'toggleMaintenanceMode',
-    description: t(
-      'Put the platform into maintenance mode, or take it out again. While it is on the console and the API are closed to everyone but the whitelist. Always confirm with the operator first'
-    ),
-    parameters: [
-      {
-        name: 'enabled',
-        type: 'boolean',
-        description: 'true enters maintenance mode, false leaves it',
-        required: true,
-      },
-    ],
-    handler: async ({ enabled }) =>
-      loadCopilotTool(
-        api.post<ApiEnvelope<unknown>>(
-          '/api/admin/copilot/tools/system/maintenance',
-          { enabled }
-        ),
-        t('Failed to change maintenance mode.')
-      ),
-  })
-
-  useCopilotAction({
     name: 'createUser',
     description: t(
       'Create a user account with a username, a password and a role. The password is written once and never read back. Confirm the username and role with the operator first'
@@ -961,39 +919,6 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
           role,
         }),
         t('Failed to create the user.')
-      )
-    },
-  })
-
-  useCopilotAction({
-    name: 'deductUserQuota',
-    description: t(
-      'Take credit away from a user balance. A deduction cannot be undone from the console, so confirm the user and the amount with the operator before calling this'
-    ),
-    parameters: [
-      {
-        name: 'id',
-        type: 'number',
-        description: 'Numeric user id',
-        required: true,
-      },
-      {
-        name: 'quota',
-        type: 'number',
-        description: 'Positive amount to deduct',
-        required: true,
-      },
-    ],
-    handler: async ({ id, quota }) => {
-      if (!id || !quota || quota <= 0) {
-        return { error: t('A user id and a positive amount are required.') }
-      }
-      return loadCopilotTool(
-        api.post<ApiEnvelope<unknown>>('/api/admin/copilot/tools/users/deduct', {
-          id,
-          quota,
-        }),
-        t('Failed to deduct the user quota.')
       )
     },
   })

@@ -20,7 +20,9 @@ import { Markdown, type AssistantMessageProps } from '@copilotkit/react-ui'
 import {
   CircleDashed,
   Copy,
+  Loader2,
   OctagonAlert,
+  RotateCcw,
   Sparkles,
   Table2,
   TriangleAlert,
@@ -29,12 +31,12 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { copyToClipboard } from '@/shared/lib/copy-to-clipboard'
 import {
   aiResponseMeta,
   formatAiAnswer,
   type AiResponseMeta,
 } from '@/shared/lib/ai-formatter'
+import { copyToClipboard } from '@/shared/lib/copy-to-clipboard'
 import { cn } from '@/shared/lib/utils'
 
 /**
@@ -95,17 +97,79 @@ export function AdminCopilotAnswer({ content }: { content: string }) {
 export function AdminCopilotAssistantMessage({
   message,
   isGenerating,
+  isLoading,
+  isCurrentMessage,
+  onRegenerate,
 }: AssistantMessageProps) {
   const { t } = useTranslation()
   const raw = typeof message?.content === 'string' ? message.content : ''
   // While the answer streams, formatting it on every token would rewrite the
   // ruler of a half-written table; the finished form is applied at the end.
   const content = isGenerating ? raw : formatAiAnswer(raw)
+  const toolCallCount = Array.isArray(message?.toolCalls)
+    ? message.toolCalls.length
+    : 0
+
+  if (content === '') {
+    // A turn that only asked for tools is not a reply: the tool card under it
+    // is what the operator is meant to read.
+    if (toolCallCount > 0) return null
+    if (isGenerating || isLoading) {
+      return (
+        <div
+          className='text-muted-foreground flex items-center gap-1.5 py-1 text-xs'
+          data-testid='copilot-thinking'
+        >
+          <Loader2 className='size-3.5 animate-spin' aria-hidden='true' />
+          {t('Thinking...')}
+        </div>
+      )
+    }
+    // A finished run with no text used to render an empty bubble, so a failed
+    // or truncated exchange looked like the assistant ignoring the question.
+    // Say it failed and offer the run again.
+    if (!isCurrentMessage) return null
+    return (
+      <div
+        className='border-destructive/40 bg-destructive/5 my-1 flex items-start gap-2 rounded-lg border px-3 py-2'
+        data-testid='copilot-empty-answer'
+        role='status'
+      >
+        <OctagonAlert
+          className='text-destructive mt-0.5 size-4 shrink-0'
+          aria-hidden='true'
+        />
+        <div className='min-w-0 flex-1'>
+          <p className='text-xs font-medium'>
+            {t('The assistant returned no text.')}
+          </p>
+          <p className='text-muted-foreground mt-0.5 text-[11px]'>
+            {t(
+              'The run ended without an answer, usually after a long tool chain. Retry it, or ask again in smaller steps.'
+            )}
+          </p>
+        </div>
+        {onRegenerate && (
+          <button
+            type='button'
+            className='border-border hover:bg-accent inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium'
+            onClick={onRegenerate}
+          >
+            <RotateCcw className='size-3' aria-hidden='true' />
+            {t('Retry')}
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
-    <div className='group/answer flex flex-col gap-1' data-testid='copilot-answer'>
+    <div
+      className='group/answer flex flex-col gap-1'
+      data-testid='copilot-answer'
+    >
       <AdminCopilotAnswer content={content} />
-      {content !== '' && (
+      {!isGenerating && (
         <button
           type='button'
           className='text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-[11px] opacity-0 transition-opacity group-hover/answer:opacity-100 focus-visible:opacity-100'
