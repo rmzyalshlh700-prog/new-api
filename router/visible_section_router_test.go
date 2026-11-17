@@ -49,7 +49,7 @@ func TestCreateUserPersistsVisibleSections(t *testing.T) {
 	adminToken := createSectionTestAdmin(t, "section-users-admin", []string{"users"})
 
 	response := sectionTestRequest(engine, http.MethodPost, "/api/user/", adminToken, `{
-		"username": "section-created-user",
+		"username": "sectioncreateduser",
 		"password": "section-password-123",
 		"display_name": "Section Created User",
 		"role": 1,
@@ -58,7 +58,7 @@ func TestCreateUserPersistsVisibleSections(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 
 	var created model.User
-	require.NoError(t, model.DB.Where("username = ?", "section-created-user").First(&created).Error)
+	require.NoError(t, model.DB.Where("username = ?", "sectioncreateduser").First(&created).Error)
 	assert.Equal(t, []string{"dashboard", "usage_logs"}, created.GetSetting().VisibleSections)
 }
 
