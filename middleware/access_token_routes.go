@@ -259,7 +259,10 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/data/flow/self":                   accessTokenScopeRule("usage:read"),
 	"GET /api/admin/profit_stats":               accessTokenScopeRule("log:read"),
 	"GET /api/admin/backup/export":              accessTokenScopeRule("ops:read"),
-	"GET /api/admin/metrics/live":               accessTokenScopeRule("dashboard:read"),
+	// The live OS metrics stream backs the dashboard overview, and the
+	// sibling /api/data/metrics reads the same data under log:read. dashboard is
+	// not a resource in the scope catalog, so no token could hold it.
+	"GET /api/admin/metrics/live": accessTokenScopeRule("log:read"),
 
 	// router/api-router.go: /api/admin/copilot
 	"GET /api/admin/copilot/chat/info": accessTokenScopeRule("user:read"),

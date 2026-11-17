@@ -152,7 +152,7 @@ func TestChannelNoticesFollowEachAdministratorsSwitch(t *testing.T) {
 		{"root-never-chose", common.RoleRootUser, common.UserStatusEnabled, nil, ""},
 		{"root-turned-off", common.RoleRootUser, common.UserStatusEnabled, &off, ""},
 		{"admin-never-chose", common.RoleAdminUser, common.UserStatusEnabled, nil, ""},
-		{"admin-turned-on", common.RoleAdminUser, common.UserStatusEnabled, &on, "zhCN"},
+		{"admin-turned-on", common.RoleAdminUser, common.UserStatusEnabled, &on, "ru"},
 		{"disabled-admin-turned-on", common.RoleAdminUser, common.UserStatusDisabled, &on, ""},
 		{"user-with-switch-stored-on", common.RoleCommonUser, common.UserStatusEnabled, &on, ""},
 	} {
@@ -182,10 +182,12 @@ func TestChannelNoticesFollowEachAdministratorsSwitch(t *testing.T) {
 			fmt.Sprintf(`%s Channel "notice-review" (#%d) has been enabled`, enabledType, channel.Id),
 			"channel_test Channel test completed",
 		},
+		// The administrator who chose a language gets it; Russian is one of the
+		// three locales the i18n layer ships (en, ar, ru).
 		"admin-turned-on": {
-			fmt.Sprintf("%s 通道「notice-review」（#%d）已被禁用", disabledType, channel.Id),
-			fmt.Sprintf("%s 通道「notice-review」（#%d）已被启用", enabledType, channel.Id),
-			"channel_test 通道测试完成",
+			fmt.Sprintf(`%s Канал "notice-review" (#%d) отключён`, disabledType, channel.Id),
+			fmt.Sprintf(`%s Канал "notice-review" (#%d) включён`, enabledType, channel.Id),
+			"channel_test Проверка канала завершена",
 		},
 	}, received)
 }
