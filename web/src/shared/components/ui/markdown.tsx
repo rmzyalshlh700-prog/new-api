@@ -193,8 +193,11 @@ let katexLoader: Promise<KatexModule> | null = null
  */
 function loadKatex(): Promise<KatexModule> {
   katexLoader ??= import('katex').then((module) => {
-    const resolved = ((module as { default?: KatexModule }).default ??
-      module) as KatexModule
+    // The dynamic import is either the namespace itself or a wrapper with a
+    // default export, depending on the bundle; both are valid module shapes
+    // here, so the default is read through an optional property.
+    const wrapper = module as unknown as { default?: KatexModule }
+    const resolved = wrapper.default ?? (module as unknown as KatexModule)
     katexModule = resolved
     return resolved
   })

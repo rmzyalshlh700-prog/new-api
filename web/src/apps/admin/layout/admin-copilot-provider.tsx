@@ -17,6 +17,7 @@ import {
   getFreshAuthHeaders,
 } from '@/shared/lib/auth-session'
 
+import { AdminCopilotAssistantMessage } from './admin-copilot-answer'
 import { AdminCopilotFab, AdminCopilotWindow } from './admin-copilot-chrome'
 import {
   ADMIN_COPILOT_DEFAULT_PATH,
@@ -177,6 +178,7 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
             defaultOpen={false}
             clickOutsideToClose
             hitEscapeToClose
+            AssistantMessage={AdminCopilotAssistantMessage}
             Button={AdminCopilotFab}
             Window={AdminCopilotWindow}
             Header={AdminCopilotHeader}

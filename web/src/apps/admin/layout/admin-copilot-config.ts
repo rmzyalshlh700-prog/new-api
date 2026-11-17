@@ -13,33 +13,46 @@ import { requireServerSuccess } from '@/shared/lib/server-error-message'
  * tells them which switches can change or destroy data.
  */
 export type AdminCopilotToolName =
-  | 'getFinancialSummary'
+  | 'getSystemHealth'
+  | 'readMonitoring'
+  | 'configureMonitoring'
+  | 'toggleMaintenanceMode'
   | 'lookupUser'
   | 'listUsers'
-  | 'adjustUserQuota'
+  | 'createUser'
   | 'setUserStatus'
+  | 'adjustUserQuota'
+  | 'deductUserQuota'
+  | 'getFinancialSummary'
+  | 'readPayments'
+  | 'updatePaymentGateway'
+  | 'updateGroupRatio'
+  | 'updateModelPricing'
   | 'listChannels'
   | 'getChannel'
   | 'createChannel'
   | 'updateChannel'
+  | 'setChannelKey'
   | 'setChannelStatus'
   | 'testChannel'
   | 'deleteChannel'
   | 'listModels'
   | 'setChannelModels'
   | 'searchLogs'
+  | 'exportLogs'
   | 'listRedemptions'
   | 'createRedemption'
-  | 'getSystemHealth'
+  | 'listAnnouncements'
+  | 'publishAnnouncement'
 
 export type AdminCopilotToolGroup =
-  | 'financials'
+  | 'system'
   | 'users'
+  | 'commercial'
   | 'channels'
   | 'models'
-  | 'logs'
-  | 'redemptions'
-  | 'system'
+  | 'data'
+  | 'notifications'
 
 export type AdminCopilotToolRisk = 'read' | 'write' | 'destructive'
 
@@ -60,21 +73,28 @@ export interface AdminCopilotToolGroupDefinition {
 export const ADMIN_COPILOT_TOOL_GROUPS: readonly AdminCopilotToolGroupDefinition[] =
   [
     {
-      key: 'financials',
-      labelKey: 'Financial summary',
-      descriptionKey: 'Revenue, cost and profit the platform reports.',
+      key: 'system',
+      labelKey: 'System and operations',
+      descriptionKey:
+        'Health, monitoring, maintenance mode and the platform switches that affect every user.',
     },
     {
       key: 'users',
-      labelKey: 'Users and balance',
+      labelKey: 'Users and authentication',
       descriptionKey:
-        'Finding users, reading their balance, adjusting quota and enabling or disabling accounts.',
+        'Finding users, creating accounts, enabling or disabling them, and adding to or deducting from their balance.',
+    },
+    {
+      key: 'commercial',
+      labelKey: 'Commercial and payments',
+      descriptionKey:
+        'Revenue and payment records, payment gateways, group ratios and model pricing.',
     },
     {
       key: 'channels',
-      labelKey: 'Channels',
+      labelKey: 'Channels and providers',
       descriptionKey:
-        'Listing, inspecting, creating, editing, testing, disabling and deleting upstream channels.',
+        'Listing, inspecting, creating, editing, testing, disabling and deleting upstream channels, and replacing a provider key.',
     },
     {
       key: 'models',
@@ -83,30 +103,51 @@ export const ADMIN_COPILOT_TOOL_GROUPS: readonly AdminCopilotToolGroupDefinition
         'The model catalogue and the models each channel offers.',
     },
     {
-      key: 'logs',
-      labelKey: 'Usage logs',
-      descriptionKey: 'Searching the usage log of past requests.',
+      key: 'data',
+      labelKey: 'Data and logs',
+      descriptionKey:
+        'Searching and exporting the usage log, and reading or generating top-up codes.',
     },
     {
-      key: 'redemptions',
-      labelKey: 'Redemption codes',
-      descriptionKey: 'Reading and generating top-up codes.',
-    },
-    {
-      key: 'system',
-      labelKey: 'System health',
-      descriptionKey: 'CPU, memory, load average and network throughput.',
+      key: 'notifications',
+      labelKey: 'Notifications',
+      descriptionKey:
+        'Reading and publishing console announcements.',
     },
   ]
 
 export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
   {
-    name: 'getFinancialSummary',
-    group: 'financials',
+    name: 'getSystemHealth',
+    group: 'system',
     risk: 'read',
-    labelKey: 'Allow Financial Analysis',
+    labelKey: 'Allow System Health Check',
     descriptionKey:
-      'Lets the copilot read today and this month revenue, cost and profit stats.',
+      'Lets the copilot read CPU, memory, load average and network throughput.',
+  },
+  {
+    name: 'readMonitoring',
+    group: 'system',
+    risk: 'read',
+    labelKey: 'Allow reading monitoring settings',
+    descriptionKey:
+      'Lets the copilot read the metrics collection settings: whether it is on, the flush interval, the bucket size and the retention days.',
+  },
+  {
+    name: 'configureMonitoring',
+    group: 'system',
+    risk: 'write',
+    labelKey: 'Allow changing monitoring settings',
+    descriptionKey:
+      'Lets the copilot change metrics collection settings. Only the monitoring options can be written, and the root account is required.',
+  },
+  {
+    name: 'toggleMaintenanceMode',
+    group: 'system',
+    risk: 'write',
+    labelKey: 'Allow toggling maintenance mode',
+    descriptionKey:
+      'Lets the copilot put the platform into maintenance mode and take it out again. While it is on, the console and the API are closed to everyone but the whitelist. The root account is required.',
   },
   {
     name: 'lookupUser',
@@ -125,12 +166,12 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
       'Lets the copilot page through the user list, filtered by keyword or group.',
   },
   {
-    name: 'adjustUserQuota',
+    name: 'createUser',
     group: 'users',
     risk: 'write',
-    labelKey: 'Allow adjusting user quota',
+    labelKey: 'Allow creating users',
     descriptionKey:
-      'Lets the copilot add to or subtract from a user balance. Every change is recorded in the audit log under the signed-in administrator.',
+      'Lets the copilot create an account with a username, a password and a role. Creating an administrator still needs the secure verification only the console can ask for.',
   },
   {
     name: 'setUserStatus',
@@ -139,6 +180,62 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
     labelKey: 'Allow enabling and disabling users',
     descriptionKey:
       'Lets the copilot disable or re-enable an account without deleting it.',
+  },
+  {
+    name: 'adjustUserQuota',
+    group: 'users',
+    risk: 'write',
+    labelKey: 'Allow adding to a user balance',
+    descriptionKey:
+      'Lets the copilot add credit to a user balance. Every change is recorded in the audit log under the signed-in administrator.',
+  },
+  {
+    name: 'deductUserQuota',
+    group: 'users',
+    risk: 'destructive',
+    labelKey: 'Allow deducting from a user balance',
+    descriptionKey:
+      'Lets the copilot take credit away from a user balance. A deduction cannot be undone from the console, so this switch asks for a confirmation first.',
+  },
+  {
+    name: 'getFinancialSummary',
+    group: 'commercial',
+    risk: 'read',
+    labelKey: 'Allow Financial Analysis',
+    descriptionKey:
+      'Lets the copilot read today and this month revenue, cost and profit stats.',
+  },
+  {
+    name: 'readPayments',
+    group: 'commercial',
+    risk: 'read',
+    labelKey: 'Allow reading payments',
+    descriptionKey:
+      'Lets the copilot page through the top-up and payment records with their trade numbers, amounts and state.',
+  },
+  {
+    name: 'updatePaymentGateway',
+    group: 'commercial',
+    risk: 'write',
+    labelKey: 'Allow changing payment gateways',
+    descriptionKey:
+      'Lets the copilot write payment gateway settings, including credentials. A credential is only ever written: the copilot never reads a stored key back. The root account is required.',
+  },
+  {
+    name: 'updateGroupRatio',
+    group: 'commercial',
+    risk: 'write',
+    labelKey: 'Allow changing group ratios',
+    descriptionKey:
+      'Lets the copilot merge new values into the group ratio table, which changes what every group is billed. The root account is required.',
+  },
+  {
+    name: 'updateModelPricing',
+    group: 'commercial',
+    risk: 'write',
+    labelKey: 'Allow changing model pricing',
+    descriptionKey:
+      'Lets the copilot merge new values into the model ratio, completion ratio and fixed price tables. The root account is required.',
   },
   {
     name: 'listChannels',
@@ -173,6 +270,14 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
       'Lets the copilot change fields of an existing channel, such as its name, base URL, models, priority or weight.',
   },
   {
+    name: 'setChannelKey',
+    group: 'channels',
+    risk: 'write',
+    labelKey: 'Allow replacing a provider key',
+    descriptionKey:
+      'Lets the copilot write a new upstream key for a channel. The key is write-only: the copilot never reads a stored key back, and it is never shown in a reply.',
+  },
+  {
     name: 'setChannelStatus',
     group: 'channels',
     risk: 'write',
@@ -194,7 +299,7 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
     risk: 'destructive',
     labelKey: 'Allow deleting channels',
     descriptionKey:
-      'Lets the copilot delete a channel. The channel and its configuration are removed and cannot be restored from the console.',
+      'Lets the copilot delete a channel. The channel and its configuration are removed and cannot be restored from the console, so this switch asks for a confirmation first.',
   },
   {
     name: 'listModels',
@@ -214,15 +319,23 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
   },
   {
     name: 'searchLogs',
-    group: 'logs',
+    group: 'data',
     risk: 'read',
     labelKey: 'Allow searching usage logs',
     descriptionKey:
       'Lets the copilot search past requests by user, model, channel, group or time range.',
   },
   {
+    name: 'exportLogs',
+    group: 'data',
+    risk: 'read',
+    labelKey: 'Allow exporting the usage log',
+    descriptionKey:
+      'Lets the copilot produce a CSV of the usage log for a filter, up to a bounded number of rows, for a report.',
+  },
+  {
     name: 'listRedemptions',
-    group: 'redemptions',
+    group: 'data',
     risk: 'read',
     labelKey: 'Allow listing redemption codes',
     descriptionKey:
@@ -230,24 +343,46 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
   },
   {
     name: 'createRedemption',
-    group: 'redemptions',
+    group: 'data',
     risk: 'write',
     labelKey: 'Allow generating redemption codes',
     descriptionKey:
-      'Lets the copilot generate top-up codes for a given quota and count.',
+      'Lets the copilot generate top-up codes for a given quota and count, up to 100 codes in one batch.',
   },
   {
-    name: 'getSystemHealth',
-    group: 'system',
+    name: 'listAnnouncements',
+    group: 'notifications',
     risk: 'read',
-    labelKey: 'Allow System Health Check',
+    labelKey: 'Allow reading announcements',
     descriptionKey:
-      'Lets the copilot read CPU, memory, load average and network throughput.',
+      'Lets the copilot read the announcements the console shows to users.',
+  },
+  {
+    name: 'publishAnnouncement',
+    group: 'notifications',
+    risk: 'write',
+    labelKey: 'Allow publishing announcements',
+    descriptionKey:
+      'Lets the copilot publish an announcement to the console, which every user sees.',
   },
 ]
 
 export const ALL_ADMIN_COPILOT_TOOLS: AdminCopilotToolName[] =
   ADMIN_COPILOT_TOOLS.map((tool) => tool.name)
+
+/**
+ * The master switch is on only while every capability is granted: switching a
+ * single tool off turns it off, which is the rule the permissions page renders
+ * and the state the server reports back.
+ */
+export function isAdminCopilotMasterControlOn(
+  tools: readonly AdminCopilotToolName[]
+): boolean {
+  return (
+    tools.length === ADMIN_COPILOT_TOOLS.length &&
+    ADMIN_COPILOT_TOOLS.every((tool) => tools.includes(tool.name))
+  )
+}
 
 /** Tools that only read platform data: a safe baseline for a new operator. */
 export const ADMIN_COPILOT_READ_ONLY_TOOLS: AdminCopilotToolName[] =
@@ -294,6 +429,7 @@ export interface AdminCopilotSettings {
   model: string
   stream: boolean
   enabled_tools: AdminCopilotToolName[]
+  master_control: boolean
   visibility: AdminCopilotVisibility
   api_key_configured: boolean
 }
@@ -304,7 +440,12 @@ export interface UpdateAdminCopilotSettingsRequest {
   clear_api_key?: boolean
   model: string
   stream?: boolean
-  enabled_tools: AdminCopilotToolName[]
+  /**
+   * The permission matrix is written through the dedicated
+   * `PUT /api/admin/copilot/permissions` endpoint, never through this one: two
+   * editors writing the same options from two places is how a grant silently
+   * disappears. Omitting it leaves the stored matrix untouched.
+   */
   visibility: AdminCopilotVisibility
 }
 
@@ -334,6 +475,7 @@ export const defaultAdminCopilotSettings: AdminCopilotSettings = {
   model: '',
   stream: false,
   enabled_tools: ALL_ADMIN_COPILOT_TOOLS,
+  master_control: true,
   visibility: 'all',
   api_key_configured: false,
 }
@@ -347,12 +489,18 @@ export function useAdminCopilotSettings() {
         '/api/admin/system-settings/copilot'
       )
       const result = requireServerSuccess(response.data)
+      const enabledTools = Array.isArray(result.data?.enabled_tools)
+        ? normalizeAdminCopilotTools(result.data.enabled_tools)
+        : ALL_ADMIN_COPILOT_TOOLS
       return {
         ...defaultAdminCopilotSettings,
         ...result.data,
-        enabled_tools: Array.isArray(result.data?.enabled_tools)
-          ? normalizeAdminCopilotTools(result.data.enabled_tools)
-          : ALL_ADMIN_COPILOT_TOOLS,
+        enabled_tools: enabledTools,
+        // The switch follows the granted set even when an older server does not
+        // send the field, so a single tool switched off never reads as "all".
+        master_control:
+          result.data?.master_control ??
+          isAdminCopilotMasterControlOn(enabledTools),
       }
     },
     staleTime: 60_000,
@@ -404,4 +552,80 @@ export async function fetchAdminCopilotModels(
     request
   )
   return requireServerSuccess(response.data).data ?? []
+}
+
+/**
+ * The permission matrix the server enforces.
+ *
+ * This is the shape of `GET /api/admin/copilot/permissions`: the master switch
+ * as the server holds it, a granted flag for every catalog tool, and the
+ * catalog itself with group and risk, so the page never carries a second copy
+ * of the schema that could fall behind the server.
+ */
+export interface AdminCopilotPermissions {
+  master_control: boolean
+  permissions: Record<string, boolean>
+  catalog: Array<{
+    name: string
+    group: string
+    risk: string
+  }>
+  groups: string[]
+}
+
+export interface UpdateAdminCopilotPermissionsRequest {
+  master_control?: boolean
+  permissions?: Record<string, boolean>
+}
+
+export const ADMIN_COPILOT_PERMISSIONS_QUERY_KEY = [
+  'admin-copilot-permissions',
+]
+
+/**
+ * Reads the matrix. The catalog comes back with it, so a tool the console does
+ * not know yet still gets a switch once its labels are translated.
+ */
+export function useAdminCopilotPermissions() {
+  return useQuery({
+    queryKey: ADMIN_COPILOT_PERMISSIONS_QUERY_KEY,
+    queryFn: async (): Promise<AdminCopilotPermissions> => {
+      const response = await api.get<ApiEnvelope<AdminCopilotPermissions>>(
+        '/api/admin/copilot/permissions'
+      )
+      const result = requireServerSuccess(response.data)
+      return {
+        master_control: Boolean(result.data?.master_control),
+        permissions: result.data?.permissions ?? {},
+        catalog: Array.isArray(result.data?.catalog) ? result.data.catalog : [],
+        groups: Array.isArray(result.data?.groups) ? result.data.groups : [],
+      }
+    },
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * Writes the matrix. The server validates every name against its catalog and
+ * answers with the state it stored, which is what the page renders afterwards,
+ * so the UI never drifts from what is actually enforced.
+ */
+export async function updateAdminCopilotPermissions(
+  request: UpdateAdminCopilotPermissionsRequest
+): Promise<AdminCopilotPermissions> {
+  const response = await api.put<ApiEnvelope<AdminCopilotPermissions>>(
+    '/api/admin/copilot/permissions',
+    request
+  )
+  return requireServerSuccess(response.data).data
+}
+
+/** Turns the granted map into the ordered list the switches bind to. */
+export function adminCopilotGrantedTools(
+  permissions: Record<string, boolean> | undefined
+): AdminCopilotToolName[] {
+  if (!permissions) return []
+  return ADMIN_COPILOT_TOOLS.filter((tool) => permissions[tool.name]).map(
+    (tool) => tool.name
+  )
 }

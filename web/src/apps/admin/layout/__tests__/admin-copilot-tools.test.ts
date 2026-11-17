@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ADMIN_COPILOT_DESTRUCTIVE_TOOLS,
   ADMIN_COPILOT_READ_ONLY_TOOLS,
   ADMIN_COPILOT_TOOL_GROUPS,
   ADMIN_COPILOT_TOOLS,
+  adminCopilotGrantedTools,
   adminCopilotToolsInGroup,
+  isAdminCopilotMasterControlOn,
   normalizeAdminCopilotTools,
 } from '../admin-copilot-config'
 
@@ -33,5 +36,31 @@ describe('admin copilot tool catalogue', () => {
     expect(
       normalizeAdminCopilotTools(['deleteChannel', 'notARealTool', 'listChannels'])
     ).toEqual(['listChannels', 'deleteChannel'])
+  })
+})
+
+describe('master control', () => {
+  it('is on only while every catalogue tool is granted', () => {
+    expect(isAdminCopilotMasterControlOn(ADMIN_COPILOT_TOOLS.map((t) => t.name))).toBe(
+      true
+    )
+    const oneOff = ADMIN_COPILOT_TOOLS.map((tool) => tool.name).filter(
+      (name) => name !== 'listChannels'
+    )
+    expect(isAdminCopilotMasterControlOn(oneOff)).toBe(false)
+    expect(isAdminCopilotMasterControlOn([])).toBe(false)
+  })
+
+  it('turns the granted map back into catalogue order', () => {
+    expect(
+      adminCopilotGrantedTools({ deleteChannel: true, listChannels: true })
+    ).toEqual(['listChannels', 'deleteChannel'])
+    expect(adminCopilotGrantedTools(undefined)).toEqual([])
+  })
+
+  it('keeps every destructive capability out of the read-only preset', () => {
+    for (const name of ADMIN_COPILOT_DESTRUCTIVE_TOOLS) {
+      expect(ADMIN_COPILOT_READ_ONLY_TOOLS).not.toContain(name)
+    }
   })
 })
