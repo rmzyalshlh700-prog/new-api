@@ -455,6 +455,13 @@ func SetApiRouter(router *gin.Engine) {
 		// The chat proxy spends platform credits on a paid upstream, so it carries
 		// its own per-admin budget on top of the global API limiter.
 		copilotRoute.POST("/chat", middleware.UserCriticalRateLimit("copilot"), controller.AdminCopilotChat)
+		// CopilotKit's REST transport — the one its client picks when the /info
+		// probe answers (it does) — addresses a single agent under the runtime
+		// URL. Without these the first message of a chat dies on a 404 and the
+		// panel shows the question with no reply at all.
+		copilotRoute.POST("/chat/agent/:agentId/run", middleware.UserCriticalRateLimit("copilot"), controller.AdminCopilotChat)
+		copilotRoute.POST("/chat/agent/:agentId/connect", controller.AdminCopilotChatAgentConnect)
+		copilotRoute.POST("/chat/agent/:agentId/stop/:threadId", controller.AdminCopilotChatAgentStop)
 		copilotRoute.POST("/fetch-models", middleware.RequireVisibleSection("system_settings"), controller.FetchCopilotModels)
 		// CopilotKit v1.87+ handshake probe before the first chat exchange.
 		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)

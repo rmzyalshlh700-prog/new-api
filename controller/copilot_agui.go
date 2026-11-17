@@ -397,3 +397,26 @@ func decodeCopilotToolCalls(raw jsonRaw) ([]dto.ToolCallResponse, error) {
 func readCopilotChatBody(c *gin.Context) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(c.Request.Body, 8<<20))
 }
+
+// AdminCopilotChatAgentConnect answers the REST transport's connect step
+// (POST {runtimeUrl}/agent/{agentId}/connect). This proxy keeps no thread state
+// of its own — the browser owns the transcript and sends it with every run — so
+// the stream carries no events and the console keeps the messages it already
+// has.
+func AdminCopilotChatAgentConnect(c *gin.Context) {
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	c.Writer.WriteHeader(http.StatusOK)
+	if flusher, ok := c.Writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// AdminCopilotChatAgentStop answers the REST transport's stop step. A run lives
+// inside the browser's own event stream, so letting go of that stream is the
+// stop; this route exists so the client does not collect a 404 for it.
+func AdminCopilotChatAgentStop(c *gin.Context) {
+	c.Status(http.StatusNoContent)
+}
