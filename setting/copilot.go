@@ -30,14 +30,6 @@ const (
 	CopilotVisibilityDashboardOnly = "dashboard_only"
 )
 
-// CopilotToolNames lists the frontend tools the admin Copilot can call. A tool
-// may only reach the model when it is enabled in the Copilot settings.
-var CopilotToolNames = []string{
-	"getFinancialSummary",
-	"lookupUser",
-	"getSystemHealth",
-}
-
 // DefaultCopilotEnabledToolsJSON is the default permission set: every tool is
 // enabled until an administrator narrows it down.
 func DefaultCopilotEnabledToolsJSON() string {

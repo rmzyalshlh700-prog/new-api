@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -8,6 +8,7 @@ import { ErrorState } from '@/shared/components/error-state'
 import { PasswordInput } from '@/shared/components/password-input'
 import { SettingsPageFormActions } from '@/shared/components/settings/settings-page-context'
 import { SettingsSection } from '@/shared/components/settings/settings-section'
+import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { Combobox } from '@/shared/components/ui/combobox'
 import { Input } from '@/shared/components/ui/input'
@@ -21,12 +22,17 @@ import { getServerErrorMessage } from '@/shared/lib/server-error-message'
 import {
   ADMIN_COPILOT_RUNTIME_QUERY_KEY,
   ADMIN_COPILOT_SETTINGS_QUERY_KEY,
+  ADMIN_COPILOT_TOOL_GROUPS,
   ADMIN_COPILOT_TOOLS,
+  ALL_ADMIN_COPILOT_TOOLS,
+  ADMIN_COPILOT_READ_ONLY_TOOLS,
+  adminCopilotToolsInGroup,
   fetchAdminCopilotModels,
   updateAdminCopilotSettings,
   useAdminCopilotSettings,
   type AdminCopilotSettings,
   type AdminCopilotToolName,
+  type AdminCopilotToolRisk,
   type AdminCopilotVisibility,
 } from '../../layout/admin-copilot-config'
 
@@ -131,6 +137,7 @@ export function CopilotSettings() {
   } = useAdminCopilotSettings()
   const [form, setForm] = useState<CopilotFormState | null>(null)
   const [models, setModels] = useState<string[]>([])
+  const [toolSearch, setToolSearch] = useState('')
 
   // Seed the form from the first successful load only. A refetch (window
   // focus, post-save invalidation) must never overwrite edits the admin has
@@ -230,6 +237,47 @@ export function CopilotSettings() {
         : current.enabled_tools.filter((item) => item !== tool)
       return { ...current, enabled_tools: next }
     })
+  }
+
+  // A whole area at once, for an operator who wants "channels and nothing
+  // else" without flipping every switch in it.
+  const setGroupEnabled = (
+    tools: readonly AdminCopilotToolName[],
+    enabled: boolean
+  ) => {
+    setForm((current) => {
+      if (!current) return current
+      const next = enabled
+        ? [...new Set([...current.enabled_tools, ...tools])]
+        : current.enabled_tools.filter((tool) => !tools.includes(tool))
+      return { ...current, enabled_tools: next }
+    })
+  }
+
+  // Presets: the read-only baseline, everything, or nothing at all.
+  const setTools = (tools: readonly AdminCopilotToolName[]) => {
+    setForm((current) =>
+      current ? { ...current, enabled_tools: [...new Set(tools)] } : current
+    )
+  }
+
+  const riskLabel = (risk: AdminCopilotToolRisk) => {
+    switch (risk) {
+      case 'read':
+        return t('Reads data')
+      case 'write':
+        return t('Changes data')
+      default:
+        return t('Deletes data')
+    }
+  }
+
+  const riskBadgeVariant = (
+    risk: AdminCopilotToolRisk
+  ): 'secondary' | 'warning' | 'destructive' => {
+    if (risk === 'write') return 'warning'
+    if (risk === 'destructive') return 'destructive'
+    return 'secondary'
   }
 
   return (
@@ -348,31 +396,124 @@ export function CopilotSettings() {
       <SettingsSection title={t('Tool Permissions')}>
         <p className='text-muted-foreground text-sm'>
           {t(
-            'Only enabled tools are sent to the model and can read admin data.'
+            'Choose exactly what the copilot may do. A tool you switch off is refused by the server, not only hidden from the model, and every change it makes is recorded in the audit log under your account.'
           )}
         </p>
-        <div className='flex flex-col divide-y rounded-lg border'>
-          {ADMIN_COPILOT_TOOLS.map((tool) => (
-            <div
-              key={tool.name}
-              className='flex items-start justify-between gap-4 p-4'
+
+        <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+          <Badge variant='secondary' className='w-fit'>
+            {t('{{enabled}} of {{total}} enabled', {
+              enabled: form.enabled_tools.length,
+              total: ADMIN_COPILOT_TOOLS.length,
+            })}
+          </Badge>
+          <div className='flex flex-wrap gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setTools(ADMIN_COPILOT_READ_ONLY_TOOLS)}
             >
-              <div className='flex flex-col gap-1'>
-                <Label htmlFor={`copilot-tool-${tool.name}`}>
-                  {t(tool.labelKey)}
-                </Label>
-                <p className='text-muted-foreground text-xs'>
-                  {t(tool.descriptionKey)}
-                </p>
-              </div>
-              <Switch
-                id={`copilot-tool-${tool.name}`}
-                checked={form.enabled_tools.includes(tool.name)}
-                onCheckedChange={(checked) => toggleTool(tool.name, checked)}
-              />
-            </div>
-          ))}
+              {t('Read only')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setTools(ALL_ADMIN_COPILOT_TOOLS)}
+            >
+              {t('Enable all')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setTools([])}
+            >
+              {t('Disable all')}
+            </Button>
+          </div>
         </div>
+
+        <div className='relative'>
+          <Search className='text-muted-foreground pointer-events-none absolute start-2.5 top-2.5 size-4' />
+          <Input
+            className='ps-8'
+            placeholder={t('Search tools...')}
+            value={toolSearch}
+            onChange={(event) => setToolSearch(event.target.value)}
+          />
+        </div>
+
+        {ADMIN_COPILOT_TOOL_GROUPS.map((group) => {
+          const groupTools = adminCopilotToolsInGroup(group.key).filter(
+            (tool) =>
+              `${t(tool.labelKey)} ${tool.name}`
+                .toLowerCase()
+                .includes(toolSearch.trim().toLowerCase())
+          )
+          if (groupTools.length === 0) return null
+          const enabledInGroup = groupTools.filter((tool) =>
+            form.enabled_tools.includes(tool.name)
+          ).length
+          return (
+            <div key={group.key} className='rounded-lg border'>
+              <div className='bg-muted/40 flex items-start justify-between gap-4 rounded-t-lg border-b p-4'>
+                <div className='flex flex-col gap-1'>
+                  <Label>{t(group.labelKey)}</Label>
+                  <p className='text-muted-foreground text-xs'>
+                    {t(group.descriptionKey)}
+                  </p>
+                  <p className='text-muted-foreground text-xs'>
+                    {t('{{enabled}} of {{total}} enabled', {
+                      enabled: enabledInGroup,
+                      total: groupTools.length,
+                    })}
+                  </p>
+                </div>
+                <Switch
+                  aria-label={t('Toggle every tool in this area')}
+                  checked={enabledInGroup === groupTools.length}
+                  onCheckedChange={(checked) =>
+                    setGroupEnabled(
+                      groupTools.map((tool) => tool.name),
+                      checked
+                    )
+                  }
+                />
+              </div>
+              <div className='divide-y'>
+                {groupTools.map((tool) => (
+                  <div
+                    key={tool.name}
+                    className='flex items-start justify-between gap-4 p-4'
+                  >
+                    <div className='flex flex-col gap-1'>
+                      <div className='flex flex-wrap items-center gap-2'>
+                        <Label htmlFor={`copilot-tool-${tool.name}`}>
+                          {t(tool.labelKey)}
+                        </Label>
+                        <Badge variant={riskBadgeVariant(tool.risk)}>
+                          {riskLabel(tool.risk)}
+                        </Badge>
+                      </div>
+                      <p className='text-muted-foreground text-xs'>
+                        {t(tool.descriptionKey)}
+                      </p>
+                    </div>
+                    <Switch
+                      id={`copilot-tool-${tool.name}`}
+                      checked={form.enabled_tools.includes(tool.name)}
+                      onCheckedChange={(checked) =>
+                        toggleTool(tool.name, checked)
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </SettingsSection>
 
       <SettingsSection title={t('Visibility')}>

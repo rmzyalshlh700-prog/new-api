@@ -335,14 +335,37 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	// router/api-router.go: /api/admin/copilot and /api/admin/system-settings/copilot.
 	// The chat proxy spends platform credits and reads across every section, so it
 	// needs the operations scope; the settings routes mirror the visible section.
-	"POST /api/admin/copilot/chat":            accessTokenScopeRule("ops:write"),
-	"POST /api/admin/copilot/fetch-models":    accessTokenScopeRule("option:read"),
-	"GET /api/admin/copilot/settings":         accessTokenScopeRule("option:read"),
-	"GET /api/admin/copilot/tools/financials": accessTokenScopeRule("billing:read"),
-	"GET /api/admin/copilot/tools/users":      accessTokenScopeRule("user:read"),
-	"GET /api/admin/copilot/tools/health":     accessTokenScopeRule("ops:read"),
-	"GET /api/admin/system-settings/copilot":  accessTokenScopeRule("option:read"),
-	"PUT /api/admin/system-settings/copilot":  accessTokenScopeRule("option:write"),
+	"POST /api/admin/copilot/chat": accessTokenScopeRule("ops:write"),
+	// CopilotKit's REST agent transport reaches the same chat proxy; without a
+	// rule the route was left undeclared and the coverage test caught it.
+	"POST /api/admin/copilot/chat/agent/:agentId/run":            accessTokenScopeRule("ops:write"),
+	"POST /api/admin/copilot/chat/agent/:agentId/connect":        accessTokenScopeRule("ops:write"),
+	"POST /api/admin/copilot/chat/agent/:agentId/stop/:threadId": accessTokenScopeRule("ops:write"),
+	"POST /api/admin/copilot/fetch-models":                       accessTokenScopeRule("option:read"),
+	"GET /api/admin/copilot/settings":                            accessTokenScopeRule("option:read"),
+	"GET /api/admin/copilot/tools/financials":                    accessTokenScopeRule("billing:read"),
+	"GET /api/admin/copilot/tools/users":                         accessTokenScopeRule("user:read"),
+	"GET /api/admin/copilot/tools/health":                        accessTokenScopeRule("ops:read"),
+	// Copilot tools that read or change the platform declare the same scope as
+	// the admin route they stand for, so a token cannot reach through the chat
+	// a capability its scopes do not grant.
+	"GET /api/admin/copilot/tools/users/list":           accessTokenScopeRule("user:read"),
+	"POST /api/admin/copilot/tools/users/quota":         accessTokenScopeRule("user:write"),
+	"POST /api/admin/copilot/tools/users/status":        accessTokenScopeRule("user:write"),
+	"GET /api/admin/copilot/tools/channels":             accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelRead)),
+	"GET /api/admin/copilot/tools/channels/:id":         accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelRead)),
+	"POST /api/admin/copilot/tools/channels":            accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelSensitiveWrite)),
+	"PUT /api/admin/copilot/tools/channels/:id":         accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelWrite)),
+	"PUT /api/admin/copilot/tools/channels/:id/models":  accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelWrite)),
+	"DELETE /api/admin/copilot/tools/channels/:id":      accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelSensitiveWrite)),
+	"POST /api/admin/copilot/tools/channels/:id/status": accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelOperate)),
+	"POST /api/admin/copilot/tools/channels/:id/test":   accessTokenScopeRule(service.AccessTokenScopeOf(authz.ChannelOperate)),
+	"GET /api/admin/copilot/tools/models":               accessTokenScopeRule("model:read"),
+	"GET /api/admin/copilot/tools/logs":                 accessTokenScopeRule("log:read"),
+	"GET /api/admin/copilot/tools/redemptions":          accessTokenScopeRule("redemption:read"),
+	"POST /api/admin/copilot/tools/redemptions":         accessTokenScopeRule("redemption:write"),
+	"GET /api/admin/system-settings/copilot":            accessTokenScopeRule("option:read"),
+	"PUT /api/admin/system-settings/copilot":            accessTokenScopeRule("option:write"),
 
 	// router/api-router.go: /api/admin/contact_links (AdminAuth + system_settings).
 	"GET /api/admin/contact_links/":       accessTokenScopeRule("option:read"),

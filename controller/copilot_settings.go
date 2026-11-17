@@ -21,12 +21,13 @@ import (
 // copilotSettingsResponse is the sanitized view of the Copilot configuration.
 // The API key itself is never returned: admins only learn whether one is set.
 type copilotSettingsResponse struct {
-	BaseURL          string   `json:"base_url"`
-	Model            string   `json:"model"`
-	Stream           bool     `json:"stream"`
-	EnabledTools     []string `json:"enabled_tools"`
-	Visibility       string   `json:"visibility"`
-	APIKeyConfigured bool     `json:"api_key_configured"`
+	BaseURL          string                `json:"base_url"`
+	Model            string                `json:"model"`
+	Stream           bool                  `json:"stream"`
+	EnabledTools     []string              `json:"enabled_tools"`
+	ToolCatalog      []setting.CopilotTool `json:"tool_catalog"`
+	Visibility       string                `json:"visibility"`
+	APIKeyConfigured bool                  `json:"api_key_configured"`
 }
 
 type updateCopilotSettingsRequest struct {
@@ -58,10 +59,14 @@ func copilotAPIKeyForBaseURL(baseURL string) (apiKey string, unbound bool) {
 
 func currentCopilotSettings() copilotSettingsResponse {
 	return copilotSettingsResponse{
-		BaseURL:          setting.CopilotOption(setting.CopilotBaseURLOptionKey),
-		Model:            setting.CopilotOption(setting.CopilotModelOptionKey),
-		Stream:           setting.CopilotStreamEnabled(),
-		EnabledTools:     setting.CopilotEnabledTools(),
+		BaseURL:      setting.CopilotOption(setting.CopilotBaseURLOptionKey),
+		Model:        setting.CopilotOption(setting.CopilotModelOptionKey),
+		Stream:       setting.CopilotStreamEnabled(),
+		EnabledTools: setting.CopilotEnabledTools(),
+		// The catalog travels with the settings so the console renders the
+		// permission matrix from the server's list instead of a second copy
+		// that could fall behind it.
+		ToolCatalog:      setting.CopilotToolCatalog,
 		Visibility:       setting.CopilotVisibility(),
 		APIKeyConfigured: setting.CopilotOption(setting.CopilotAPIKeyOptionKey) != "",
 	}

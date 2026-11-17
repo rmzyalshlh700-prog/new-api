@@ -6,6 +6,7 @@ import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/service/authz"
+	"github.com/QuantumNous/new-api/setting"
 
 	// Import oauth package to register providers via init()
 	_ "github.com/QuantumNous/new-api/oauth"
@@ -466,9 +467,33 @@ func SetApiRouter(router *gin.Engine) {
 		// CopilotKit v1.87+ handshake probe before the first chat exchange.
 		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)
 		copilotRoute.GET("/settings", controller.GetCopilotRuntimeSettings)
-		copilotRoute.GET("/tools/financials", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotFinancials)
-		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), controller.GetCopilotUsers)
-		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotHealth)
+		// Copilot tool endpoints. Each one is gated twice: by the admin section
+		// the tool reads, so a restricted administrator cannot reach data their
+		// console hides, and by the Copilot permission switch for that tool, so
+		// turning a capability off in the settings refuses it at the server.
+		copilotRoute.GET("/tools/financials", middleware.RequireVisibleSection("dashboard"), middleware.RequireCopilotTool(setting.CopilotToolGetFinancialSummary), controller.GetCopilotFinancials)
+		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), middleware.RequireCopilotTool(setting.CopilotToolGetSystemHealth), controller.GetCopilotHealth)
+
+		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolLookupUser), controller.GetCopilotUsers)
+		copilotRoute.GET("/tools/users/list", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolListUsers), controller.GetCopilotUserList)
+		copilotRoute.POST("/tools/users/quota", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolAdjustUserQuota), controller.AdjustCopilotUserQuota)
+		copilotRoute.POST("/tools/users/status", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolSetUserStatus), controller.SetCopilotUserStatus)
+
+		copilotRoute.GET("/tools/channels", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolListChannels), controller.GetCopilotChannelList)
+		copilotRoute.GET("/tools/channels/:id", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolGetChannel), controller.GetCopilotChannel)
+		copilotRoute.POST("/tools/channels", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolCreateChannel), controller.CreateCopilotChannel)
+		copilotRoute.PUT("/tools/channels/:id", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolUpdateChannel), controller.UpdateCopilotChannel)
+		copilotRoute.DELETE("/tools/channels/:id", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolDeleteChannel), controller.DeleteCopilotChannel)
+		copilotRoute.POST("/tools/channels/:id/status", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelStatus), controller.SetCopilotChannelStatus)
+		copilotRoute.POST("/tools/channels/:id/test", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolTestChannel), controller.TestCopilotChannel)
+		copilotRoute.PUT("/tools/channels/:id/models", middleware.RequireVisibleSection("models"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelModels), controller.SetCopilotChannelModels)
+
+		copilotRoute.GET("/tools/models", middleware.RequireVisibleSection("models"), middleware.RequireCopilotTool(setting.CopilotToolListModels), controller.GetCopilotModelList)
+
+		copilotRoute.GET("/tools/logs", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolSearchLogs), controller.GetCopilotLogs)
+
+		copilotRoute.GET("/tools/redemptions", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolListRedemptions), controller.GetCopilotRedemptions)
+		copilotRoute.POST("/tools/redemptions", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolCreateRedemption), controller.CreateCopilotRedemption)
 		copilotSettingsRoute := apiRouter.Group("/admin/system-settings/copilot")
 		copilotSettingsRoute.Use(middleware.AdminAuth())
 		copilotSettingsRoute.Use(middleware.RequireVisibleSection("system_settings"))
