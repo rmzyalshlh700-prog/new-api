@@ -23,20 +23,25 @@ import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/shared/lib/utils'
 
+import { useCopilotFabDrag } from './use-admin-copilot-fab-drag'
+
 export const ADMIN_COPILOT_WINDOW_ID = 'admin-copilot-window'
 
 const FAB_CLASS = 'admin-copilot-fab'
 const FAB_SELECTOR = `.${FAB_CLASS}`
+/** Rendered edge length of the launcher in CSS pixels (`size-12`). */
+const FAB_SIZE = 48
+const FAB_POSITION_STORAGE_KEY = 'admin-copilot-fab:position'
 
 /**
  * Floating toggle for the Admin Copilot.
  *
  * CopilotKit's own bubble is fixed to the bottom-right corner, which points at
- * the wrong side of the screen in Arabic. This button replaces it: the anchor
- * uses the logical `end` inset, so it sits bottom-right under `dir=ltr` and
- * bottom-left under `dir=rtl`, and it reads the chat's open state from the same
- * context the built-in button used, so click-outside, Escape and the panel's
- * own close button all stay in sync.
+ * the wrong side of the screen in Arabic. This button replaces it: it starts in
+ * the lower corner of the reading direction, so bottom-right under `dir=ltr`
+ * and bottom-left under `dir=rtl`, and it reads the chat's open state from the
+ * same context the built-in button used, so click-outside, Escape and the
+ * panel's own close button all stay in sync.
  *
  * `z-index` is high within the assistant layer, which itself sits above page
  * content and the sticky header (40) and below dialogs and sheets (50).
@@ -45,10 +50,28 @@ const FAB_SELECTOR = `.${FAB_CLASS}`
  * circle it landed on top of the composer — and on the send button in Arabic,
  * where `end` is the left edge — so closing now happens in the panel header,
  * with Escape and click-outside as the other ways out.
+ *
+ * It can be dragged anywhere on screen: the position is held in viewport
+ * pixels, kept inside the viewport and remembered in `localStorage`, so the
+ * launcher reopens where the operator put it. A drag never counts as a tap,
+ * and a tap still opens the panel.
  */
 export function AdminCopilotFab() {
   const { t } = useTranslation()
   const { open, setOpen } = useChatContext()
+  const {
+    buttonRef,
+    style: fabStyle,
+    dragging,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+    consumeDragClick,
+  } = useCopilotFabDrag({
+    size: FAB_SIZE,
+    storageKey: FAB_POSITION_STORAGE_KEY,
+  })
 
   if (open) {
     return null
@@ -56,20 +79,34 @@ export function AdminCopilotFab() {
 
   return (
     <button
+      ref={buttonRef}
       type='button'
+      style={fabStyle}
       className={cn(
         FAB_CLASS,
-        'fixed end-4 bottom-4 z-[9999] flex size-14 items-center justify-center',
+        'fixed z-[9999] flex size-12 touch-none items-center justify-center select-none',
         'rounded-full border border-border/60 bg-primary text-primary-foreground shadow-lg',
-        'transition-transform duration-200 hover:scale-105 active:scale-95',
+        dragging
+          ? 'scale-105 cursor-grabbing shadow-xl'
+          : 'cursor-grab transition-transform duration-200 hover:scale-105 active:scale-95',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
       )}
       aria-label={t('Open Admin Copilot')}
       aria-expanded={false}
       aria-controls={ADMIN_COPILOT_WINDOW_ID}
-      onClick={() => setOpen(true)}
+      title={t('Drag to move')}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onClick={() => {
+        // The click the browser fires at the end of a drag must not open the
+        // panel; only a real tap does.
+        if (consumeDragClick()) return
+        setOpen(true)
+      }}
     >
-      <Sparkles className='size-6' aria-hidden='true' />
+      <Sparkles className='size-5' aria-hidden='true' />
     </button>
   )
 }
