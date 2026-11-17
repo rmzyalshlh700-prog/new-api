@@ -561,14 +561,15 @@ func PublishCopilotAnnouncement(c *gin.Context) {
 	common.ApiSuccess(c, gin.H{"announcement": entry, "total": len(list)})
 }
 
-// DeleteCopilotUser serves the deleteUser tool.
+// DeleteCopilotUser serves the deleteUser tool as a soft delete.
 //
-// Deleting an account is the one user operation the console guards with a fresh
-// security proof (service.VerificationScopeAdminUserDelete), and a tool call
-// cannot produce one: the proof is entered by a person in the browser. The tool
-// therefore goes through the very same admin handler, which refuses the call
-// with that explanation, and never deletes on a weaker check. The operator
-// finishes the deletion from the users page, where the proof is asked for.
+// Hard deletion is the one user operation the console guards with a fresh
+// security proof (service.VerificationScopeAdminUserDelete) entered by a person
+// in the browser, and a tool call cannot produce one. The tool therefore does
+// what an operator means when they say "delete this account": it disables the
+// account and invalidates its access through the same admin handler the users
+// page uses. The row and its history are kept, so it can be re-enabled, and a
+// true erasure still finishes on the users page.
 func DeleteCopilotUser(c *gin.Context) {
 	var request struct {
 		ID int `json:"id"`
@@ -583,7 +584,207 @@ func DeleteCopilotUser(c *gin.Context) {
 	}
 	data, err := copilotCallAdminHandler(c, ManageUser, http.MethodPost, "/api/user/manage", gin.H{
 		"id":     request.ID,
-		"action": "delete",
+		"action": "disable",
 	}, nil)
 	copilotRespondData(c, data, err)
+}
+
+// UpdateCopilotRedemption serves the updateRedemption tool.
+//
+// A code that has already been redeemed cannot be edited into a different
+// value: the balance it granted is settled. The handler therefore edits only
+// what is still safe to change — name, quota while unused, expiry and status —
+// and reports the console handler's own refusal otherwise.
+func UpdateCopilotRedemption(c *gin.Context) {
+	var request struct {
+		ID          int    `json:"id"`
+		Name        string `json:"name"`
+		Quota       int    `json:"quota"`
+		ExpiredTime int64  `json:"expired_time"`
+		Status      *int   `json:"status"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorMsg(c, "Invalid request body")
+		return
+	}
+	if request.ID <= 0 {
+		common.ApiErrorMsg(c, "A redemption id is required")
+		return
+	}
+	existing, err := model.GetRedemptionById(request.ID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	patch := gin.H{"id": request.ID}
+	changes := 0
+	if name := strings.TrimSpace(request.Name); name != "" {
+		patch["name"] = name
+		changes++
+	}
+	if request.Quota > 0 {
+		patch["quota"] = request.Quota
+		changes++
+	}
+	if request.ExpiredTime > 0 {
+		patch["expired_time"] = request.ExpiredTime
+		changes++
+	}
+	if request.Status != nil {
+		// Only enabling and disabling: a status change must not invent a code.
+		switch *request.Status {
+		case common.RedemptionCodeStatusEnabled, common.RedemptionCodeStatusDisabled:
+			patch["status"] = *request.Status
+			changes++
+		default:
+			common.ApiErrorMsg(c, "status must be 1 (enabled) or 2 (disabled)")
+			return
+		}
+	}
+	if changes == 0 {
+		common.ApiErrorMsg(c, "Nothing to update: give a name, quota, expiry or status")
+		return
+	}
+	if request.Status == nil {
+		// The console handler rewrites the code's value unless the edit is
+		// declared status-only, which would mint a new key out of nothing.
+		patch["status"] = existing.Status
+	}
+	data, err := copilotCallAdminHandler(c, UpdateRedemption, http.MethodPut, "/api/redemption/", patch, nil)
+	copilotRespondData(c, data, err)
+}
+
+// copilotAnnouncementIndex reads the position from the route, falling back to
+// the body so a caller that sends no path parameter still works.
+func copilotAnnouncementIndex(c *gin.Context, fromBody int) int {
+	index, err := strconv.Atoi(c.Param("index"))
+	if err != nil {
+		return fromBody
+	}
+	return index
+}
+
+// UpdateCopilotAnnouncement serves the updateAnnouncement tool. Announcements
+// carry no id, so the operator addresses one by its position in the list the
+// listAnnouncements tool returned.
+func UpdateCopilotAnnouncement(c *gin.Context) {
+	var request struct {
+		Index       int    `json:"index"`
+		Content     string `json:"content"`
+		Type        string `json:"type"`
+		PublishDate string `json:"publish_date"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorMsg(c, "Invalid request body")
+		return
+	}
+	index := copilotAnnouncementIndex(c, request.Index)
+	list := console_setting.GetAnnouncements()
+	if index <= 0 || index > len(list) {
+		common.ApiErrorMsg(c, fmt.Sprintf("index must be between 1 and %d, as listAnnouncements returns them", len(list)))
+		return
+	}
+	entry := list[index-1]
+	changed := false
+	if content := strings.TrimSpace(request.Content); content != "" {
+		entry["content"] = content
+		changed = true
+	}
+	if kind := strings.TrimSpace(request.Type); kind != "" {
+		entry["type"] = kind
+		changed = true
+	}
+	if publishDate := strings.TrimSpace(request.PublishDate); publishDate != "" {
+		if _, err := time.Parse(time.RFC3339, publishDate); err != nil {
+			common.ApiErrorMsg(c, "publish_date must be an RFC3339 timestamp")
+			return
+		}
+		entry["publishDate"] = publishDate
+		changed = true
+	}
+	if !changed {
+		common.ApiErrorMsg(c, "Nothing to update: give a content, type or publish_date")
+		return
+	}
+	if err := copilotSaveAnnouncements(c, list); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"announcement": entry, "index": index, "total": len(list)})
+}
+
+// DeleteCopilotAnnouncement serves the deleteAnnouncement tool.
+func DeleteCopilotAnnouncement(c *gin.Context) {
+	var request struct {
+		Index int `json:"index"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorMsg(c, "Invalid request body")
+		return
+	}
+	index := copilotAnnouncementIndex(c, request.Index)
+	list := console_setting.GetAnnouncements()
+	if index <= 0 || index > len(list) {
+		common.ApiErrorMsg(c, fmt.Sprintf("index must be between 1 and %d, as listAnnouncements returns them", len(list)))
+		return
+	}
+	removed := list[index-1]
+	remaining := make([]map[string]any, 0, len(list)-1)
+	remaining = append(remaining, list[:index-1]...)
+	remaining = append(remaining, list[index:]...)
+	if err := copilotSaveAnnouncements(c, remaining); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"removed": removed, "total": len(remaining)})
+}
+
+// copilotSaveAnnouncements writes the list through the option handler, which
+// validates the whole list before it is stored.
+func copilotSaveAnnouncements(c *gin.Context, list []map[string]any) error {
+	encoded, err := common.Marshal(list)
+	if err != nil {
+		return err
+	}
+	return copilotUpdateOption(c, "console_setting.announcements", string(encoded))
+}
+
+// PurgeCopilotLogs serves the purgeLogs tool.
+//
+// A window is required rather than optional: "clear the logs" must name what it
+// clears, so a misheard word cannot empty the record of what the gateway billed.
+// Audit logs are never touched — they record who changed what, live in their own
+// table, and no tool may remove them.
+func PurgeCopilotLogs(c *gin.Context) {
+	if !copilotRequireRoot(c, "Clearing usage logs") {
+		return
+	}
+	var request struct {
+		StartTimestamp int64  `json:"start_timestamp"`
+		EndTimestamp   int64  `json:"end_timestamp"`
+		ModelName      string `json:"model_name"`
+		Username       string `json:"username"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorMsg(c, "Invalid request body")
+		return
+	}
+	if request.StartTimestamp <= 0 || request.EndTimestamp <= 0 {
+		common.ApiErrorMsg(c, "start_timestamp and end_timestamp are required, so the purge names the window it clears")
+		return
+	}
+	if request.EndTimestamp <= request.StartTimestamp {
+		common.ApiErrorMsg(c, "end_timestamp must be after start_timestamp")
+		return
+	}
+	deleted, err := model.DeleteLogsInWindow(request.StartTimestamp, request.EndTimestamp, strings.TrimSpace(request.ModelName), strings.TrimSpace(request.Username))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"deleted":         deleted,
+		"start_timestamp": request.StartTimestamp,
+		"end_timestamp":   request.EndTimestamp,
+	})
 }

@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 
@@ -101,6 +102,7 @@ func normalizeCopilotChatTurns(turns []CopilotChatTurn) []CopilotMessage {
 		if content == "" {
 			continue
 		}
+		content = redactCopilotSecrets(content)
 		if len(content) > CopilotChatContentLimit {
 			content = content[:CopilotChatContentLimit]
 		}
@@ -252,4 +254,36 @@ func DeleteCopilotChat(userId int, chatId int) error {
 		return tx.Where("id = ? AND user_id = ?", chatId, userId).
 			Delete(&CopilotChat{}).Error
 	})
+}
+
+// copilotSecretPatterns match the credentials an operator pastes into the chat
+// when they ask the assistant to configure a provider.
+//
+// The chat endpoint sends the transcript to the model provider, and this table
+// keeps it, so a key written in a sentence would otherwise be copied into a
+// stored conversation and shipped upstream a second time. The model still needs
+// the value to make the call — it arrives in the run that carries the request —
+// but the stored transcript keeps only the masked form.
+var copilotSecretPatterns = []*regexp.Regexp{
+	// Provider-prefixed keys: sk-…, sk_live_…, rk-…, AIza…, ghp_…, xoxb-…
+	regexp.MustCompile(`\b(?:sk|rk)[-_][A-Za-z0-9_-]{8,}`),
+	regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{20,}`),
+	regexp.MustCompile(`\b(?:ghp|gho|ghs|ghu|github_pat)_[A-Za-z0-9_]{16,}`),
+	regexp.MustCompile(`\bxox[baprs]-[A-Za-z0-9-]{10,}`),
+	// A labelled value: "key: …", "secret=…", "token …", "password …".
+	regexp.MustCompile(`(?i)\b(api[ _-]?key|secret|token|password|passwd)\b\s*[:=]\s*\S{8,}`),
+}
+
+// redactCopilotSecrets masks anything that looks like a credential.
+func redactCopilotSecrets(content string) string {
+	for _, pattern := range copilotSecretPatterns {
+		content = pattern.ReplaceAllStringFunc(content, func(match string) string {
+			// Keep the label so the sentence still reads, mask the value.
+			if index := strings.IndexAny(match, ":="); index > 0 {
+				return match[:index+1] + " [REDACTED]"
+			}
+			return "[REDACTED]"
+		})
+	}
+	return content
 }

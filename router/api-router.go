@@ -525,6 +525,13 @@ func SetApiRouter(router *gin.Engine) {
 		copilotRoute.PUT("/tools/channels/:id/key", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelKey), controller.SetCopilotChannelKey)
 		copilotRoute.GET("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolListAnnouncements), controller.ListCopilotAnnouncements)
 		copilotRoute.POST("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolPublishAnnouncement), controller.PublishCopilotAnnouncement)
+		copilotRoute.PUT("/tools/announcements/:index", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateAnnouncement), controller.UpdateCopilotAnnouncement)
+		copilotRoute.DELETE("/tools/announcements/:index", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolDeleteAnnouncement), controller.DeleteCopilotAnnouncement)
+		copilotRoute.PUT("/tools/redemptions/:id", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolUpdateRedemption), controller.UpdateCopilotRedemption)
+		// Clearing the usage log destroys the record of what was billed, so it
+		// is its own destructive capability and is refused unless the run names
+		// the window it clears.
+		copilotRoute.POST("/tools/logs/purge", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolPurgeLogs), controller.PurgeCopilotLogs)
 		copilotSettingsRoute := apiRouter.Group("/admin/system-settings/copilot")
 		copilotSettingsRoute.Use(middleware.AdminAuth())
 		copilotSettingsRoute.Use(middleware.RequireVisibleSection("system_settings"))

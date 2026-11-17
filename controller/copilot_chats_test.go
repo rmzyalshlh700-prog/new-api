@@ -129,3 +129,53 @@ func TestCopilotChatHistoryHidesAnotherAdminsChat(t *testing.T) {
 	require.NoError(t, json.Unmarshal(decodeCopilotChatEnvelope(t, listRecorder).Data, &chats))
 	assert.Empty(t, chats)
 }
+
+// TestPurgeCopilotLogsRequiresAWindow checks the guard that keeps a purge from
+// emptying the record of what the gateway billed: a request without both ends
+// of the window is refused before any row is touched.
+func TestPurgeCopilotLogsRequiresAWindow(t *testing.T) {
+	withCopilotChatTestDB(t)
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"no window", `{}`},
+		{"start only", `{"start_timestamp":1700000000}`},
+		{"backwards", `{"start_timestamp":1700000200,"end_timestamp":1700000100}`},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			c, recorder := copilotChatContext(t, http.MethodPost, "/api/admin/copilot/tools/logs/purge", testCase.body, 1)
+			PurgeCopilotLogs(c)
+			// This API reports a refusal in the envelope with a 200, so the
+			// envelope is what the console acts on.
+			assert.False(t, decodeCopilotChatEnvelope(t, recorder).Success)
+		})
+	}
+}
+
+// TestDeleteLogsInWindowLeavesAuditLogsAlone checks that the purge touches the
+// usage log table and nothing else.
+func TestDeleteLogsInWindowLeavesAuditLogsAlone(t *testing.T) {
+	withCopilotChatTestDB(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.Log{}, &model.AuditLog{}))
+
+	inside := model.Log{CreatedAt: 1700000100, ModelName: "gpt-4o", Username: "alice"}
+	outside := model.Log{CreatedAt: 1700000900, ModelName: "gpt-4o", Username: "alice"}
+	require.NoError(t, model.DB.Create(&inside).Error)
+	require.NoError(t, model.DB.Create(&outside).Error)
+	audit := model.AuditLog{EventId: "e1", CreatedAt: 1700000100, Action: "user.delete"}
+	require.NoError(t, model.DB.Create(&audit).Error)
+
+	deleted, err := model.DeleteLogsInWindow(1700000000, 1700000200, "", "")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
+
+	var remainingLogs int64
+	require.NoError(t, model.DB.Model(&model.Log{}).Count(&remainingLogs).Error)
+	assert.Equal(t, int64(1), remainingLogs, "only the row inside the window is removed")
+
+	var remainingAudits int64
+	require.NoError(t, model.DB.Model(&model.AuditLog{}).Count(&remainingAudits).Error)
+	assert.Equal(t, int64(1), remainingAudits, "audit logs are never touched")
+}

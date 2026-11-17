@@ -40,10 +40,14 @@ export type AdminCopilotToolName =
   | 'setChannelModels'
   | 'searchLogs'
   | 'exportLogs'
+  | 'purgeLogs'
   | 'listRedemptions'
   | 'createRedemption'
+  | 'updateRedemption'
   | 'listAnnouncements'
   | 'publishAnnouncement'
+  | 'updateAnnouncement'
+  | 'deleteAnnouncement'
 
 export type AdminCopilotToolGroup =
   | 'system'
@@ -350,6 +354,22 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
       'Lets the copilot generate top-up codes for a given quota and count, up to 100 codes in one batch.',
   },
   {
+    name: 'updateRedemption',
+    group: 'data',
+    risk: 'write',
+    labelKey: 'Allow editing redemption codes',
+    descriptionKey:
+      "Lets the copilot rename an existing code, change the quota it grants before it is used, change its expiry, or enable and disable it. A code that was already redeemed cannot be edited into a different one.",
+  },
+  {
+    name: 'purgeLogs',
+    group: 'data',
+    risk: 'destructive',
+    labelKey: 'Allow clearing usage logs',
+    descriptionKey:
+      'Lets the copilot delete usage log rows inside a time window it must name. The record of what the gateway billed is destroyed and cannot be restored from the console. Audit logs are never touched.',
+  },
+  {
     name: 'listAnnouncements',
     group: 'notifications',
     risk: 'read',
@@ -364,6 +384,22 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
     labelKey: 'Allow publishing announcements',
     descriptionKey:
       'Lets the copilot publish an announcement to the console, which every user sees.',
+  },
+  {
+    name: 'updateAnnouncement',
+    group: 'notifications',
+    risk: 'write',
+    labelKey: 'Allow editing announcements',
+    descriptionKey:
+      'Lets the copilot edit an announcement that is already published, such as correcting its text or extending its date.',
+  },
+  {
+    name: 'deleteAnnouncement',
+    group: 'notifications',
+    risk: 'destructive',
+    labelKey: 'Allow deleting announcements',
+    descriptionKey:
+      'Lets the copilot remove a published announcement from the console list.',
   },
 ]
 
