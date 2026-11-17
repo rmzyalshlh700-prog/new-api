@@ -40,7 +40,7 @@ func managementAdaptor(ctx context.Context, plugin *jsplugin.LoadedPlugin, info 
 	}
 	a.config = plugin.ChannelConfigFor(info.ChannelOtherSettings.PluginConfig)
 	if a.credential == nil && plugin.HasProviderHook("exchangeKey") {
-		token, err := service.PluginKeyToken(ctx, plugin, info.ChannelId, info.ApiKey, a.config, info.ChannelBaseUrl, info.ChannelSetting.Proxy)
+		token, err := service.PluginKeyToken(ctx, plugin, info.ChannelId, info.ApiKey, a.config, info.ChannelBaseUrl, info.ChannelSetting.Proxy, info.ChannelSetting.AllowPrivateNetwork)
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +53,7 @@ func managementAdaptor(ctx context.Context, plugin *jsplugin.LoadedPlugin, info 
 func (a *Adaptor) renewManagement(ctx context.Context, info *relaycommon.RelayInfo) error {
 	if a.credential == nil {
 		service.InvalidatePluginKeyToken(a.plugin, info.ChannelId, info.ApiKey, a.config, info.ChannelBaseUrl, a.token)
-		token, err := service.PluginKeyToken(ctx, a.plugin, info.ChannelId, info.ApiKey, a.config, info.ChannelBaseUrl, info.ChannelSetting.Proxy)
+		token, err := service.PluginKeyToken(ctx, a.plugin, info.ChannelId, info.ApiKey, a.config, info.ChannelBaseUrl, info.ChannelSetting.Proxy, info.ChannelSetting.AllowPrivateNetwork)
 		if err != nil {
 			return err
 		}

@@ -58,7 +58,13 @@ func (d *pinnedDialer) dial(ctx context.Context, network, address string) (net.C
 	if d.dialContext != nil {
 		return d.dialContext(ctx, network, address)
 	}
-	return d.dial(ctx, network, address)
+	// Fall back to the real dialer: the previous line called this function
+	// again, so a dialer built without dialContext recursed until the stack
+	// was exhausted.
+	if d.dialer == nil {
+		d.dialer = &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	}
+	return d.dialer.DialContext(ctx, network, address)
 }
 
 func (d *pinnedDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {

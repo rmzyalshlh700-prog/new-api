@@ -281,7 +281,7 @@ func registerProviderPlugin(t *testing.T, key, mode string) *jsplugin.LoadedPlug
 func createProviderChannel(t *testing.T, pluginKey, baseURL, key string, multiKey bool) *model.Channel {
 	t.Helper()
 	channel := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: common.SecretString(key), Status: common.ChannelStatusEnabled, Name: "provider", Models: "provider-model", Group: "default", BaseURL: &baseURL}
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey})
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey, AllowPrivateNetwork: true})
 	if multiKey {
 		channel.ChannelInfo = model.ChannelInfo{IsMultiKey: true, MultiKeySize: len(strings.Split(key, "\n")), MultiKeyMode: constant.MultiKeyModePolling}
 	}
@@ -672,7 +672,7 @@ export function revoke() { throw new Error("vendor said no"); }`, jsplugin.Optio
 	t.Cleanup(func() { require.NoError(t, jsplugin.DefaultRegistry.Unregister(plugin.Meta.Key)) })
 
 	assert.NotPanics(t, func() {
-		RevokePluginCredentials(plugin.Meta.Key, "https://api.example", "", 1, nil, []string{expiringLine(t, plugin.Meta.Key, "a", "a", 0)})
+		RevokePluginCredentials(plugin.Meta.Key, "https://api.example", "", 1, nil, []string{expiringLine(t, plugin.Meta.Key, "a", "a", 0)}, true)
 	})
 }
 
@@ -695,7 +695,7 @@ export function refresh(ctx) { utils.fetch({url: ctx.baseUrl + "/token", method:
 	t.Cleanup(func() { require.NoError(t, jsplugin.DefaultRegistry.Unregister("tls-verify")) })
 	line := expiringLine(t, "tls-verify", "r", "a", 1)
 	channel := createProviderChannel(t, "tls-verify", server.URL, line, false)
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "tls-verify", TLSInsecureSkipVerify: true})
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "tls-verify", TLSInsecureSkipVerify: true, AllowPrivateNetwork: true})
 	require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", channel.Id).Update("setting", channel.Setting).Error)
 
 	_, err = StartPluginLogin(context.Background(), PluginLoginIdentity{UserID: 1, SessionID: "session"}, channel.Id, nil, false)
@@ -1016,7 +1016,7 @@ func TestScheduledNextFailureAndIdleCost(t *testing.T) {
 	idle, err := jsplugin.DefaultRegistry.Register(`export const meta = {apiVersion:1,key:"scheduled-idle",name:"Idle",version:"1.0.0",author:{name:"Test"},relay:[{incoming_path:"/v1/models",upstream_path:"/models"}]}; export function prepareRequest() { throw new Error("JS must not run"); }`, jsplugin.Options{})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, jsplugin.DefaultRegistry.Unregister(idle.Meta.Key)) })
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: idle.Meta.Key})
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: idle.Meta.Key, AllowPrivateNetwork: true})
 	inactive := &pluginScheduler{}
 	inactive.scan([]*model.Channel{channel}, now)
 	inactive.disabled(channel, "own-key", now)
@@ -1115,7 +1115,7 @@ func TestScheduledCancellationAndTLSKeepStoredState(t *testing.T) {
 	tlsServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { requests.Add(1) }))
 	defer tlsServer.Close()
 	tlsChannel := createProviderChannel(t, plugin.Meta.Key, tlsServer.URL, "own-key", false)
-	tlsChannel.SetSetting(dto.ChannelSettings{TaskPluginKey: plugin.Meta.Key, TLSInsecureSkipVerify: true})
+	tlsChannel.SetSetting(dto.ChannelSettings{TaskPluginKey: plugin.Meta.Key, TLSInsecureSkipVerify: true, AllowPrivateNetwork: true})
 	require.NoError(t, model.DB.Model(tlsChannel).Update("setting", tlsChannel.Setting).Error)
 	_, _, _, err = runScheduledPlugin(context.Background(), tlsChannel, plugin, 0, tlsChannel.Key.String(), "timer")
 	require.Error(t, err)

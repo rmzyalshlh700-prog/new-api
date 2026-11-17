@@ -382,6 +382,13 @@ func migrateDB() error {
 		return err
 	}
 	dropLegacyQuotaDebtColumn(DB)
+	// A channel that already pointed at an internal upstream was reachable
+	// before the dial-time SSRF guard existed and stores no permission for it.
+	// Grant it before the gateway serves a request, or the upgrade takes those
+	// channels down; a failure is retried on the next start.
+	if err := backfillChannelPrivateNetworkPermission(DB); err != nil {
+		common.SysError(common.LogText("failed to backfill the internal network permission of internal channels: %s", err.Error()))
+	}
 	if err := InitializeUserAuthVersions(); err != nil {
 		return err
 	}

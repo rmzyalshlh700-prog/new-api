@@ -390,6 +390,12 @@ func TestChannelTLSInsecureSkipVerifyAcceptsUntrustedUpstream(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// The upstream is a loopback stub, and the dial-time SSRF guard
+			// refuses an internal literal address unless the channel is
+			// authorized for internal targets. The proxy cases reach it
+			// through the proxy, which resolves the target itself, so the
+			// permission changes nothing for them.
+			tc.settings.AllowPrivateNetwork = true
 			client, err := GetHttpClientWithProxySettings(tc.proxy, tc.settings)
 			require.NoError(t, err)
 			resp, err := client.Get(upstream.URL)
