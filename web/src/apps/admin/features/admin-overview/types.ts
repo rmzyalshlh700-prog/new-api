@@ -122,6 +122,10 @@ export interface DashboardMetrics {
   total_liabilities_quota: number
   active_visitors_today: number
   failed_requests_today: number
+  /** API keys (tokens) users created since the server's local midnight. */
+  api_keys_created_today: number
+  /** Every API key that still exists, including the ones created today. */
+  api_keys_total: number
 }
 
 /** One reporting window of `GET /api/admin/profit_stats`, in quota units. */

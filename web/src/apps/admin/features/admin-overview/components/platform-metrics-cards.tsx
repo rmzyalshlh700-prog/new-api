@@ -1,6 +1,7 @@
 import {
   Activity,
   AlertTriangle,
+  KeyRound,
   TrendingUp,
   Users,
 } from 'lucide-react'
@@ -56,7 +57,7 @@ export function PlatformMetricsCards(props: PlatformMetricsCardsProps) {
   const metrics = props.metrics
 
   return (
-    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4'>
+    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5'>
       <StatCardTile>
         <StatCard
           title={t('Total Registered Users')}
@@ -64,6 +65,22 @@ export function PlatformMetricsCards(props: PlatformMetricsCardsProps) {
           description={t('Registered users on the platform')}
           icon={Users}
           iconTone='chart-2'
+          loading={props.loading}
+        />
+      </StatCardTile>
+      <StatCardTile>
+        <StatCard
+          title={t('API Keys Created Today')}
+          value={metrics ? formatInteger(metrics.api_keys_created_today) : '—'}
+          description={
+            metrics
+              ? t('Total API keys: {{total}}', {
+                  total: formatInteger(metrics.api_keys_total),
+                })
+              : t('API keys users created today')
+          }
+          icon={KeyRound}
+          iconTone='chart-3'
           loading={props.loading}
         />
       </StatCardTile>
