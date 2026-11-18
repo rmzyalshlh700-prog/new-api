@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -57,19 +58,84 @@ type nowPaymentsMinAmount struct {
 	MinAmount float64 `json:"min_amount"`
 }
 
-// nowPaymentsIpnPayload is the NOWPayments IPN callback body.
+// nowPaymentsIpnPayload is the NOWPayments IPN callback body. PaymentId and
+// InvoiceId use the tolerant identifier types below: the gateway's own
+// GET /v1/payment/{id} response — which the IPN body mirrors — sends both as JSON
+// numbers, so declaring them as int64 and string respectively rejected the real
+// payload with "cannot unmarshal number into Go struct field … invoice_id of
+// type string" after the signature had already been accepted.
 type nowPaymentsIpnPayload struct {
-	PaymentId       int64           `json:"payment_id"`
-	PaymentStatus   string          `json:"payment_status"`
-	PayAmount       decimal.Decimal `json:"pay_amount"`
-	ActuallyPaid    decimal.Decimal `json:"actually_paid"`
-	PayCurrency     string          `json:"pay_currency"`
-	PriceAmount     decimal.Decimal `json:"price_amount"`
-	PriceCurrency   string          `json:"price_currency"`
-	OrderId         string          `json:"order_id"`
-	InvoiceId       string          `json:"invoice_id"`
-	OutcomeAmount   decimal.Decimal `json:"outcome_amount"`
-	OutcomeCurrency string          `json:"outcome_currency"`
+	PaymentId       nowPaymentsID       `json:"payment_id"`
+	PaymentStatus   string              `json:"payment_status"`
+	PayAmount       decimal.Decimal     `json:"pay_amount"`
+	ActuallyPaid    decimal.Decimal     `json:"actually_paid"`
+	PayCurrency     string              `json:"pay_currency"`
+	PriceAmount     decimal.Decimal     `json:"price_amount"`
+	PriceCurrency   string              `json:"price_currency"`
+	OrderId         string              `json:"order_id"`
+	InvoiceId       nowPaymentsIDString `json:"invoice_id"`
+	OutcomeAmount   decimal.Decimal     `json:"outcome_amount"`
+	OutcomeCurrency string              `json:"outcome_currency"`
+}
+
+// nowPaymentsID is a numeric NOWPayments identifier (payment_id). The gateway
+// sends it as a JSON number; a quoted number or an integral float is accepted
+// too, so a representation change on their side cannot turn an otherwise valid
+// callback into a 400 after the signature has been verified.
+type nowPaymentsID int64
+
+func (id *nowPaymentsID) UnmarshalJSON(raw []byte) error {
+	text := strings.Trim(strings.TrimSpace(string(raw)), `"`)
+	if text == "" || text == "null" {
+		*id = 0
+		return nil
+	}
+	if value, err := strconv.ParseInt(text, 10, 64); err == nil {
+		*id = nowPaymentsID(value)
+		return nil
+	}
+	// 5898863378.0 identifies the same payment as 5898863378; anything with a
+	// fractional part is not an identifier and is refused.
+	if value, err := strconv.ParseFloat(text, 64); err == nil && value == math.Trunc(value) && math.Abs(value) < 1<<53 {
+		*id = nowPaymentsID(int64(value))
+		return nil
+	}
+	return fmt.Errorf("invalid NOWPayments identifier %q", text)
+}
+
+func (id nowPaymentsID) Int64() int64 {
+	return int64(id)
+}
+
+// nowPaymentsIDString is a NOWPayments identifier the gateway sends as a JSON
+// number (invoice_id) but documents as a string. Unmarshalling it into a plain
+// string fails on the numeric form, so both representations are accepted.
+type nowPaymentsIDString string
+
+func (id *nowPaymentsIDString) UnmarshalJSON(raw []byte) error {
+	text := strings.TrimSpace(string(raw))
+	if text == "" || text == "null" {
+		*id = ""
+		return nil
+	}
+	if len(text) > 1 && text[0] == '"' && text[len(text)-1] == '"' {
+		var unquoted string
+		if err := common.Unmarshal(raw, &unquoted); err != nil {
+			return err
+		}
+		*id = nowPaymentsIDString(unquoted)
+		return nil
+	}
+	// A bare JSON number: keep the literal as sent, digits intact.
+	if _, err := strconv.ParseFloat(text, 64); err != nil {
+		return fmt.Errorf("invalid NOWPayments identifier %q", text)
+	}
+	*id = nowPaymentsIDString(text)
+	return nil
+}
+
+func (id nowPaymentsIDString) String() string {
+	return string(id)
 }
 
 func getNowPaymentsCreditedQuota(amount int64, group string) decimal.Decimal {

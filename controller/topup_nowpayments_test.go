@@ -131,6 +131,56 @@ func TestVerifyNowPaymentsSignature(t *testing.T) {
 	})
 }
 
+// TestNowPaymentsIpnPayloadIdentifiers pins the identifier decoding: the
+// gateway's payment body sends payment_id and invoice_id as JSON numbers, and
+// declaring either as a plain int64/string rejected the real payload after the
+// signature had already been accepted.
+func TestNowPaymentsIpnPayloadIdentifiers(t *testing.T) {
+	decode := func(t *testing.T, body string) nowPaymentsIpnPayload {
+		t.Helper()
+		var ipn nowPaymentsIpnPayload
+		require.NoError(t, common.Unmarshal([]byte(body), &ipn))
+		return ipn
+	}
+
+	t.Run("real payment body types decode", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":5898863378,"invoice_id":5829872928,"payment_status":"finished","pay_amount":1.0010351,"actually_paid":1.002,"order_id":"np_7a41","outcome_amount":0.94672379,"outcome_currency":"usdtbsc","payin_extra_id":null}`)
+		assert.Equal(t, int64(5898863378), ipn.PaymentId.Int64())
+		assert.Equal(t, "5829872928", ipn.InvoiceId.String())
+	})
+
+	t.Run("quoted payment_id decodes", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":"5898863378","payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, int64(5898863378), ipn.PaymentId.Int64())
+	})
+
+	t.Run("integral float payment_id decodes", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":5898863378.0,"payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, int64(5898863378), ipn.PaymentId.Int64())
+	})
+
+	t.Run("null identifiers decode to empty", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":null,"invoice_id":null,"payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, int64(0), ipn.PaymentId.Int64())
+		assert.Equal(t, "", ipn.InvoiceId.String())
+	})
+
+	t.Run("quoted invoice_id decodes", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":1,"invoice_id":"5829872928","payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, "5829872928", ipn.InvoiceId.String())
+	})
+
+	t.Run("fractional payment_id is refused", func(t *testing.T) {
+		var ipn nowPaymentsIpnPayload
+		assert.Error(t, common.Unmarshal([]byte(`{"payment_id":1.5,"order_id":"np_x"}`), &ipn))
+	})
+
+	t.Run("non-numeric payment_id is refused", func(t *testing.T) {
+		var ipn nowPaymentsIpnPayload
+		assert.Error(t, common.Unmarshal([]byte(`{"payment_id":"abc","order_id":"np_x"}`), &ipn))
+	})
+}
+
 // setupNowPaymentsWebhookDB backs the endpoint tests with an in-memory sqlite
 // database holding the tables the recharge path touches.
 func setupNowPaymentsWebhookDB(t *testing.T) *gorm.DB {
@@ -251,6 +301,28 @@ func TestNowPaymentsWebhookEndpoint(t *testing.T) {
 		require.NotNil(t, topUp)
 		assert.Equal(t, common.TopUpStatusSuccess, topUp.Status)
 		assert.Equal(t, int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 20))
+	})
+
+	t.Run("full real-shaped body settles the order", func(t *testing.T) {
+		// Everything GET /v1/payment/{id} returns, as the IPN body mirrors it:
+		// numeric invoice_id and purchase_id, a null payin_extra_id, and decimal
+		// amounts. This shape used to fail unmarshalling with a 400.
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 27, "np_order_realbody", 1)
+		payload := `{"actually_paid":1.002,"invoice_id":5829872928,"order_description":"TUC1","order_id":"np_order_realbody","outcome_amount":0.94672379,"outcome_currency":"usdtbsc","pay_address":"0xDc1b5AeE1908d46F18a85F80d7f422D4941A21fa","pay_amount":1.0010351,"pay_currency":"usdtbsc","payin_extra_id":null,"payment_id":13,"payment_status":"finished","price_amount":1,"price_currency":"usd","purchase_id":4982370482}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 27))
+		assert.Equal(t, common.TopUpStatusSuccess, model.GetTopUpByTradeNo("np_order_realbody").Status)
+	})
+
+	t.Run("quoted payment_id settles the order", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 28, "np_order_quoted_id", 1)
+		payload := `{"actually_paid":1,"order_id":"np_order_quoted_id","pay_amount":1,"payment_id":"5898863378","payment_status":"finished"}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 28))
 	})
 
 	t.Run("payload with a null field settles normally", func(t *testing.T) {
