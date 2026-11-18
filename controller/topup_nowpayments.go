@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
@@ -376,6 +377,143 @@ func RequestNowPaymentsPay(c *gin.Context) {
 	nowPaymentsAdaptor.RequestPay(c, &req)
 }
 
+// nowPaymentsWebhookDebugEnv turns on the verbose request dump for the IPN
+// endpoint. It is off by default: a full dump carries the customer's pay_address,
+// payment hashes and every header the edge forwarded, which does not belong in a
+// production log. NOWPAYMENTS_WEBHOOK_DEBUG=1 enables it while diagnosing.
+const nowPaymentsWebhookDebugEnv = "NOWPAYMENTS_WEBHOOK_DEBUG"
+
+// nowPaymentsSensitiveHeaders are never logged, even in debug mode: they carry
+// credentials rather than transport metadata.
+var nowPaymentsSensitiveHeaders = []string{"cookie", "authorization", "proxy-authorization", "set-cookie", "x-api-key", "cf-access-jwt-assertion"}
+
+// nowPaymentsSignatureFromRequest reads the IPN signature header. Go's
+// http.Header.Get already matches the name case-insensitively (the server
+// canonicalises header names, so X-NOWPAYMENTS-SIG, x-nowpayments-sig and
+// X-NowPayments-Sig all resolve), but a proxy or WAF in front of the app may
+// rewrite the dashes as underscores, which canonicalisation does not cover. The
+// fallback scan normalises case and -/_ before comparing so a rewritten header
+// still verifies.
+func nowPaymentsSignatureFromRequest(c *gin.Context) (signature string, headerName string) {
+	if value := strings.TrimSpace(c.GetHeader(nowPaymentsIpnSignatureHeader)); value != "" {
+		return value, nowPaymentsIpnSignatureHeader
+	}
+	wanted := strings.ReplaceAll(nowPaymentsIpnSignatureHeader, "-", "_")
+	for name, values := range c.Request.Header {
+		normalised := strings.ReplaceAll(strings.ToLower(name), "-", "_")
+		if normalised != wanted {
+			continue
+		}
+		for _, value := range values {
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed, name
+			}
+		}
+	}
+	return "", ""
+}
+
+// redactHeaderValue keeps a header's first characters so an operator can match it
+// against a gateway dashboard without the value being usable as a credential.
+func redactHeaderValue(value string) string {
+	if len(value) <= 8 {
+		return "[REDACTED]"
+	}
+	return value[:8] + "…"
+}
+
+// nowPaymentsWebhookHeaderDump renders the request headers for the diagnostic
+// log, redacting credential-bearing ones.
+func nowPaymentsWebhookHeaderDump(c *gin.Context) string {
+	names := make([]string, 0, len(c.Request.Header))
+	for name := range c.Request.Header {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var builder strings.Builder
+	for _, name := range names {
+		value := strings.Join(c.Request.Header.Values(name), ", ")
+		lowered := strings.ToLower(name)
+		for _, sensitive := range nowPaymentsSensitiveHeaders {
+			if lowered == sensitive {
+				value = "[REDACTED]"
+				break
+			}
+		}
+		if builder.Len() > 0 {
+			builder.WriteString("; ")
+		}
+		builder.WriteString(name)
+		builder.WriteString("=")
+		builder.WriteString(value)
+	}
+	return builder.String()
+}
+
+// logNowPaymentsWebhookRequest writes one line per IPN request: the transport
+// facts that decide whether a callback can be verified at all, plus a fingerprint
+// of the body so a rejected request can be diffed against a local re-sign. Richer
+// detail (header dump, body) is written only when NOWPAYMENTS_WEBHOOK_DEBUG is set.
+func logNowPaymentsWebhookRequest(ctx context.Context, c *gin.Context, payload []byte) {
+	sum := sha256.Sum256(payload)
+	debug := common.GetEnvOrDefaultBool(nowPaymentsWebhookDebugEnv, false)
+	logger.LogInfo(ctx, common.LogText(
+		"NOWPayments webhook received method=%s path=%q client_ip=%s ua=%q content_type=%q content_length=%d body_len=%d body_sha256=%x sig_present=%t",
+		c.Request.Method, c.Request.RequestURI, c.ClientIP(), c.Request.UserAgent(),
+		c.GetHeader("Content-Type"), c.Request.ContentLength, len(payload), sum[:8], c.GetHeader(nowPaymentsIpnSignatureHeader) != ""))
+	if !debug {
+		return
+	}
+	logger.LogInfo(ctx, common.LogText("NOWPayments webhook debug headers=%q body=%q", nowPaymentsWebhookHeaderDump(c), truncateForLog(string(payload), 4096)))
+}
+
+// truncateForLog bounds a diagnostic value so one oversized body cannot flood the
+// log sink.
+func truncateForLog(value string, limit int) string {
+	if len(value) <= limit {
+		return value
+	}
+	return value[:limit] + "…(truncated)"
+}
+
+// nowPaymentsWebhookExpectedSignature is used only on the failure path, to log
+// what we computed next to what arrived. It returns "" when the body cannot be
+// canonicalised.
+func nowPaymentsWebhookExpectedSignature(payload []byte, secret string) string {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return ""
+	}
+	preimage, err := nowPaymentsSignaturePreimage(payload)
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(nowPaymentsHmacSha512(secret, preimage))
+}
+
+// nowPaymentsStoredIpnSecret reads the IPN secret straight from the options table.
+// The in-memory copy is refreshed every minute by the option sync task, so a
+// secret rotated in the database can be up to that stale; the webhook failure path
+// re-reads it once before rejecting a callback.
+func nowPaymentsStoredIpnSecret() (string, bool) {
+	// A webhook must never panic because the main database is unavailable
+	// (startup, an outage, or a unit test with no database): fall back to the
+	// in-memory option instead.
+	if model.DB == nil {
+		return "", false
+	}
+	options, err := model.AllOption()
+	if err != nil {
+		return "", false
+	}
+	for _, option := range options {
+		if option != nil && option.Key == "NowPaymentsIpnSecret" {
+			return option.Value, true
+		}
+	}
+	return "", true
+}
+
 // NowPaymentsWebhook handles the NOWPayments IPN callback. The signature in the
 // x-nowpayments-sig header must be a valid HMAC-SHA512, keyed by the saved IPN
 // secret, over the deep-key-sorted JSON encoding of the body; anything else is
@@ -400,11 +538,39 @@ func NowPaymentsWebhook(c *gin.Context) {
 		return
 	}
 
-	signature := c.GetHeader(nowPaymentsIpnSignatureHeader)
-	logger.LogInfo(ctx, common.LogText("NOWPayments webhook received request path=%q client_ip=%s content_length=%d signature_present=%t", c.Request.RequestURI, c.ClientIP(), len(payload), signature != ""))
+	signature, signatureHeader := nowPaymentsSignatureFromRequest(c)
+	logNowPaymentsWebhookRequest(ctx, c, payload)
 
-	if !VerifyNowPaymentsSignature(payload, signature, setting.NowPaymentsIpnSecret) {
-		logger.LogWarn(ctx, common.LogText("NOWPayments webhook signature verification failed path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
+	ipnSecret := setting.NowPaymentsIpnSecret
+	verified := VerifyNowPaymentsSignature(payload, signature, ipnSecret)
+	if !verified && signature != "" {
+		// Only the failure path pays for a database read: the in-memory option is
+		// refreshed once a minute, so a secret that was just rotated in the
+		// database would otherwise reject a perfectly valid callback until the
+		// next sync.
+		if storedSecret, found := nowPaymentsStoredIpnSecret(); found && storedSecret != ipnSecret {
+			if VerifyNowPaymentsSignature(payload, signature, storedSecret) {
+				logger.LogWarn(ctx, common.LogText("NOWPayments webhook verified with the freshly loaded ipn secret; the in-memory option was stale path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
+				ipnSecret = storedSecret
+				verified = true
+			} else {
+				logger.LogWarn(ctx, common.LogText("NOWPayments webhook ipn secret differs between memory and database, and neither verifies path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
+			}
+		}
+	}
+
+	if !verified {
+		expected := nowPaymentsWebhookExpectedSignature(payload, ipnSecret)
+		debug := common.GetEnvOrDefaultBool(nowPaymentsWebhookDebugEnv, false)
+		if signature == "" {
+			// A missing signature is a transport problem, not a secret mismatch:
+			// log which header carried it (if any) and what actually arrived.
+			logger.LogWarn(ctx, common.LogText("NOWPayments webhook rejected reason=missing_signature path=%q client_ip=%s expected_header=%q headers=%q", c.Request.RequestURI, c.ClientIP(), nowPaymentsIpnSignatureHeader, nowPaymentsWebhookHeaderDump(c)))
+		} else if debug {
+			logger.LogWarn(ctx, common.LogText("NOWPayments webhook signature verification failed path=%q client_ip=%s header=%q received=%s expected=%s body=%q", c.Request.RequestURI, c.ClientIP(), signatureHeader, signature, expected, truncateForLog(string(payload), 4096)))
+		} else {
+			logger.LogWarn(ctx, common.LogText("NOWPayments webhook signature verification failed path=%q client_ip=%s header=%q received_prefix=%s received_len=%d expected_prefix=%s expected_len=%d", c.Request.RequestURI, c.ClientIP(), signatureHeader, redactHeaderValue(signature), len(signature), redactHeaderValue(expected), len(expected)))
+		}
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}

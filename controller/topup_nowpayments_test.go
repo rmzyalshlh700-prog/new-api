@@ -485,3 +485,82 @@ func TestNowPaymentsWebhookEnabled(t *testing.T) {
 	setting.NowPaymentsIpnSecret = ""
 	assert.False(t, isNowPaymentsTopUpEnabled())
 }
+
+// TestNowPaymentsSignatureHeaderVariants pins the header handling: Go
+// canonicalises header names, so any casing works, but a proxy that rewrites the
+// dashes as underscores must not turn a valid callback into a 401.
+func TestNowPaymentsSignatureHeaderVariants(t *testing.T) {
+	originalApiKey := setting.NowPaymentsApiKey
+	originalIpnSecret := setting.NowPaymentsIpnSecret
+	confirmPaymentComplianceForTest(t)
+	t.Cleanup(func() {
+		setting.NowPaymentsApiKey = originalApiKey
+		setting.NowPaymentsIpnSecret = originalIpnSecret
+	})
+	setting.NowPaymentsApiKey = "test-api-key"
+	setting.NowPaymentsIpnSecret = nowPaymentsSDKSecret
+	// A verified callback proceeds to reconciliation, which needs the database.
+	// No order is inserted, so it ends in the logged "order not found" path.
+	setupNowPaymentsWebhookDB(t)
+
+	payload := `{"actually_paid":1,"order_id":"np_hdr","pay_amount":1,"payment_id":1,"payment_status":"finished"}`
+	signature := signCanonicalPayload(t, nowPaymentsSDKSecret, payload)
+
+	post := func(t *testing.T, headerName string) *httptest.ResponseRecorder {
+		t.Helper()
+		gin.SetMode(gin.TestMode)
+		router := gin.New()
+		router.POST("/api/webhooks/nowpayments", NowPaymentsWebhook)
+		req := httptest.NewRequest(http.MethodPost, "/api/webhooks/nowpayments", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		if headerName != "" {
+			req.Header[headerName] = []string{signature}
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+
+	for _, headerName := range []string{
+		"x-nowpayments-sig",
+		"X-NOWPAYMENTS-SIG",
+		"X-NowPayments-Sig",
+		"x_nowpayments_sig",
+		"X_NOWPAYMENTS_SIG",
+	} {
+		t.Run("accepted with header "+headerName, func(t *testing.T) {
+			// The order does not exist, so the handler proceeds past verification
+			// and answers 200 with an "order not found" trace; a 401 would mean
+			// the header was not read.
+			rec := post(t, headerName)
+			require.Equal(t, http.StatusOK, rec.Code, "header %q was not resolved", headerName)
+		})
+	}
+
+	t.Run("missing signature is rejected and the headers are logged", func(t *testing.T) {
+		rec := post(t, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	})
+
+	t.Run("resolver reports the header it matched", func(t *testing.T) {
+		gin.SetMode(gin.TestMode)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/webhooks/nowpayments", nil)
+		c.Request.Header["X_NOWPAYMENTS_SIG"] = []string{"abc123"}
+		value, name := nowPaymentsSignatureFromRequest(c)
+		assert.Equal(t, "abc123", value)
+		assert.Equal(t, "X_NOWPAYMENTS_SIG", name)
+	})
+
+	t.Run("header dump redacts credentials", func(t *testing.T) {
+		gin.SetMode(gin.TestMode)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/webhooks/nowpayments", nil)
+		c.Request.Header.Set("Cookie", "session=supersecret")
+		c.Request.Header.Set("Authorization", "Bearer supersecret")
+		c.Request.Header.Set("X-Nowpayments-Sig", "deadbeef")
+		dump := nowPaymentsWebhookHeaderDump(c)
+		assert.NotContains(t, dump, "supersecret")
+		assert.Contains(t, dump, "deadbeef")
+	})
+}
