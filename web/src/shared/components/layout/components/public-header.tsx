@@ -84,12 +84,7 @@ export function PublicHeader(props: PublicHeaderProps) {
   const [authPromptSecondsLeft, setAuthPromptSecondsLeft] =
     useState(AUTH_PROMPT_SECONDS)
   const user = useAuthStore((state) => state.auth.user)
-  const {
-    systemName,
-    logo: systemLogo,
-    loading,
-    logoLoaded,
-  } = useSystemConfig()
+  const { systemName, logo: systemLogo, loading } = useSystemConfig()
   const dynamicLinks = useTopNavLinks()
   const notifications = useNotifications()
   const routerState = useRouterState()
@@ -107,8 +102,6 @@ export function PublicHeader(props: PublicHeaderProps) {
   let logoContent: ReactNode = (
     <HeaderLogo
       src={systemLogo}
-      loading={loading}
-      logoLoaded={logoLoaded}
       className='size-full rounded-lg object-contain'
     />
   )
@@ -327,6 +320,7 @@ export function PublicHeader(props: PublicHeaderProps) {
             {/* Mobile: compact actions + hamburger */}
             <div className='flex shrink-0 items-center gap-2 lg:hidden'>
               {showThemeSwitch && <ThemeSwitch />}
+              {showLanguageSwitcher && <LanguageSwitcher />}
               {showAuthButtons && !loading && isAuthenticated && (
                 <ProfileDropdown />
               )}
