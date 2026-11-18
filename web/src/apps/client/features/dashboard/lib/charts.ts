@@ -16,19 +16,76 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { dataScheme as vchartDefaultDataScheme } from '@visactor/vchart/esm/theme/color-scheme/builtin/default'
-
 import { MAX_CHART_TREND_POINTS } from '@/apps/client/features/dashboard/constants'
 import type {
   QuotaDataItem,
   ProcessedChartData,
   ProcessedUserChartData,
 } from '@/apps/client/features/dashboard/types'
-import { formatQuotaWithCurrency, getCurrencyDisplay } from '@/shared/lib/currency'
+import {
+  formatQuotaWithCurrency,
+  getCurrencyDisplay,
+} from '@/shared/lib/currency'
 import { currentIntlLocale } from '@/shared/lib/format'
 import { formatChartTime, type TimeGranularity } from '@/shared/lib/time'
 
 const CHART_STROKE_FALLBACK = 'rgba(127, 127, 127, 0.9)'
+
+/**
+ * VChart's builtin default data scheme, kept here as a local constant.
+ *
+ * Importing it from `@visactor/vchart` turned the whole ~2 MB VChart bundle
+ * into a static dependency of every chunk that touches these chart helpers, so
+ * `/admin/overview` could not render a single pixel until that bundle had
+ * downloaded — on a slow mobile connection the dynamic import failed and the
+ * route fell back to the generic error page. The values mirror
+ * `@visactor/vchart/esm/theme/color-scheme/builtin/default`; keep them in sync
+ * with the library's palette.
+ */
+const VCHART_DEFAULT_DATA_SCHEME: ReadonlyArray<{
+  maxDomainLength?: number
+  scheme: string[]
+}> = [
+  {
+    maxDomainLength: 10,
+    scheme: [
+      '#1664FF',
+      '#1AC6FF',
+      '#FF8A00',
+      '#3CC780',
+      '#7442D4',
+      '#FFC400',
+      '#304D77',
+      '#B48DEB',
+      '#009488',
+      '#FF7DDA',
+    ],
+  },
+  {
+    scheme: [
+      '#1664FF',
+      '#B2CFFF',
+      '#1AC6FF',
+      '#94EFFF',
+      '#FF8A00',
+      '#FFCE7A',
+      '#3CC780',
+      '#B9EDCD',
+      '#7442D4',
+      '#DDC5FA',
+      '#FFC400',
+      '#FAE878',
+      '#304D77',
+      '#8B959E',
+      '#B48DEB',
+      '#EFE3FF',
+      '#009488',
+      '#59BAA8',
+      '#FF7DDA',
+      '#FFCFEE',
+    ],
+  },
+]
 
 // Canvas charts cannot resolve CSS custom properties, so read the themed
 // foreground color once per spec build instead of hardcoding black.
@@ -55,9 +112,9 @@ type TooltipLineItem = {
 
 export function getDashboardChartColors(domainLength: number): string[] {
   const scheme =
-    vchartDefaultDataScheme.find(
+    VCHART_DEFAULT_DATA_SCHEME.find(
       (item) => !item.maxDomainLength || domainLength <= item.maxDomainLength
-    ) ?? vchartDefaultDataScheme.at(-1)
+    ) ?? VCHART_DEFAULT_DATA_SCHEME.at(-1)
 
   return (scheme?.scheme ?? []).filter(
     (color): color is string => typeof color === 'string'

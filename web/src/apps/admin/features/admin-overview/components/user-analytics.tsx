@@ -136,12 +136,28 @@ export function UserCharts(props: UserChartsProps) {
           (m) => m.ThemeManager
         )
       }
-      const ThemeManager = await themeManagerPromise
-      themeManagerRef.current = ThemeManager
-      ThemeManager.setCurrentTheme(resolvedTheme === 'dark' ? 'dark' : 'light')
-      setThemeReady(true)
+      try {
+        const ThemeManager = await themeManagerPromise
+        themeManagerRef.current = ThemeManager
+        ThemeManager.setCurrentTheme(
+          resolvedTheme === 'dark' ? 'dark' : 'light'
+        )
+        setThemeReady(true)
+      } catch (error) {
+        // The chart bundle is optional decoration: a slow or blocked download
+        // must leave this card in its skeleton, never reject out of the effect
+        // (an unhandled rejection makes the app reload the whole document and
+        // loses the rest of the control panel with it). Clearing the promise
+        // lets a later mount try again.
+        themeManagerPromise = null
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[admin-overview] chart theme bundle failed to load',
+          error
+        )
+      }
     }
-    updateTheme()
+    void updateTheme()
   }, [resolvedTheme])
 
   const { data: userData, isLoading } = useQuery({
