@@ -1206,6 +1206,91 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
     },
   })
 
+  useCopilotAction({
+    name: 'configurePaymentGateway',
+    description: t(
+      'Configure a whole payment gateway in one call: the provider, its keys and its amounts. Writes every option, then reports whether the gateway is live and what is still missing'
+    ),
+    parameters: [
+      {
+        name: 'provider',
+        type: 'string',
+        description:
+          'One of nowpayments, stripe, creem, epay or waffo',
+        required: true,
+      },
+      {
+        name: 'credentials',
+        type: 'object',
+        description:
+          'Secret settings of the provider, such as {"NowPaymentsApiKey":"…","NowPaymentsIpnSecret":"…"}',
+        required: false,
+      },
+      {
+        name: 'settings',
+        type: 'object',
+        description:
+          'Non-secret settings, such as {"NowPaymentsMinTopUp":"1","CustomCallbackAddress":"https://…"}',
+        required: false,
+      },
+    ],
+    handler: async ({ provider, credentials, settings }) => {
+      if (!provider) {
+        return {
+          error: t('A provider is required: nowpayments, stripe, creem, epay or waffo.'),
+        }
+      }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/payments/configure',
+          { provider, credentials, settings }
+        ),
+        t('Failed to configure the payment gateway.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'getSalesReport',
+    description: t(
+      'Revenue, upstream cost, profit, request counts and tokens for a time window, grouped by day, model, user, channel or group'
+    ),
+    parameters: [
+      {
+        name: 'start_timestamp',
+        type: 'number',
+        description: 'Start of the window as a Unix timestamp; omit for 7 days ago',
+        required: false,
+      },
+      {
+        name: 'end_timestamp',
+        type: 'number',
+        description: 'End of the window as a Unix timestamp; omit for now',
+        required: false,
+      },
+      {
+        name: 'group_by',
+        type: 'string',
+        description: 'day, model, user, channel or group',
+        required: false,
+      },
+      {
+        name: 'limit',
+        type: 'number',
+        description: 'How many buckets to return, up to 200',
+        required: false,
+      },
+    ],
+    handler: async (params) =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/analytics/sales',
+          { params: cleanParams(params) }
+        ),
+        t('Failed to build the sales report.')
+      ),
+  })
+
   const context = useMemo(() => ({ page: pageContext }), [pageContext])
   return context
 }

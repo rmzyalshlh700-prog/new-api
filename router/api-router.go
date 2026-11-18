@@ -520,6 +520,10 @@ func SetApiRouter(router *gin.Engine) {
 		copilotRoute.POST("/tools/users/delete", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolDeleteUser), controller.DeleteCopilotUser)
 		copilotRoute.GET("/tools/payments", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolReadPayments), controller.ReadCopilotPayments)
 		copilotRoute.POST("/tools/payments/gateway", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolUpdatePaymentGateway), controller.UpdateCopilotPaymentGateway)
+		// One call configures a whole provider and reports whether it is live.
+		copilotRoute.GET("/tools/payments/gateways", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolConfigurePaymentGateway), controller.GetCopilotPaymentGateways)
+		copilotRoute.POST("/tools/payments/configure", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolConfigurePaymentGateway), controller.ConfigureCopilotPaymentGateway)
+		copilotRoute.GET("/tools/analytics/sales", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolGetSalesReport), controller.GetCopilotSalesReport)
 		copilotRoute.POST("/tools/commercial/group-ratio", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateGroupRatio), controller.UpdateCopilotGroupRatio)
 		copilotRoute.POST("/tools/commercial/model-pricing", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateModelPricing), controller.UpdateCopilotModelPricing)
 		copilotRoute.PUT("/tools/channels/:id/key", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelKey), controller.SetCopilotChannelKey)

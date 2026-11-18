@@ -26,6 +26,8 @@ export type AdminCopilotToolName =
   | 'getFinancialSummary'
   | 'readPayments'
   | 'updatePaymentGateway'
+  | 'configurePaymentGateway'
+  | 'getSalesReport'
   | 'updateGroupRatio'
   | 'updateModelPricing'
   | 'listChannels'
@@ -216,6 +218,22 @@ export const ADMIN_COPILOT_TOOLS: readonly AdminCopilotToolDefinition[] = [
     labelKey: 'Allow reading payments',
     descriptionKey:
       'Lets the copilot page through the top-up and payment records with their trade numbers, amounts and state.',
+  },
+  {
+    name: 'configurePaymentGateway',
+    group: 'commercial',
+    risk: 'write',
+    labelKey: 'Allow configuring a payment gateway end to end',
+    descriptionKey:
+      'Lets the copilot take a provider (NOWPayments, Stripe, Creem, Epay, Waffo) together with its keys and settings, write every option at once, and report whether the gateway is actually live. Needs a root administrator, and the payment compliance acknowledgement still has to be confirmed by a person.',
+  },
+  {
+    name: 'getSalesReport',
+    group: 'commercial',
+    risk: 'read',
+    labelKey: 'Allow sales and consumption analysis',
+    descriptionKey:
+      'Lets the copilot report revenue, upstream cost, profit, request counts and tokens for any window, grouped by day, model, user, channel or group.',
   },
   {
     name: 'updatePaymentGateway',

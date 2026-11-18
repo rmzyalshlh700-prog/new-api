@@ -41,10 +41,12 @@ const (
 	CopilotToolCreateRedemption = "createRedemption"
 	CopilotToolUpdateRedemption = "updateRedemption"
 
-	CopilotToolReadPayments         = "readPayments"
-	CopilotToolUpdatePaymentGateway = "updatePaymentGateway"
-	CopilotToolUpdateGroupRatio     = "updateGroupRatio"
-	CopilotToolUpdateModelPricing   = "updateModelPricing"
+	CopilotToolReadPayments            = "readPayments"
+	CopilotToolUpdatePaymentGateway    = "updatePaymentGateway"
+	CopilotToolConfigurePaymentGateway = "configurePaymentGateway"
+	CopilotToolGetSalesReport          = "getSalesReport"
+	CopilotToolUpdateGroupRatio        = "updateGroupRatio"
+	CopilotToolUpdateModelPricing      = "updateModelPricing"
 
 	CopilotToolReadMonitoring      = "readMonitoring"
 	CopilotToolConfigureMonitoring = "configureMonitoring"
@@ -107,6 +109,8 @@ var CopilotToolCatalog = []CopilotTool{
 	{CopilotToolGetFinancialSummary, CopilotGroupCommercial, CopilotRiskRead},
 	{CopilotToolReadPayments, CopilotGroupCommercial, CopilotRiskRead},
 	{CopilotToolUpdatePaymentGateway, CopilotGroupCommercial, CopilotRiskWrite},
+	{CopilotToolConfigurePaymentGateway, CopilotGroupCommercial, CopilotRiskWrite},
+	{CopilotToolGetSalesReport, CopilotGroupCommercial, CopilotRiskRead},
 	{CopilotToolUpdateGroupRatio, CopilotGroupCommercial, CopilotRiskWrite},
 	{CopilotToolUpdateModelPricing, CopilotGroupCommercial, CopilotRiskWrite},
 

@@ -75,6 +75,22 @@ const copilotPlatformKnowledge = "Platform knowledge. " +
 	"Announcements. The console list is addressed by position: listAnnouncements returns " +
 	"it newest first, and updateAnnouncement and deleteAnnouncement take that position. " +
 
+	"Adding a gateway end to end. configurePaymentGateway takes the provider (nowpayments, " +
+	"stripe, creem, epay, waffo) with its credentials and settings and writes them all in " +
+	"one call, then answers whether the gateway is live and what is still missing. Use it " +
+	"whenever the operator hands you keys: pass the provider, put the secrets under " +
+	"credentials and the amounts and callback under settings, and let the reply decide " +
+	"what to say next. It needs a root administrator, and the payment compliance " +
+	"acknowledgement is signed by a person in the console, not by you: if the reply says " +
+	"the gateway is inactive for that reason, say so in one line instead of retrying. " +
+
+	"Sales and consumption. getSalesReport returns revenue, upstream cost, profit, " +
+	"requests and tokens for a window — the last seven days when no dates are given — " +
+	"grouped by day, model, user, channel or group. Profit is revenue minus upstream cost, " +
+	"both in quota units. Convert with QuotaPerUnit (500,000 = $1) when the operator asks " +
+	"for money. Use a table when they ask to analyse; otherwise give the headline number " +
+	"in one line. " +
+
 	"Payment gateway credentials are written one option key at a time by " +
 	"updatePaymentGateway — NowPaymentsApiKey and NowPaymentsIpnSecret, StripeApiSecret, " +
 	"StripeWebhookSecret and StripePriceId, CreemApiKey, CreemWebhookSecret, EpayId and " +
