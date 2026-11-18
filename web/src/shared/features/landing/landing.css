@@ -1,0 +1,201 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/* Astramux landing page: the surface, text and borders come from the console
+ * theme tokens, so a preset picked in the dashboard restyles this page too. */
+.landing-root {
+  --lp-glow-a: rgb(99 102 241 / 0.16);
+  --lp-glow-b: rgb(59 130 246 / 0.12);
+  --lp-glow-c: rgb(139 92 246 / 0.1);
+
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family:
+    'Public Sans Variable', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Tahoma, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+  letter-spacing: -0.011em;
+}
+
+/* Arabic uses the same Cairo face as the dashboard and drops the Latin
+ * negative tracking, which breaks the cursive joins. */
+.landing-root[dir='rtl'] {
+  font-family:
+    'Cairo Variable', 'Cairo', 'Public Sans Variable', 'Noto Sans Arabic',
+    Tahoma, sans-serif;
+  letter-spacing: 0;
+}
+
+.dark .landing-root {
+  --lp-glow-a: rgb(99 102 241 / 0.24);
+  --lp-glow-b: rgb(59 130 246 / 0.18);
+  --lp-glow-c: rgb(139 92 246 / 0.16);
+}
+
+/* Soft indigo/blue light above the hero. */
+.landing-glow {
+  position: absolute;
+  inset: -24% -10% auto;
+  height: 760px;
+  background:
+    radial-gradient(
+      40% 48% at 50% 24%,
+      var(--lp-glow-a),
+      transparent 72%
+    ),
+    radial-gradient(
+      30% 40% at 82% 8%,
+      var(--lp-glow-b),
+      transparent 74%
+    ),
+    radial-gradient(
+      28% 38% at 16% 6%,
+      var(--lp-glow-c),
+      transparent 74%
+    );
+  filter: blur(4px);
+  mask-image: radial-gradient(
+    ellipse 74% 62% at 50% 22%,
+    #000 0%,
+    transparent 72%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 74% 62% at 50% 22%,
+    #000 0%,
+    transparent 72%
+  );
+}
+
+/* Faint blueprint grid that fades out before the hero ends. */
+.landing-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.04) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(
+    ellipse 68% 52% at 50% 0%,
+    #000 8%,
+    transparent 74%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 68% 52% at 50% 0%,
+    #000 8%,
+    transparent 74%
+  );
+}
+
+.dark .landing-grid-bg {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+}
+
+/* Ambient halo behind the central hub; it breathes toward the logo on hover. */
+.landing-orbit-glow {
+  position: absolute;
+  inset: 14%;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 50% 45%,
+    var(--lp-glow-a),
+    var(--lp-glow-b) 52%,
+    transparent 72%
+  );
+  filter: blur(20px);
+  opacity: 0.85;
+  transform: scale(1);
+  transition:
+    opacity 0.45s ease,
+    transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-orbit:hover .landing-orbit-glow,
+.landing-orbit:focus-within .landing-orbit-glow {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+/* Counter-rotating orbit: the track turns clockwise and every pod turns the
+ * same amount counter-clockwise, so the icons stay level at any angle. Both
+ * animations are pure `transform` rotations (composited, no layout/paint) and
+ * share one duration and one clock, including the hover pause below. */
+@keyframes astramux-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes astramux-counter-orbit {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.landing-orbit-track,
+.landing-orbit-badge {
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.landing-orbit-track {
+  animation: astramux-orbit 42s linear infinite;
+}
+
+.landing-orbit-badge {
+  animation: astramux-counter-orbit 42s linear infinite;
+}
+
+.landing-orbit:hover :is(.landing-orbit-track, .landing-orbit-badge),
+.landing-orbit:focus-within :is(.landing-orbit-track, .landing-orbit-badge) {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-orbit-track,
+  .landing-orbit-badge {
+    animation: none;
+  }
+}
+
+/* Anchor navigation on the landing page glides between sections. */
+html:has(.landing-root) {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.landing-root) {
+    scroll-behavior: auto;
+  }
+}
+
+/* Code always reads left-to-right, even inside the right-to-left page. */
+.landing-code {
+  direction: ltr;
+  text-align: left;
+  font-family:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-ligatures: none;
+}
