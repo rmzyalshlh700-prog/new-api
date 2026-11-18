@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +21,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
@@ -200,6 +200,29 @@ func nowPaymentsMinFiatAmount(ctx context.Context, priceAmount float64) (float64
 	return result.MinAmount, nil
 }
 
+// nowPaymentsIpnDirectURL is the endpoint NOWPayments must POST IPNs to.
+//
+// It deliberately does not follow service.GetCallbackAddress()/ServerAddress.
+// The gateway stores ipn_callback_url on each invoice and a "Resend IPN" goes
+// to the URL that invoice was created with, so this value decides delivery —
+// and the ServerAddress hostname (astramux.com) sits behind an edge that
+// silently drops these POSTs before they reach the origin. Customer-facing
+// redirects (success_url, cancel_url) keep using ServerAddress; only the IPN
+// callback is pinned here, because a wrong IPN URL means a paid order that is
+// never credited, while a wrong redirect URL only costs a click.
+//
+// NOWPAYMENTS_IPN_URL overrides it without a rebuild, which is what to use if
+// the host's address ever changes (this hostname is IP-derived: if the address
+// moves, this name stops resolving and callbacks stop being delivered).
+const nowPaymentsIpnDirectURL = "https://new-api-82768e.162-35-18-133.sslip.io/api/webhooks/nowpayments"
+
+func nowPaymentsIpnCallbackURL() string {
+	if override := strings.TrimSpace(os.Getenv("NOWPAYMENTS_IPN_URL")); override != "" {
+		return override
+	}
+	return nowPaymentsIpnDirectURL
+}
+
 // createNowPaymentsInvoice calls POST /v1/invoice and returns the hosted
 // payment page URL for the order.
 func createNowPaymentsInvoice(ctx context.Context, tradeNo string, priceAmount float64, description string, ipnCallbackUrl string, successUrl string, cancelUrl string) (*nowPaymentsInvoice, error) {
@@ -322,8 +345,7 @@ func (*NowPaymentsAdaptor) RequestPay(c *gin.Context, req *NowPaymentsPayRequest
 	reference := fmt.Sprintf("new-api-np-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	tradeNo := "np_" + common.Sha1([]byte(reference))
 
-	callBackAddress := service.GetCallbackAddress()
-	ipnCallbackUrl := callBackAddress + "/api/webhooks/nowpayments"
+	ipnCallbackUrl := nowPaymentsIpnCallbackURL()
 
 	invoice, err := createNowPaymentsInvoice(ctx, tradeNo, payMoney, fmt.Sprintf("TUC%d", req.Amount), ipnCallbackUrl, req.SuccessURL, req.CancelURL)
 	if err != nil {
