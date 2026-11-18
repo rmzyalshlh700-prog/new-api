@@ -61,6 +61,42 @@ const copilotPlatformKnowledge = "Platform knowledge. " +
 	"Deleting a channel, deducting credit and switching maintenance mode show the operator " +
 	"a confirmation card: call the tool once with the details and let the card ask, never " +
 	"write \"are you sure?\" in the reply. " +
-	"Deleting a user account is not available to you: the console requires a fresh " +
-	"security proof typed by a person on the users page. Say that plainly and tell the " +
-	"operator to finish it there rather than looking for another way. "
+	"Removing a user. deleteUser takes an account out of service by disabling it: it can " +
+	"no longer sign in or call the API, and it keeps its history so it can be re-enabled. " +
+	"A permanent erasure finishes on the users page, which asks the operator for a fresh " +
+	"security proof — say so in one short line if that is what they asked for, and say " +
+	"\"disabled\", not \"deleted\", for what the tool actually did. " +
+
+	"Redemption codes. updateRedemption edits an existing code's name, its quota while " +
+	"it is unused, its expiry and whether it may be redeemed. A code that was already " +
+	"redeemed cannot be edited into a different one, because the balance it granted is " +
+	"settled. " +
+
+	"Announcements. The console list is addressed by position: listAnnouncements returns " +
+	"it newest first, and updateAnnouncement and deleteAnnouncement take that position. " +
+
+	"Adding a gateway end to end. configurePaymentGateway takes the provider (nowpayments, " +
+	"stripe, creem, epay, waffo) with its credentials and settings and writes them all in " +
+	"one call, then answers whether the gateway is live and what is still missing. Use it " +
+	"whenever the operator hands you keys: pass the provider, put the secrets under " +
+	"credentials and the amounts and callback under settings, and let the reply decide " +
+	"what to say next. It needs a root administrator, and the payment compliance " +
+	"acknowledgement is signed by a person in the console, not by you: if the reply says " +
+	"the gateway is inactive for that reason, say so in one line instead of retrying. " +
+
+	"Sales and consumption. getSalesReport returns revenue, upstream cost, profit, " +
+	"requests and tokens for a window — the last seven days when no dates are given — " +
+	"grouped by day, model, user, channel or group. Profit is revenue minus upstream cost, " +
+	"both in quota units. Convert with QuotaPerUnit (500,000 = $1) when the operator asks " +
+	"for money. Use a table when they ask to analyse; otherwise give the headline number " +
+	"in one line. " +
+
+	"Payment gateway credentials are written one option key at a time by " +
+	"updatePaymentGateway — NowPaymentsApiKey and NowPaymentsIpnSecret, StripeApiSecret, " +
+	"StripeWebhookSecret and StripePriceId, CreemApiKey, CreemWebhookSecret, EpayId and " +
+	"EpayKey, plus the amount and exchange-rate settings. When the operator hands you a " +
+	"key, write it in the same turn and confirm the key's name, never its value. " +
+
+	"Clearing usage logs. purgeLogs deletes usage log rows inside a window that it must " +
+	"be given; it never touches audit logs. Channel type is a field of updateChannel, so " +
+	"a provider replaced by another is an edit, not a new channel. "

@@ -36,13 +36,17 @@ const (
 
 	CopilotToolSearchLogs       = "searchLogs"
 	CopilotToolExportLogs       = "exportLogs"
+	CopilotToolPurgeLogs        = "purgeLogs"
 	CopilotToolListRedemptions  = "listRedemptions"
 	CopilotToolCreateRedemption = "createRedemption"
+	CopilotToolUpdateRedemption = "updateRedemption"
 
-	CopilotToolReadPayments         = "readPayments"
-	CopilotToolUpdatePaymentGateway = "updatePaymentGateway"
-	CopilotToolUpdateGroupRatio     = "updateGroupRatio"
-	CopilotToolUpdateModelPricing   = "updateModelPricing"
+	CopilotToolReadPayments            = "readPayments"
+	CopilotToolUpdatePaymentGateway    = "updatePaymentGateway"
+	CopilotToolConfigurePaymentGateway = "configurePaymentGateway"
+	CopilotToolGetSalesReport          = "getSalesReport"
+	CopilotToolUpdateGroupRatio        = "updateGroupRatio"
+	CopilotToolUpdateModelPricing      = "updateModelPricing"
 
 	CopilotToolReadMonitoring      = "readMonitoring"
 	CopilotToolConfigureMonitoring = "configureMonitoring"
@@ -51,6 +55,8 @@ const (
 
 	CopilotToolListAnnouncements   = "listAnnouncements"
 	CopilotToolPublishAnnouncement = "publishAnnouncement"
+	CopilotToolUpdateAnnouncement  = "updateAnnouncement"
+	CopilotToolDeleteAnnouncement  = "deleteAnnouncement"
 )
 
 // Tool groups. Each group names the admin area a tool acts on, so the operator
@@ -103,6 +109,8 @@ var CopilotToolCatalog = []CopilotTool{
 	{CopilotToolGetFinancialSummary, CopilotGroupCommercial, CopilotRiskRead},
 	{CopilotToolReadPayments, CopilotGroupCommercial, CopilotRiskRead},
 	{CopilotToolUpdatePaymentGateway, CopilotGroupCommercial, CopilotRiskWrite},
+	{CopilotToolConfigurePaymentGateway, CopilotGroupCommercial, CopilotRiskWrite},
+	{CopilotToolGetSalesReport, CopilotGroupCommercial, CopilotRiskRead},
 	{CopilotToolUpdateGroupRatio, CopilotGroupCommercial, CopilotRiskWrite},
 	{CopilotToolUpdateModelPricing, CopilotGroupCommercial, CopilotRiskWrite},
 
@@ -123,12 +131,16 @@ var CopilotToolCatalog = []CopilotTool{
 	// Data, logs and redemption codes.
 	{CopilotToolSearchLogs, CopilotGroupData, CopilotRiskRead},
 	{CopilotToolExportLogs, CopilotGroupData, CopilotRiskRead},
+	{CopilotToolPurgeLogs, CopilotGroupData, CopilotRiskDestructive},
 	{CopilotToolListRedemptions, CopilotGroupData, CopilotRiskRead},
 	{CopilotToolCreateRedemption, CopilotGroupData, CopilotRiskWrite},
+	{CopilotToolUpdateRedemption, CopilotGroupData, CopilotRiskWrite},
 
 	// Notifications.
 	{CopilotToolListAnnouncements, CopilotGroupNotifications, CopilotRiskRead},
 	{CopilotToolPublishAnnouncement, CopilotGroupNotifications, CopilotRiskWrite},
+	{CopilotToolUpdateAnnouncement, CopilotGroupNotifications, CopilotRiskWrite},
+	{CopilotToolDeleteAnnouncement, CopilotGroupNotifications, CopilotRiskDestructive},
 }
 
 // CopilotToolGroups lists every group in the order the console renders them.

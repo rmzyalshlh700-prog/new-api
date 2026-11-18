@@ -205,4 +205,134 @@ export function useAdminCopilotConfirmations() {
       )
     },
   })
+
+  useHumanInTheLoop({
+    name: 'purgeLogs',
+    description: t(
+      'Permanently delete usage log rows inside a time window. Call it as soon as the operator asks: the console shows a confirmation card with the window, so do not ask for confirmation in the chat'
+    ),
+    parameters: [
+      {
+        name: 'start_timestamp',
+        type: 'number',
+        description: 'Start of the window as a Unix timestamp, inclusive',
+        required: true,
+      },
+      {
+        name: 'end_timestamp',
+        type: 'number',
+        description: 'End of the window as a Unix timestamp, exclusive',
+        required: true,
+      },
+      {
+        name: 'model_name',
+        type: 'string',
+        description: 'Only clear rows for this model',
+        required: false,
+      },
+      {
+        name: 'username',
+        type: 'string',
+        description: 'Only clear rows for this username',
+        required: false,
+      },
+    ],
+    render: ({ args, status, respond, result }) => {
+      const values = (args ?? {}) as {
+        start_timestamp?: number
+        end_timestamp?: number
+        model_name?: string
+        username?: string
+      }
+      const start = Number(values.start_timestamp ?? 0)
+      const end = Number(values.end_timestamp ?? 0)
+      const format = (seconds: number) =>
+        seconds > 0
+          ? new Date(seconds * 1000).toISOString().replace('T', ' ').slice(0, 16)
+          : t('Unknown')
+      const details = [
+        { label: t('From'), value: format(start) },
+        { label: t('To'), value: format(end) },
+      ]
+      if (values.model_name) {
+        details.push({ label: t('Model'), value: values.model_name })
+      }
+      if (values.username) {
+        details.push({ label: t('Username'), value: values.username })
+      }
+      return (
+        <AdminCopilotConfirmCard
+          title={t('Delete these usage logs?')}
+          description={t(
+            'The rows are removed permanently and cannot be restored from the console. Audit logs are not touched.'
+          )}
+          details={details}
+          status={status}
+          result={result}
+          execute={() =>
+            runConfirmedTool(
+              () =>
+                api.post<ApiEnvelope<unknown>>(
+                  '/api/admin/copilot/tools/logs/purge',
+                  {
+                    start_timestamp: start,
+                    end_timestamp: end,
+                    model_name: values.model_name,
+                    username: values.username,
+                  }
+                ),
+              t('The usage logs were cleared.'),
+              t('Failed to clear the logs.')
+            )
+          }
+          onRespond={(value) => respond?.(value)}
+          onCancel={() => respond?.(CANCEL_RESULT)}
+        />
+      )
+    },
+  })
+
+  useHumanInTheLoop({
+    name: 'deleteAnnouncement',
+    description: t(
+      'Remove a published console announcement. Call it as soon as the operator asks: the console shows a confirmation card with the announcement, so do not ask for confirmation in the chat'
+    ),
+    parameters: [
+      {
+        name: 'index',
+        type: 'number',
+        description: 'Position in the list listAnnouncements returned, from 1',
+        required: true,
+      },
+    ],
+    render: ({ args, status, respond, result }) => {
+      const index = Number((args as { index?: number } | undefined)?.index ?? 0)
+      return (
+        <AdminCopilotConfirmCard
+          title={t('Delete this announcement?')}
+          description={t('It disappears from the console for every user.')}
+          details={[
+            {
+              label: t('Position'),
+              value: index > 0 ? String(index) : t('Unknown'),
+            },
+          ]}
+          status={status}
+          result={result}
+          execute={() =>
+            runConfirmedTool(
+              () =>
+                api.delete<ApiEnvelope<unknown>>(
+                  `/api/admin/copilot/tools/announcements/${index}`
+                ),
+              t('The announcement was deleted.'),
+              t('Failed to delete the announcement.')
+            )
+          }
+          onRespond={(value) => respond?.(value)}
+          onCancel={() => respond?.(CANCEL_RESULT)}
+        />
+      )
+    },
+  })
 }

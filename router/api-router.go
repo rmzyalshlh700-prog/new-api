@@ -520,11 +520,22 @@ func SetApiRouter(router *gin.Engine) {
 		copilotRoute.POST("/tools/users/delete", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolDeleteUser), controller.DeleteCopilotUser)
 		copilotRoute.GET("/tools/payments", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolReadPayments), controller.ReadCopilotPayments)
 		copilotRoute.POST("/tools/payments/gateway", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolUpdatePaymentGateway), controller.UpdateCopilotPaymentGateway)
+		// One call configures a whole provider and reports whether it is live.
+		copilotRoute.GET("/tools/payments/gateways", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolConfigurePaymentGateway), controller.GetCopilotPaymentGateways)
+		copilotRoute.POST("/tools/payments/configure", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolConfigurePaymentGateway), controller.ConfigureCopilotPaymentGateway)
+		copilotRoute.GET("/tools/analytics/sales", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolGetSalesReport), controller.GetCopilotSalesReport)
 		copilotRoute.POST("/tools/commercial/group-ratio", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateGroupRatio), controller.UpdateCopilotGroupRatio)
 		copilotRoute.POST("/tools/commercial/model-pricing", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateModelPricing), controller.UpdateCopilotModelPricing)
 		copilotRoute.PUT("/tools/channels/:id/key", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelKey), controller.SetCopilotChannelKey)
 		copilotRoute.GET("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolListAnnouncements), controller.ListCopilotAnnouncements)
 		copilotRoute.POST("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolPublishAnnouncement), controller.PublishCopilotAnnouncement)
+		copilotRoute.PUT("/tools/announcements/:index", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateAnnouncement), controller.UpdateCopilotAnnouncement)
+		copilotRoute.DELETE("/tools/announcements/:index", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolDeleteAnnouncement), controller.DeleteCopilotAnnouncement)
+		copilotRoute.PUT("/tools/redemptions/:id", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolUpdateRedemption), controller.UpdateCopilotRedemption)
+		// Clearing the usage log destroys the record of what was billed, so it
+		// is its own destructive capability and is refused unless the run names
+		// the window it clears.
+		copilotRoute.POST("/tools/logs/purge", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolPurgeLogs), controller.PurgeCopilotLogs)
 		copilotSettingsRoute := apiRouter.Group("/admin/system-settings/copilot")
 		copilotSettingsRoute.Use(middleware.AdminAuth())
 		copilotSettingsRoute.Use(middleware.RequireVisibleSection("system_settings"))

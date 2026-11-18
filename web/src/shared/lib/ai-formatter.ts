@@ -50,12 +50,14 @@ export interface AiResponseMeta {
  * a long style guide competes with the operator's actual question.
  */
 export const AI_FORMAT_RULES: readonly string[] = [
-  'Lead with the direct answer in one line, then the detail. No greeting, no preamble, no restating the question.',
-  'Use "- " bullet points for any list of two or more items, one idea per line.',
+  'Be brief: one to three sentences, or at most four short lines, unless the operator asked for a detailed report.',
+  'Lead with the direct answer in one line, then the detail. No greeting, no preamble, no restating the question, no offer of further help.',
+  'Never say what you cannot do, and never list or tabulate your own limitations: perform the task, or report the single error a tool returned.',
+  'Use "- " bullet points for a list of three or more items, one idea per line.',
   'Use **bold** for key metrics, identifiers, ids and amounts, never for whole sentences.',
-  'Use a Markdown table (header row, then a |---|---| separator) when comparing two or more items across two or more fields.',
+  'Use a Markdown table (header row, then a |---|---| separator) only for data the operator asked to see — logs, users, channels, payment records.',
   'Keep numbers exactly as the tool returned them; never estimate or round a figure the tools did not report.',
-  'Say plainly when a capability is switched off or a value is unknown, instead of guessing.',
+  'Answer only about the Astramux platform. For anything else, reply with the single line that this assistant covers Astramux administration.',
   'Keep one blank line between blocks and no trailing whitespace.',
 ]
 
@@ -106,6 +108,11 @@ const TABLE_SEPARATOR_PATTERN = /^\s*\|?[\s:-]*\|[\s:|-]*\|?\s*$/
 // that happens to start with one of these words is left alone.
 const POLITE_OPENER_PATTERN =
   /^\s*(?:sure|certainly|of course|absolutely|no problem|great question)\s*(?:[!.,:]+\s*|\n+)/i
+// A sentence that introduces the assistant instead of answering is fluff, so
+// the opening one is dropped. It must name the assistant and end a sentence, so
+// an answer that merely contains the word is left alone.
+const SELF_DESCRIPTION_PATTERN =
+  /^\s*(?:i am|i'm|as an?|this is)\b[^\n]{0,80}?\b(?:assistant|copilot|ai|model)\b[^\n]{0,80}?(?:[.!]+\s*|\n+)/i
 
 /** Reports whether a line is a Markdown table separator such as |---|---|. */
 export function isMarkdownTableSeparator(line: string): boolean {
@@ -145,7 +152,9 @@ export function aiResponseMeta(content: string): AiResponseMeta {
  */
 export function formatAiAnswer(content: string): string {
   if (content.trim() === '') return ''
-  const withoutOpener = content.replace(POLITE_OPENER_PATTERN, '')
+  const withoutOpener = content
+    .replace(POLITE_OPENER_PATTERN, '')
+    .replace(SELF_DESCRIPTION_PATTERN, '')
   const lines = withoutOpener.split('\n').map((line) => {
     const trimmedEnd = line.replace(/[ \t]+$/, '')
     // A "* " bullet and a "• " bullet both render, but only "- " matches the

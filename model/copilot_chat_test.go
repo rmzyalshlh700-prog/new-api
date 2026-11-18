@@ -135,3 +135,24 @@ func TestCopilotChatNormalizeCapsTranscript(t *testing.T) {
 	require.Len(t, long, 1)
 	assert.Len(t, long[0].Content, CopilotChatContentLimit)
 }
+
+// TestCopilotChatRedactsSecretsFromStoredTurns checks that a credential an
+// operator pastes into the chat does not reach the stored transcript, and that
+// an ordinary sentence is left exactly as it was written.
+func TestCopilotChatRedactsSecretsFromStoredTurns(t *testing.T) {
+	newCopilotChatTestDB(t)
+	chat, err := CreateCopilotChat(1, "gateway", []CopilotChatTurn{
+		{Role: "user", Content: "Add NOWPayments with key sk_live_9f8a7b6c5d4e3f21"},
+		{Role: "user", Content: "my api key: 8f14e45fceea167a5a36dedd4bea2543"},
+		{Role: "assistant", Content: "Added **NowPaymentsApiKey**. The channel has 4 models."},
+	})
+	require.NoError(t, err)
+
+	messages, err := ListCopilotMessages(chat.Id)
+	require.NoError(t, err)
+	require.Len(t, messages, 3)
+	assert.NotContains(t, messages[0].Content, "9f8a7b6c5d4e3f21")
+	assert.Contains(t, messages[0].Content, "[REDACTED]")
+	assert.NotContains(t, messages[1].Content, "8f14e45fceea167a5a36dedd4bea2543")
+	assert.Equal(t, "Added **NowPaymentsApiKey**. The channel has 4 models.", messages[2].Content)
+}

@@ -115,6 +115,7 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
   // Destructive capabilities are confirmation cards, not chat questions: the
   // operator approves the exact arguments on a card before anything is sent.
   useAdminCopilotConfirmations()
+  useAdminCopilotOperations()
 
   // The granted set is published to the agent as context, so it can say a
   // capability is switched off instead of quietly answering from memory. The
@@ -514,6 +515,13 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
         name: 'weight',
         type: 'number',
         description: 'New routing weight',
+        required: false,
+      },
+      {
+        name: 'type',
+        type: 'number',
+        description:
+          'Numeric channel type of the provider, such as 1 OpenAI or 14 Anthropic',
         required: false,
       },
       {
@@ -1198,6 +1206,235 @@ export function useAdminCopilot(enabledTools: readonly AdminCopilotToolName[]) {
     },
   })
 
+  useCopilotAction({
+    name: 'configurePaymentGateway',
+    description: t(
+      'Configure a whole payment gateway in one call: the provider, its keys and its amounts. Writes every option, then reports whether the gateway is live and what is still missing'
+    ),
+    parameters: [
+      {
+        name: 'provider',
+        type: 'string',
+        description:
+          'One of nowpayments, stripe, creem, epay or waffo',
+        required: true,
+      },
+      {
+        name: 'credentials',
+        type: 'object',
+        description:
+          'Secret settings of the provider, such as {"NowPaymentsApiKey":"…","NowPaymentsIpnSecret":"…"}',
+        required: false,
+      },
+      {
+        name: 'settings',
+        type: 'object',
+        description:
+          'Non-secret settings, such as {"NowPaymentsMinTopUp":"1","CustomCallbackAddress":"https://…"}',
+        required: false,
+      },
+    ],
+    handler: async ({ provider, credentials, settings }) => {
+      if (!provider) {
+        return {
+          error: t('A provider is required: nowpayments, stripe, creem, epay or waffo.'),
+        }
+      }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/payments/configure',
+          { provider, credentials, settings }
+        ),
+        t('Failed to configure the payment gateway.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'getSalesReport',
+    description: t(
+      'Revenue, upstream cost, profit, request counts and tokens for a time window, grouped by day, model, user, channel or group'
+    ),
+    parameters: [
+      {
+        name: 'start_timestamp',
+        type: 'number',
+        description: 'Start of the window as a Unix timestamp; omit for 7 days ago',
+        required: false,
+      },
+      {
+        name: 'end_timestamp',
+        type: 'number',
+        description: 'End of the window as a Unix timestamp; omit for now',
+        required: false,
+      },
+      {
+        name: 'group_by',
+        type: 'string',
+        description: 'day, model, user, channel or group',
+        required: false,
+      },
+      {
+        name: 'limit',
+        type: 'number',
+        description: 'How many buckets to return, up to 200',
+        required: false,
+      },
+    ],
+    handler: async (params) =>
+      loadCopilotTool(
+        api.get<ApiEnvelope<unknown>>(
+          '/api/admin/copilot/tools/analytics/sales',
+          { params: cleanParams(params) }
+        ),
+        t('Failed to build the sales report.')
+      ),
+  })
+
   const context = useMemo(() => ({ page: pageContext }), [pageContext])
   return context
+}
+
+/**
+ * The capabilities that were granted on the server but never offered to the
+ * model.
+ *
+ * `deleteUser` was the important one: its endpoint, its permission switch and
+ * its catalogue entry all existed, but no action registered it, so the model
+ * reported that it had no way to remove an account and wrote a paragraph about
+ * it instead of doing the work. It performs a soft delete — the account is
+ * disabled and can be re-enabled — which is what an operator means by "delete
+ * this user". The rest close the same gap for redemption codes, announcements
+ * and the usage log.
+ */
+export function useAdminCopilotOperations() {
+  const { t } = useTranslation()
+
+  useCopilotAction({
+    name: 'deleteUser',
+    description: t(
+      'Remove a user account from service by disabling it. The account can no longer sign in or call the API and keeps its history; it can be re-enabled later'
+    ),
+    parameters: [
+      {
+        name: 'id',
+        type: 'number',
+        description: 'Numeric user id',
+        required: true,
+      },
+    ],
+    handler: async ({ id }) => {
+      if (!id) return { error: t('A user id is required.') }
+      return loadCopilotTool(
+        api.post<ApiEnvelope<unknown>>('/api/admin/copilot/tools/users/delete', {
+          id,
+        }),
+        t('Failed to disable the user.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'updateRedemption',
+    description: t(
+      'Edit an existing redemption code: its name, its quota while it is unused, its expiry, or whether it may be redeemed. A code that was already redeemed cannot be edited into a different one'
+    ),
+    parameters: [
+      {
+        name: 'id',
+        type: 'number',
+        description: 'Numeric redemption id',
+        required: true,
+      },
+      {
+        name: 'name',
+        type: 'string',
+        description: 'New name for the code',
+        required: false,
+      },
+      {
+        name: 'quota',
+        type: 'number',
+        description: 'New quota the code grants, in internal units',
+        required: false,
+      },
+      {
+        name: 'expired_time',
+        type: 'number',
+        description: 'New expiry as a Unix timestamp',
+        required: false,
+      },
+      {
+        name: 'status',
+        type: 'number',
+        description: '1 to allow redeeming, 2 to disable the code',
+        required: false,
+      },
+    ],
+    handler: async ({ id, ...fields }) => {
+      if (!id) return { error: t('A redemption id is required.') }
+      const body = cleanParams(fields)
+      if (Object.keys(body).length === 0) {
+        return {
+          error: t('Give a name, a quota, an expiry or a status to change.'),
+        }
+      }
+      return loadCopilotTool(
+        api.put<ApiEnvelope<unknown>>(
+          `/api/admin/copilot/tools/redemptions/${id}`,
+          body
+        ),
+        t('Failed to update the redemption code.')
+      )
+    },
+  })
+
+  useCopilotAction({
+    name: 'updateAnnouncement',
+    description: t(
+      'Edit one console announcement. Address it by the position listAnnouncements returned, counting from 1'
+    ),
+    parameters: [
+      {
+        name: 'index',
+        type: 'number',
+        description: 'Position in the list listAnnouncements returned, from 1',
+        required: true,
+      },
+      {
+        name: 'content',
+        type: 'string',
+        description: 'New announcement text',
+        required: false,
+      },
+      {
+        name: 'type',
+        type: 'string',
+        description: 'Announcement kind, such as notice or warning',
+        required: false,
+      },
+      {
+        name: 'publish_date',
+        type: 'string',
+        description: 'New publish date as an RFC3339 timestamp',
+        required: false,
+      },
+    ],
+    handler: async ({ index, ...fields }) => {
+      if (!index) return { error: t('An announcement index is required.') }
+      const body = cleanParams(fields)
+      if (Object.keys(body).length === 0) {
+        return {
+          error: t('Give a content, a type or a publish date to change.'),
+        }
+      }
+      return loadCopilotTool(
+        api.put<ApiEnvelope<unknown>>(
+          `/api/admin/copilot/tools/announcements/${index}`,
+          body
+        ),
+        t('Failed to update the announcement.')
+      )
+    },
+  })
 }
