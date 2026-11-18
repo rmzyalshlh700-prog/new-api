@@ -343,7 +343,16 @@ func RechargeNowPayments(tradeNo string, completionRatio decimal.Decimal, caller
 			alreadyDone = true
 			return nil
 		}
-		if topUp.Status != common.TopUpStatusPending {
+		// An order the local expiry task gave up on can still be paid: the
+		// gateway's invoice window and our TTL are not the same clock, and a
+		// crypto payment legitimately lands after either. Reaching this point
+		// with a verified IPN means the gateway reports the funds arrived, so an
+		// expired order is resurrected rather than rejected — otherwise a paid
+		// order is dropped and the customer's money is stuck. The row lock above
+		// keeps the resurrection single-shot, and any other status (failed,
+		// refunded) is still refused.
+		resurrected := topUp.Status == common.TopUpStatusExpired
+		if topUp.Status != common.TopUpStatusPending && !resurrected {
 			return ErrTopUpStatusInvalid
 		}
 		if !completionRatio.IsPositive() {
@@ -360,6 +369,9 @@ func RechargeNowPayments(tradeNo string, completionRatio decimal.Decimal, caller
 		topUp.Status = common.TopUpStatusSuccess
 		if err := tx.Save(topUp).Error; err != nil {
 			return err
+		}
+		if resurrected {
+			common.SysLog(common.LogText("nowpayments topup resurrected expired order trade_no=%s user_id=%d quota_to_add=%d", topUp.TradeNo, topUp.UserId, quotaToAdd))
 		}
 		return creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil)
 	})
