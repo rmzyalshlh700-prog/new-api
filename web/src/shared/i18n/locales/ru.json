@@ -4493,6 +4493,7 @@
     "Notifications": "Уведомления",
     "Notifications to receive": "Получаемые уведомления",
     "Now a user whose user group is vip creates tokens with different groups and makes one call with each:": "Теперь пользователь с группой vip создаёт токены с разными группами и делает по одному вызову с каждым:",
+    "NOWPayments": "NOWPayments",
     "NOWPayments API key": "API-ключ NOWPayments",
     "NOWPayments API key (leave blank unless updating)": "API-ключ NOWPayments (оставьте пустым, если не меняете)",
     "NOWPayments Dashboard": "Панель NOWPayments",

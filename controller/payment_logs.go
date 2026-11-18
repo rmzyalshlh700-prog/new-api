@@ -23,6 +23,7 @@ var paymentLogProviders = map[string]struct{}{
 	model.PaymentProviderWaffo:        {},
 	model.PaymentProviderWaffoPancake: {},
 	model.PaymentProviderBalance:      {},
+	model.PaymentProviderNowPayments:  {},
 }
 
 // parsePaymentLogTimestamp accepts an optional Unix timestamp in seconds.

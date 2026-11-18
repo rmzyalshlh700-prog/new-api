@@ -4493,6 +4493,7 @@
     "Notifications": "الإشعارات",
     "Notifications to receive": "الإشعارات المراد استلامها",
     "Now a user whose user group is vip creates tokens with different groups and makes one call with each:": "الآن ينشئ مستخدم تنتمي مجموعته إلى vip مفاتيح بمجموعات مختلفة ويجري استدعاءً واحدًا بكل منها:",
+    "NOWPayments": "NOWPayments",
     "NOWPayments API key": "مفتاح API الخاص بـ NOWPayments",
     "NOWPayments API key (leave blank unless updating)": "مفتاح API الخاص بـ NOWPayments (اتركه فارغًا ما لم تقم بالتحديث)",
     "NOWPayments Dashboard": "لوحة تحكم NOWPayments",

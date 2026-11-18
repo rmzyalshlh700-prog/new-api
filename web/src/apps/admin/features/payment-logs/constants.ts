@@ -44,6 +44,7 @@ export const PAYMENT_LOG_PROVIDER_VALUES = [
   'waffo',
   'waffo_pancake',
   'balance',
+  'nowpayments',
 ] as const
 
 const PAYMENT_PROVIDER_LABEL_KEYS: Record<string, string> = {
@@ -53,6 +54,7 @@ const PAYMENT_PROVIDER_LABEL_KEYS: Record<string, string> = {
   waffo: 'Waffo',
   waffo_pancake: 'Waffo Pancake',
   balance: 'Balance',
+  nowpayments: 'NOWPayments',
 }
 
 export function getPaymentStatusOptions(t: TFunction) {
