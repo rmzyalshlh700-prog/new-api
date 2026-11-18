@@ -191,19 +191,23 @@ export function BillingHistoryDialog({
                   return (
                     <div
                       key={record.id}
-                      className='rounded-lg border p-3 sm:p-4'
+                      className='min-w-0 overflow-hidden rounded-lg border p-3 sm:p-4'
                     >
                       {/* Header Row */}
                       <div className='flex items-start justify-between gap-2'>
-                        <div className='flex-1 space-y-1'>
-                          <div className='flex min-w-0 items-center gap-2'>
-                            <code className='text-foreground truncate font-mono text-sm'>
+                        <div className='min-w-0 flex-1 space-y-1'>
+                          <div className='flex min-w-0 items-center gap-1.5'>
+                            <code
+                              className='text-foreground min-w-0 flex-1 truncate font-mono text-xs sm:text-sm'
+                              dir='ltr'
+                              title={record.trade_no}
+                            >
                               {record.trade_no}
                             </code>
                             <Button
                               variant='ghost'
                               size='sm'
-                              className='h-5 w-5 p-0'
+                              className='h-5 w-5 shrink-0 p-0'
                               onClick={() => copyToClipboard(record.trade_no)}
                             >
                               {copiedText === record.trade_no ? (
@@ -212,17 +216,23 @@ export function BillingHistoryDialog({
                                 <Copy className='h-3 w-3' />
                               )}
                             </Button>
+                          </div>
+                          {/* The user badge belongs on the metadata line: three
+                              items on one row is what collided on a phone. It
+                              wraps under the date when there is no room. */}
+                          <div className='text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs'>
+                            <span className='whitespace-nowrap'>
+                              {formatTimestamp(record.create_time)}
+                            </span>
                             {isAdmin && record.user_id != null && (
                               <StatusBadge
                                 label={`${t('User ID')}: ${record.user_id}`}
                                 variant='neutral'
                                 size='sm'
                                 copyText={String(record.user_id)}
+                                className='shrink-0'
                               />
                             )}
-                          </div>
-                          <div className='text-muted-foreground text-xs'>
-                            {formatTimestamp(record.create_time)}
                           </div>
                         </div>
                         <StatusBadge
@@ -230,24 +240,25 @@ export function BillingHistoryDialog({
                           variant={statusConfig.variant}
                           showDot
                           copyable={false}
+                          className='shrink-0'
                         />
                       </div>
 
                       {/* Details Grid */}
-                      <div className='mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:grid-cols-3 sm:gap-4'>
-                        <div className='space-y-1'>
+                      <div className='mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:mt-4 sm:grid-cols-3 sm:gap-4'>
+                        <div className='min-w-0 space-y-1'>
                           <Label className='text-muted-foreground text-xs'>
                             {t('Payment Method')}
                           </Label>
-                          <div className='text-sm font-medium'>
+                          <div className='truncate text-sm font-medium'>
                             {getPaymentMethodName(record.payment_method, t)}
                           </div>
                         </div>
-                        <div className='space-y-1'>
+                        <div className='min-w-0 space-y-1'>
                           <Label className='text-muted-foreground text-xs'>
                             {t('Amount')}
                           </Label>
-                          <div className='text-sm font-semibold'>
+                          <div className='text-sm font-semibold whitespace-nowrap'>
                             {formatCurrencyFromUSD(record.amount, {
                               digitsLarge: 2,
                               digitsSmall: 2,
@@ -255,11 +266,11 @@ export function BillingHistoryDialog({
                             })}
                           </div>
                         </div>
-                        <div className='space-y-1'>
+                        <div className='min-w-0 space-y-1'>
                           <Label className='text-muted-foreground text-xs'>
                             {t('Payment')}
                           </Label>
-                          <div className='text-sm font-semibold text-red-600'>
+                          <div className='text-sm font-semibold whitespace-nowrap text-red-600'>
                             {formatNumber(record.money)}
                           </div>
                         </div>

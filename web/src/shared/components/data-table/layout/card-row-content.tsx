@@ -91,7 +91,7 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
       {/* Row 1: Title + Badge */}
       <div className='flex items-center justify-between gap-2'>
         {titleCell && (
-          <div className='min-w-0 flex-1 text-sm font-medium [&_[data-slot=status-badge]]:max-w-full [&_[data-slot=status-badge]]:whitespace-normal'>
+          <div className='min-w-0 flex-1 overflow-hidden text-sm font-medium [&_[data-slot=status-badge]]:max-w-full [&_[data-slot=status-badge]]:whitespace-normal'>
             {renderCellContent(titleCell)}
           </div>
         )}

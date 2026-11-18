@@ -43,9 +43,9 @@ export function usePaymentLogColumns(): ColumnDef<PaymentLogEntry>[] {
         header: t('Transaction Reference'),
         meta: { mobileTitle: true },
         cell: ({ row }) => (
-          <div className='flex max-w-full min-w-0 items-center gap-1'>
+          <div className='flex w-full min-w-0 items-center gap-1 overflow-hidden'>
             <span
-              className='min-w-0 truncate font-mono text-sm'
+              className='min-w-0 flex-1 truncate font-mono text-xs sm:text-sm'
               title={row.original.trade_no}
               dir='ltr'
             >
@@ -71,11 +71,15 @@ export function usePaymentLogColumns(): ColumnDef<PaymentLogEntry>[] {
           const primary =
             entry.user_email || entry.username || `#${entry.user_id}`
           return (
-            <div className='flex min-w-0 flex-col gap-0.5'>
-              <span className='truncate text-sm font-medium' dir='ltr'>
+            <div className='flex min-w-0 flex-col gap-0.5 overflow-hidden'>
+              <span
+                className='truncate text-sm font-medium'
+                dir='ltr'
+                title={primary}
+              >
                 {primary}
               </span>
-              <span className='text-muted-foreground text-xs tabular-nums'>
+              <span className='text-muted-foreground truncate text-xs tabular-nums whitespace-nowrap'>
                 {t('User ID')}: {entry.user_id}
               </span>
             </div>
@@ -88,12 +92,12 @@ export function usePaymentLogColumns(): ColumnDef<PaymentLogEntry>[] {
         header: t('Payment gateway'),
         meta: { mobileOrder: 30 },
         cell: ({ row }) => (
-          <div className='flex min-w-0 flex-col gap-0.5'>
-            <span className='text-sm font-medium'>
+          <div className='flex min-w-0 flex-col gap-0.5 overflow-hidden'>
+            <span className='truncate text-sm font-medium'>
               {getPaymentProviderLabel(row.original.payment_provider, t)}
             </span>
             {row.original.payment_method && (
-              <span className='text-muted-foreground text-xs'>
+              <span className='text-muted-foreground truncate text-xs'>
                 {row.original.payment_method}
               </span>
             )}
@@ -108,7 +112,10 @@ export function usePaymentLogColumns(): ColumnDef<PaymentLogEntry>[] {
         header: t('Credited amount'),
         meta: { mobileOrder: 40 },
         cell: ({ row }) => (
-          <span className='text-sm font-semibold tabular-nums' dir='ltr'>
+          <span
+            className='block truncate text-sm font-semibold tabular-nums whitespace-nowrap'
+            dir='ltr'
+          >
             {formatCurrencyFromUSD(row.original.amount, {
               digitsLarge: 2,
               digitsSmall: 2,
@@ -124,7 +131,10 @@ export function usePaymentLogColumns(): ColumnDef<PaymentLogEntry>[] {
         header: t('Paid amount'),
         meta: { mobileOrder: 50 },
         cell: ({ row }) => (
-          <span className='text-sm tabular-nums' dir='ltr'>
+          <span
+            className='block truncate text-sm tabular-nums whitespace-nowrap'
+            dir='ltr'
+          >
             {/* The gateway stores paid amounts in the local billing currency
                 (never tokens), so format them with the billing-currency
                 formatter instead of a bare number. */}
