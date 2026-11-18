@@ -104,17 +104,17 @@ function CompactContent<TData>({ row }: { row: Row<TData> }) {
 
       {/* Row 2: Key fields wrap into compact columns instead of squeezing */}
       {fieldCells.length > 0 && (
-        <div className='mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5'>
+        <div className='mt-2 grid grid-cols-2 gap-x-3 gap-y-2'>
           {fieldCells.map((cell) => {
             const label = getCellLabel(cell)
             return (
               <div key={cell.id} className='min-w-0 flex-1 overflow-hidden'>
                 {label && (
-                  <div className='text-muted-foreground mb-0.5 text-[10px] leading-none select-none'>
+                  <div className='text-muted-foreground mb-1 text-[10px] leading-none font-medium select-none'>
                     {label}
                   </div>
                 )}
-                <div className='min-w-0 overflow-hidden text-xs [&_:is([data-slot=badge-cell],[data-slot=provider-badge],[data-slot=status-badge])]:ms-0'>
+                <div className='min-w-0 overflow-hidden text-xs leading-tight [&_:is([data-slot=badge-cell],[data-slot=provider-badge],[data-slot=status-badge])]:ms-0'>
                   <StatusBadgeTypeContext.Provider value='text'>
                     {renderCellContent(cell) ?? '-'}
                   </StatusBadgeTypeContext.Provider>
