@@ -14,6 +14,10 @@
     />
 
     <meta name="theme-color" content="#fff" />
+    <!-- Icons ship with the console: a 16/32/48 favicon and the 512px mark.
+         Rsbuild injects the favicon link from `html.favicon`; the system logo
+         setting can still replace it at runtime. -->
+    <link rel="apple-touch-icon" href="/logo.png" sizes="512x512" />
     <!-- Resolve the theme before first paint so the page never flashes light
          and one-shot detectors (e.g. Dark Reader) see the real theme.
          Keep in sync with ThemeProvider and THEME_STORAGE_KEYS.mode. -->

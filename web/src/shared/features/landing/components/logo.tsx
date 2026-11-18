@@ -26,8 +26,8 @@ export function AstramuxMark(props: { className?: string; logoUrl?: string }) {
     <img
       src={props.logoUrl ?? DEFAULT_LANDING_BRAND.logoUrl}
       alt=''
-      width={180}
-      height={180}
+      width={512}
+      height={512}
       decoding='async'
       className={cn('size-9 shrink-0 object-contain', props.className)}
     />
