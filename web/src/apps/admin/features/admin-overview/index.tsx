@@ -20,11 +20,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  getDefaultDays,
-  getSavedGranularity,
-} from '@/apps/client/features/dashboard/lib'
-import type { UserChartsFilters } from '@/apps/client/features/dashboard/types'
 import { SectionPageLayout } from '@/shared/components/layout'
 import { FadeIn } from '@/shared/components/page-transition'
 import { Alert, AlertDescription } from '@/shared/components/ui/alert'
@@ -47,7 +42,6 @@ import { PlatformMetricsCards } from './components/platform-metrics-cards'
 import { RevenuePanel } from './components/revenue-panel'
 import { TokenUsagePanel } from './components/token-usage-panel'
 import { TopModelsPanel } from './components/top-models-panel'
-import { UserCharts } from './components/user-analytics'
 import { WidgetErrorBoundary } from './components/widget-error-boundary'
 import { ALL_TIME_REFRESH_MS, LIVE_REFRESH_MS } from './constants'
 import {
@@ -76,16 +70,6 @@ function safeRange(start: number, end: number): { start: number; end: number } {
 export function AdminOverview() {
   const { t } = useTranslation()
   const [now, setNow] = useState(() => new Date())
-  const [userChartsFilters, setUserChartsFilters] = useState<UserChartsFilters>(
-    () => {
-      const granularity = getSavedGranularity()
-      return {
-        timeGranularity: granularity,
-        selectedRange: getDefaultDays(granularity),
-        topUserLimit: 10,
-      }
-    }
-  )
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), LIVE_REFRESH_MS)
     return () => window.clearInterval(timer)
@@ -377,14 +361,6 @@ export function AdminOverview() {
                   </WidgetErrorBoundary>
                 </FadeIn>
               </div>
-              <FadeIn delay={0.25}>
-                <WidgetErrorBoundary>
-                  <UserCharts
-                    filters={userChartsFilters}
-                    onFiltersChange={setUserChartsFilters}
-                  />
-                </WidgetErrorBoundary>
-              </FadeIn>
             </>
           )}
         </div>

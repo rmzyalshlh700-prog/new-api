@@ -43,10 +43,7 @@ function sectionOrder(source: string): string[] {
     '<RevenuePanel',
     '<TokenUsagePanel',
     '<TopModelsPanel',
-    '<UserCharts',
   ]
-  // A word boundary keeps `<UserCharts` from matching `<UserChartsFilters>` in
-  // the filter state above the JSX.
   const positions = markers.map((marker) => ({
     marker,
     at: source.search(new RegExp(`${marker}\\b`)),
@@ -72,7 +69,6 @@ describe('admin overview section order', () => {
       '<RevenuePanel',
       '<TokenUsagePanel',
       '<TopModelsPanel',
-      '<UserCharts',
     ])
   })
 
