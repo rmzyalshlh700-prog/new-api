@@ -454,13 +454,13 @@ func nowPaymentsWebhookHeaderDump(c *gin.Context) string {
 // facts that decide whether a callback can be verified at all, plus a fingerprint
 // of the body so a rejected request can be diffed against a local re-sign. Richer
 // detail (header dump, body) is written only when NOWPAYMENTS_WEBHOOK_DEBUG is set.
-func logNowPaymentsWebhookRequest(ctx context.Context, c *gin.Context, payload []byte) {
+func logNowPaymentsWebhookRequest(ctx context.Context, c *gin.Context, payload []byte, signaturePresent bool) {
 	sum := sha256.Sum256(payload)
 	debug := common.GetEnvOrDefaultBool(nowPaymentsWebhookDebugEnv, false)
 	logger.LogInfo(ctx, common.LogText(
 		"NOWPayments webhook received method=%s path=%q client_ip=%s ua=%q content_type=%q content_length=%d body_len=%d body_sha256=%x sig_present=%t",
 		c.Request.Method, c.Request.RequestURI, c.ClientIP(), c.Request.UserAgent(),
-		c.GetHeader("Content-Type"), c.Request.ContentLength, len(payload), sum[:8], c.GetHeader(nowPaymentsIpnSignatureHeader) != ""))
+		c.GetHeader("Content-Type"), c.Request.ContentLength, len(payload), sum[:8], signaturePresent))
 	if !debug {
 		return
 	}
@@ -539,7 +539,7 @@ func NowPaymentsWebhook(c *gin.Context) {
 	}
 
 	signature, signatureHeader := nowPaymentsSignatureFromRequest(c)
-	logNowPaymentsWebhookRequest(ctx, c, payload)
+	logNowPaymentsWebhookRequest(ctx, c, payload, signature != "")
 
 	ipnSecret := setting.NowPaymentsIpnSecret
 	verified := VerifyNowPaymentsSignature(payload, signature, ipnSecret)
