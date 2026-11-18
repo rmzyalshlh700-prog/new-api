@@ -20,6 +20,7 @@ import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailRow } from '@/shared/components/detail-row'
 import { Dialog } from '@/shared/components/dialog'
 import { StatusBadge } from '@/shared/components/status-badge'
 import {
@@ -34,7 +35,6 @@ import {
 } from '@/shared/components/ui/alert-dialog'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
-import { Label } from '@/shared/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -103,7 +103,7 @@ export function BillingHistoryDialog({
         description={t(
           'View your topup transaction records and payment history'
         )}
-        contentClassName='flex max-h-(--dialog-available-height) flex-col max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-4xl'
+        contentClassName='flex max-h-(--dialog-available-height) touch-pan-y flex-col overscroll-contain max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-4xl'
         contentHeight='auto'
         bodyClassName='space-y-3'
       >
@@ -145,8 +145,12 @@ export function BillingHistoryDialog({
             </Select>
           </div>
 
-          {/* Records List */}
-          <div className='max-h-[min(54vh,520px)] overflow-y-auto pe-1'>
+          {/* Records List. On a phone the dialog itself is the only scroller:
+              a capped, independently scrollable list inside a scrolling modal
+              is what made the gesture feel stuck — the inner box hit its end
+              before the outer one moved. The cap is kept from `sm` up, where
+              the dialog is a centred panel rather than a full-height sheet. */}
+          <div className='pe-1 sm:max-h-[min(54vh,520px)] sm:overflow-y-auto'>
             {loading && (
               <div className='space-y-3'>
                 {['first', 'second', 'third', 'fourth', 'fifth'].map(
@@ -224,15 +228,6 @@ export function BillingHistoryDialog({
                             <span className='whitespace-nowrap'>
                               {formatTimestamp(record.create_time)}
                             </span>
-                            {isAdmin && record.user_id != null && (
-                              <StatusBadge
-                                label={`${t('User ID')}: ${record.user_id}`}
-                                variant='neutral'
-                                size='sm'
-                                copyText={String(record.user_id)}
-                                className='shrink-0'
-                              />
-                            )}
                           </div>
                         </div>
                         <StatusBadge
@@ -244,36 +239,33 @@ export function BillingHistoryDialog({
                         />
                       </div>
 
-                      {/* Details Grid */}
-                      <div className='mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:mt-4 sm:grid-cols-3 sm:gap-4'>
-                        <div className='min-w-0 space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
-                            {t('Payment Method')}
-                          </Label>
-                          <div className='truncate text-sm font-medium'>
-                            {getPaymentMethodName(record.payment_method, t)}
-                          </div>
-                        </div>
-                        <div className='min-w-0 space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
-                            {t('Amount')}
-                          </Label>
-                          <div className='text-sm font-semibold whitespace-nowrap'>
+                      {/* Key/value rows, matching the admin ledger card so the
+                          two views read identically. */}
+                      <div className='mt-1'>
+                        {isAdmin && record.user_id != null && (
+                          <DetailRow label={t('User ID')}>
+                            <span className='tabular-nums'>
+                              {record.user_id}
+                            </span>
+                          </DetailRow>
+                        )}
+                        <DetailRow label={t('Payment Method')}>
+                          {getPaymentMethodName(record.payment_method, t)}
+                        </DetailRow>
+                        <DetailRow label={t('Amount')}>
+                          <span className='tabular-nums'>
                             {formatCurrencyFromUSD(record.amount, {
                               digitsLarge: 2,
                               digitsSmall: 2,
                               abbreviate: false,
                             })}
-                          </div>
-                        </div>
-                        <div className='min-w-0 space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
-                            {t('Payment')}
-                          </Label>
-                          <div className='text-sm font-semibold whitespace-nowrap text-red-600'>
+                          </span>
+                        </DetailRow>
+                        <DetailRow label={t('Payment')}>
+                          <span className='tabular-nums text-red-600'>
                             {formatNumber(record.money)}
-                          </div>
-                        </div>
+                          </span>
+                        </DetailRow>
                       </div>
 
                       {/* Admin Actions */}

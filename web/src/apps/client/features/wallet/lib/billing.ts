@@ -67,6 +67,12 @@ export const PAYMENT_METHOD_NAMES: Record<string, string> = {
   alipay: 'Alipay',
   wxpay: 'WeChat Pay',
   waffo: 'Waffo',
+  // Gateway ids the top-up flow can record as the method; without an entry the
+  // UI printed the raw lowercase id. The label is what the i18n layer has.
+  nowpayments: 'NOWPayments',
+  epay: 'Epay',
+  creem: 'Creem',
+  balance: 'Balance',
 }
 
 /**

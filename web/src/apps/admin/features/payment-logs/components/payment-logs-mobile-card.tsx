@@ -16,10 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ReactNode } from 'react'
+
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/shared/components/copy-button'
+import { DetailRow } from '@/shared/components/detail-row'
 import { StatusBadge } from '@/shared/components/status-badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { toIntlLocale } from '@/shared/i18n/languages'
@@ -31,24 +32,6 @@ import { formatTimestampToDate } from '@/shared/lib/format'
 
 import { getPaymentProviderLabel, getPaymentStatusBadge } from '../constants'
 import type { PaymentLogEntry } from '../types'
-
-/**
- * One label/value line. The label sits on the inline-start edge and the value on
- * the inline-end edge, so the pair reads correctly in RTL and LTR without any
- * direction-specific classes, and a value is never separated from its label.
- */
-function KeyValueRow(props: { label: string; children: ReactNode }) {
-  return (
-    <div className='flex items-start justify-between gap-3 border-b py-1.5 last:border-0'>
-      <span className='text-muted-foreground shrink-0 text-xs'>
-        {props.label}
-      </span>
-      <span className='min-w-0 text-end text-xs font-medium'>
-        {props.children}
-      </span>
-    </div>
-  )
-}
 
 function PaymentLogMobileCard(props: { entry: PaymentLogEntry }) {
   const { t, i18n } = useTranslation()
@@ -93,18 +76,18 @@ function PaymentLogMobileCard(props: { entry: PaymentLogEntry }) {
       </div>
 
       <div className='mt-2'>
-        <KeyValueRow label={t('User')}>
+        <DetailRow label={t('User')}>
           <span className='break-all' dir='ltr'>
             {identity}
           </span>
-        </KeyValueRow>
-        <KeyValueRow label={t('User ID')}>
+        </DetailRow>
+        <DetailRow label={t('User ID')}>
           <span className='tabular-nums'>{entry.user_id}</span>
-        </KeyValueRow>
-        <KeyValueRow label={t('Payment gateway')}>
+        </DetailRow>
+        <DetailRow label={t('Payment gateway')}>
           {getPaymentProviderLabel(entry.payment_provider, t)}
-        </KeyValueRow>
-        <KeyValueRow label={t('Credited amount')}>
+        </DetailRow>
+        <DetailRow label={t('Credited amount')}>
           <span className='tabular-nums'>
             {formatCurrencyFromUSD(entry.amount, {
               digitsLarge: 2,
@@ -113,8 +96,8 @@ function PaymentLogMobileCard(props: { entry: PaymentLogEntry }) {
               locale,
             })}
           </span>
-        </KeyValueRow>
-        <KeyValueRow label={t('Paid amount')}>
+        </DetailRow>
+        <DetailRow label={t('Paid amount')}>
           <span className='tabular-nums text-red-600'>
             {formatLocalCurrencyAmount(entry.money, {
               digitsLarge: 2,
@@ -123,7 +106,7 @@ function PaymentLogMobileCard(props: { entry: PaymentLogEntry }) {
               locale,
             })}
           </span>
-        </KeyValueRow>
+        </DetailRow>
       </div>
     </div>
   )
@@ -168,7 +151,7 @@ export function PaymentLogsMobileCard(props: {
   }
 
   return (
-    <div className='space-y-2'>
+    <div className='space-y-2 pb-20'>
       {props.entries.map((entry) => (
         <PaymentLogMobileCard key={entry.id} entry={entry} />
       ))}

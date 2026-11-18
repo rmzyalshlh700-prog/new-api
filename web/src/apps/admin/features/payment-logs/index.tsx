@@ -19,22 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/shared/components/layout'
-import { useMediaQuery } from '@/shared/hooks'
 
 import { PaymentLogsTable } from './components/payment-logs-table'
 
 export function PaymentLogs() {
   const { t } = useTranslation()
-  // On a phone the page scrolls as one document: the layout's own content box
-  // is the scroller and every child is content-height. Nesting a `flex-1`
-  // scroller inside a `flex-1` scroller is what made the list unable to move —
-  // a fixed-height chain plus `overflow-hidden` leaves the inner one with
-  // nothing to scroll against. From `sm` up the viewport is tall enough for the
-  // pinned footer pattern, so the fixed-height layout is kept there.
-  const isMobile = useMediaQuery('(max-width: 639px)')
-
   return (
-    <SectionPageLayout fixedContent={!isMobile}>
+    <SectionPageLayout fixedContent>
       <SectionPageLayout.Title>{t('Payment Logs')}</SectionPageLayout.Title>
       <SectionPageLayout.Content>
         {/*
@@ -44,17 +35,11 @@ export function PaymentLogs() {
           the list grew to its content height and the layout's overflow-hidden
           clipped it — nothing scrolled, on touch or otherwise.
         */}
-        <div
-          className={
-            isMobile
-              ? 'flex flex-col gap-3 pb-16'
-              : 'flex h-full min-h-0 flex-col gap-3'
-          }
-        >
+        <div className='flex h-full min-h-0 flex-col gap-3'>
           <p className='text-muted-foreground shrink-0 text-sm'>
             {t('Read-only ledger of all top-up and payment orders.')}
           </p>
-          <div className={isMobile ? 'min-w-0' : 'min-h-0 flex-1'}>
+          <div className='min-h-0 flex-1'>
             <PaymentLogsTable />
           </div>
         </div>
