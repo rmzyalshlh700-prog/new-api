@@ -16,12 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { RotateCcw, Search as SearchIcon } from 'lucide-react'
+import { ChevronDown, RotateCcw, Search as SearchIcon, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DatePicker } from '@/shared/components/date-picker'
 import { Button } from '@/shared/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/shared/components/ui/collapsible'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import {
@@ -32,8 +37,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select'
-import { useDebounce } from '@/shared/hooks'
+import { useDebounce, useMediaQuery } from '@/shared/hooks'
 import dayjs from '@/shared/lib/dayjs'
+import { cn } from '@/shared/lib/utils'
 import { formatDateStr } from '@/shared/lib/format'
 
 import {
@@ -117,9 +123,63 @@ export function PaymentLogsFilters(props: PaymentLogsFiltersProps) {
     Boolean(keyword || status || provider || fromDate || toDate) ||
     searchDraft.trim() !== keyword
 
+  // On a phone the five stacked controls are taller than the viewport, which
+  // used to leave the ledger itself with no room. The panel starts collapsed
+  // there and opens on demand; from `sm` upward it is always open, since the
+  // fields fit on one or two rows.
+  const isMobile = useMediaQuery('(max-width: 639px)')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const filtersExpanded = !isMobile || filtersOpen
+  const activeFilterCount = [
+    keyword,
+    status,
+    provider,
+    fromDate,
+    toDate,
+  ].filter(Boolean).length
+
   return (
-    <div className='bg-card/60 rounded-xl border p-3 shadow-xs sm:p-4'>
-      <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,1fr))_auto] xl:items-end'>
+    <div className='bg-card/60 shrink-0 rounded-xl border p-3 shadow-xs sm:p-4'>
+      <Collapsible open={filtersExpanded} onOpenChange={setFiltersOpen}>
+        <CollapsibleTrigger
+          render={
+            <Button
+              type='button'
+              variant='outline'
+              className='h-9 w-full justify-between gap-2 sm:hidden'
+              aria-expanded={filtersExpanded}
+              aria-controls='payment-logs-filter-fields'
+            />
+          }
+        >
+          <span className='flex min-w-0 items-center gap-2'>
+            <SlidersHorizontal className='size-4 shrink-0' aria-hidden='true' />
+            <span className='truncate'>
+              {filtersOpen ? t('Hide filters') : t('Show filters')}
+            </span>
+            {activeFilterCount > 0 && (
+              <span className='bg-primary text-primary-foreground rounded-full px-1.5 text-[10px] leading-4 tabular-nums'>
+                {activeFilterCount}
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            aria-hidden='true'
+            className={cn(
+              'size-4 shrink-0 transition-transform duration-200',
+              filtersExpanded && 'rotate-180'
+            )}
+          />
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          {/* Bounded height on a phone: even opened, the fields scroll inside
+              the panel instead of pushing the ledger out of the viewport. */}
+          <div
+            id='payment-logs-filter-fields'
+            className='mt-3 max-h-[46vh] overflow-y-auto pe-1 sm:mt-0 sm:max-h-none sm:overflow-visible sm:pe-0'
+          >
+            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,1fr))_auto] xl:items-end'>
         <div className='flex min-w-0 flex-col gap-1.5 sm:col-span-2 lg:col-span-1'>
           <Label
             htmlFor='payment-logs-search'
@@ -127,10 +187,15 @@ export function PaymentLogsFilters(props: PaymentLogsFiltersProps) {
           >
             {t('Search')}
           </Label>
-          <div className='relative min-w-0'>
+          {/* The icon is a flex sibling, not an absolutely positioned overlay:
+              laid out in the flow it always reserves its own space, so the
+              placeholder can never sit beneath it in RTL or LTR. Padding
+              utilities on the input itself used to compete with the shared
+              Input's px-2.5 in whichever direction the page ran. */}
+          <div className='border-input focus-within:border-ring focus-within:ring-ring/50 flex h-9 min-w-0 items-center gap-2 rounded-lg border px-2.5 transition-colors focus-within:ring-3 focus-within:ring-inset'>
             <SearchIcon
               aria-hidden='true'
-              className='text-muted-foreground pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2'
+              className='text-muted-foreground size-4 shrink-0'
             />
             <Input
               id='payment-logs-search'
@@ -139,7 +204,7 @@ export function PaymentLogsFilters(props: PaymentLogsFiltersProps) {
               placeholder={t(
                 'Search by trade number, email, username, or user ID...'
               )}
-              className='h-9 ps-9'
+              className='h-8 min-w-0 flex-1 border-0 bg-transparent px-0 py-0 focus-visible:ring-0'
               dir='auto'
             />
           </div>
@@ -259,7 +324,10 @@ export function PaymentLogsFilters(props: PaymentLogsFiltersProps) {
           <RotateCcw className='size-4' aria-hidden='true' />
           {t('Reset')}
         </Button>
-      </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   )
 }
