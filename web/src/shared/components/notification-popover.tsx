@@ -17,7 +17,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
-import { Bell, Megaphone } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bell,
+  CheckCheck,
+  CheckCircle2,
+  Info,
+  Megaphone,
+  X,
+  XCircle,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { RichContent } from '@/shared/components/rich-content'
@@ -42,7 +51,10 @@ import { Separator } from '@/shared/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 import { getAnnouncementColorClass } from '@/shared/lib/colors'
 import { formatDateTimeObject } from '@/shared/lib/time'
+import type { UserNotification } from '@/shared/lib/user-notifications'
 import { cn } from '@/shared/lib/utils'
+
+import type { NotificationTab } from '../hooks/use-notifications'
 
 interface AnnouncementItem {
   id?: number | string
@@ -56,12 +68,35 @@ interface NotificationPopoverProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   unreadCount: number
-  activeTab: 'notice' | 'announcements'
-  onTabChange: (tab: 'notice' | 'announcements') => void
+  activeTab: NotificationTab
+  onTabChange: (tab: NotificationTab) => void
   notice: string
   announcements: AnnouncementItem[]
   loading: boolean
   className?: string
+  /** Personal notifications the signed-in user received. Hidden when signed out. */
+  inboxEnabled?: boolean
+  inbox?: UserNotification[]
+  inboxLoading?: boolean
+  onDismissInboxItem?: (id: number) => void
+  onMarkInboxRead?: () => void
+}
+
+const INBOX_LEVEL_STYLES = {
+  info: { icon: Info, tone: 'text-sky-600 dark:text-sky-400' },
+  success: { icon: CheckCircle2, tone: 'text-emerald-600 dark:text-emerald-400' },
+  warning: {
+    icon: AlertTriangle,
+    tone: 'text-amber-600 dark:text-amber-400',
+  },
+  error: { icon: XCircle, tone: 'text-rose-600 dark:text-rose-400' },
+} as const
+
+function getInboxLevelStyle(level: string) {
+  return (
+    INBOX_LEVEL_STYLES[level as keyof typeof INBOX_LEVEL_STYLES] ??
+    INBOX_LEVEL_STYLES.info
+  )
 }
 
 /**
@@ -172,6 +207,123 @@ function EmptyState({
         ) : null}
       </EmptyHeader>
     </Empty>
+  )
+}
+
+/**
+ * Personal inbox: notifications an administrator addressed to this account.
+ */
+function InboxContent({
+  inbox,
+  loading,
+  t,
+  onDismiss,
+}: {
+  inbox: UserNotification[]
+  loading: boolean
+  t: TFunction
+  onDismiss?: (id: number) => void
+}) {
+  if (loading) {
+    return (
+      <EmptyState
+        icon={<Bell />}
+        title={t('Loading...')}
+        description={t('Notifications sent to your account')}
+      />
+    )
+  }
+
+  if (inbox.length === 0) {
+    return (
+      <EmptyState
+        icon={<Bell />}
+        title={t('No notifications yet')}
+        description={t('Notifications sent to your account appear here')}
+      />
+    )
+  }
+
+  return (
+    <ScrollArea className='h-[min(52vh,28rem)] pe-3'>
+      <div className='flex flex-col gap-1'>
+        {inbox.map((item) => {
+          const style = getInboxLevelStyle(item.level)
+          const LevelIcon = style.icon
+          const createdAt = new Date(item.created_at * 1000)
+          const relativeTime = Number.isNaN(createdAt.getTime())
+            ? ''
+            : getRelativeTime(createdAt, t)
+          const unread = !item.read_at
+          const hasLink =
+            item.link.startsWith('/') || /^https?:\/\//i.test(item.link)
+
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                'group flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors',
+                unread ? 'bg-accent/40' : 'hover:bg-accent/30'
+              )}
+            >
+              <LevelIcon
+                className={cn('mt-0.5 size-4 shrink-0', style.tone)}
+                aria-hidden='true'
+              />
+              <div className='flex min-w-0 flex-1 flex-col gap-1'>
+                <div className='flex items-start justify-between gap-2'>
+                  <p className='text-sm font-medium break-words'>
+                    {item.title}
+                  </p>
+                  {unread ? (
+                    <span
+                      className='bg-primary mt-1.5 inline-block size-1.5 shrink-0 rounded-full'
+                      aria-label={t('Unread')}
+                    />
+                  ) : null}
+                </div>
+
+                {item.content ? (
+                  <p className='text-muted-foreground line-clamp-4 text-xs whitespace-pre-wrap break-words'>
+                    {item.content}
+                  </p>
+                ) : null}
+
+                <div className='text-muted-foreground flex flex-wrap items-center gap-2 text-[11px]'>
+                  {relativeTime ? (
+                    <span title={formatDateTimeObject(createdAt)}>
+                      {relativeTime}
+                    </span>
+                  ) : null}
+                  {hasLink ? (
+                    <a
+                      href={item.link}
+                      target={item.link.startsWith('/') ? undefined : '_blank'}
+                      rel='noopener noreferrer'
+                      className='text-primary font-medium hover:underline'
+                    >
+                      {t('Open')}
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+
+              {onDismiss ? (
+                <Button
+                  variant='ghost'
+                  size='icon-sm'
+                  className='opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
+                  onClick={() => onDismiss(item.id)}
+                  aria-label={t('Dismiss')}
+                >
+                  <X className='size-3.5' />
+                </Button>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+    </ScrollArea>
   )
 }
 
@@ -288,7 +440,8 @@ function AnnouncementsContent({
 }
 
 /**
- * Notification popover with Notice and Announcements tabs
+ * Notification popover with the personal inbox, the Notice and the
+ * announcement timeline.
  */
 export function NotificationPopover({
   open,
@@ -300,8 +453,16 @@ export function NotificationPopover({
   announcements,
   loading,
   className,
+  inboxEnabled = false,
+  inbox = [],
+  inboxLoading = false,
+  onDismissInboxItem,
+  onMarkInboxRead,
 }: NotificationPopoverProps) {
   const { t } = useTranslation()
+  const showInbox = inboxEnabled
+  const inboxUnread = inbox.filter((item) => !item.read_at).length
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
@@ -331,9 +492,9 @@ export function NotificationPopover({
         className='w-[min(26rem,calc(100vw-1rem))] gap-3 p-3'
       >
         <PopoverHeader className='gap-1 px-1'>
-          <PopoverTitle>{t('System Announcements')}</PopoverTitle>
+          <PopoverTitle>{t('Notifications')}</PopoverTitle>
           <p className='text-muted-foreground text-xs'>
-            {t('Latest platform updates and notices')}
+            {t('Messages sent to you and platform announcements')}
           </p>
         </PopoverHeader>
 
@@ -341,7 +502,23 @@ export function NotificationPopover({
           value={activeTab}
           onValueChange={onTabChange as (value: string) => void}
         >
-          <TabsList className='grid w-full grid-cols-2'>
+          <TabsList
+            className={cn(
+              'grid w-full',
+              showInbox ? 'grid-cols-3' : 'grid-cols-2'
+            )}
+          >
+            {showInbox ? (
+              <TabsTrigger value='inbox' className='gap-1.5'>
+                <Bell className='size-3.5' />
+                {t('Inbox')}
+                {inboxUnread > 0 ? (
+                  <span className='bg-destructive text-destructive-foreground rounded-full px-1.5 text-[10px] font-semibold tabular-nums'>
+                    {inboxUnread > 99 ? '99+' : inboxUnread}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            ) : null}
             <TabsTrigger value='notice' className='gap-1.5'>
               <Bell className='size-3.5' />
               {t('Notice')}
@@ -351,6 +528,17 @@ export function NotificationPopover({
               {t('Timeline')}
             </TabsTrigger>
           </TabsList>
+
+          {showInbox ? (
+            <TabsContent value='inbox' className='mt-2'>
+              <InboxContent
+                inbox={inbox}
+                loading={inboxLoading}
+                t={t}
+                onDismiss={onDismissInboxItem}
+              />
+            </TabsContent>
+          ) : null}
 
           <TabsContent value='notice' className='mt-2'>
             <NoticeContent notice={notice} loading={loading} t={t} />
@@ -365,7 +553,20 @@ export function NotificationPopover({
           </TabsContent>
         </Tabs>
 
-        <div className='flex justify-end'>
+        <div className='flex items-center justify-between gap-2'>
+          {showInbox && activeTab === 'inbox' && inboxUnread > 0 && onMarkInboxRead ? (
+            <Button
+              variant='ghost'
+              size='sm'
+              className='gap-1.5'
+              onClick={onMarkInboxRead}
+            >
+              <CheckCheck className='size-3.5' />
+              {t('Mark all as read')}
+            </Button>
+          ) : (
+            <span />
+          )}
           <Button size='sm' onClick={() => onOpenChange(false)}>
             {t('Close')}
           </Button>

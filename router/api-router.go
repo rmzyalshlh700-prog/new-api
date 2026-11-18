@@ -151,6 +151,10 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/waffo-pancake/pay", middleware.CriticalRateLimit(), middleware.RequireVisibleSection("wallet"), controller.RequestWaffoPancakePay)
 				selfRoute.POST("/aff_transfer", middleware.UserCriticalRateLimit("aff-transfer"), middleware.RequireVisibleSection("wallet"), controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+				// Personal notifications: the signed-in user's own inbox.
+				selfRoute.GET("/notifications", controller.GetSelfNotifications)
+				selfRoute.POST("/notifications/read", controller.MarkSelfNotificationsRead)
+				selfRoute.POST("/notifications/dismiss", controller.DismissSelfNotification)
 
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
@@ -190,6 +194,11 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/:id", controller.GetUser)
 				adminRoute.POST("/", controller.CreateUser)
 				adminRoute.POST("/manage", controller.ManageUser)
+				// Targeted notifications: resolve one account and notify only it.
+				adminRoute.GET("/notifications/sent", controller.AdminListSentNotifications)
+				adminRoute.GET("/notifications/target", controller.AdminResolveNotificationTarget)
+				adminRoute.POST("/notifications/send", middleware.CriticalRateLimit(), controller.AdminSendNotification)
+				adminRoute.POST("/notifications/revoke", middleware.CriticalRateLimit(), controller.AdminRevokeNotification)
 				adminRoute.PUT("/", controller.UpdateUser)
 				adminRoute.DELETE("/:id", controller.DeleteUser)
 				adminRoute.DELETE("/:id/reset_passkey", controller.AdminResetPasskey)
