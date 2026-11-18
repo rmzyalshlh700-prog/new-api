@@ -19,21 +19,20 @@ For commercial licensing, please contact support@quantumnous.com
 import { Cpu } from 'lucide-react'
 import { memo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid } from 'recharts'
 
 import {
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig,
 } from '@/shared/components/ui/chart'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { TitledCard } from '@/shared/components/ui/titled-card'
-import { formatCompactNumber, formatInteger, formatTokens } from '@/shared/lib/format'
+import { formatTokens } from '@/shared/lib/format'
 
 import type { TokenSeriesEntry, TokenSeriesPoint } from '../types'
+import { AnalyticsTooltip, AnalyticsXAxis, AnalyticsYAxis } from './chart-kit'
 
 const SERIES_COLORS = [
   'var(--chart-1)',
@@ -82,34 +81,17 @@ export const TokenUsagePanel = memo(function TokenUsagePanel(
       >
         <BarChart
           data={chartData}
-          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-          barCategoryGap='15%'
+          margin={{ top: 6, right: 4, bottom: 0, left: 0 }}
+          barCategoryGap='18%'
         >
           <CartesianGrid vertical={false} strokeDasharray='3 3' />
-          <XAxis
-            dataKey='label'
-            tickLine={false}
-            axisLine={false}
-            minTickGap={16}
-            tickMargin={8}
-          />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            width={44}
-            tickFormatter={(value) => formatCompactNumber(Number(value))}
-            allowDecimals={false}
-          />
-          <ChartTooltip
-            cursor={{ fill: 'var(--muted)' }}
-            content={
-              <ChartTooltipContent
-                formatter={(value) => formatTokens(Number(value))}
-              />
-            }
-          />
+          <AnalyticsXAxis dataKey='label' minTickGap={28} />
+          <AnalyticsYAxis kind='count' />
+          <AnalyticsTooltip formatter={formatTokens} />
           <ChartLegend
-            content={<ChartLegendContent className='flex-wrap' />}
+            content={
+              <ChartLegendContent className='flex-wrap justify-start gap-x-3 gap-y-1 pt-2 text-[11px]' />
+            }
           />
           <defs>
             {props.series.map((entry, index) => {
@@ -123,8 +105,8 @@ export const TokenUsagePanel = memo(function TokenUsagePanel(
                   x2='0'
                   y2='1'
                 >
-                  <stop offset='0%' stopColor={color} stopOpacity={0.95} />
-                  <stop offset='100%' stopColor={color} stopOpacity={0.55} />
+                  <stop offset='0%' stopColor={color} stopOpacity={0.9} />
+                  <stop offset='100%' stopColor={color} stopOpacity={0.5} />
                 </linearGradient>
               )
             })}
@@ -135,10 +117,9 @@ export const TokenUsagePanel = memo(function TokenUsagePanel(
               dataKey={entry.key}
               stackId='tokens'
               fill={`url(#tokenSeriesGradient-${entry.key})`}
-              maxBarSize={40}
+              maxBarSize={26}
               radius={[2, 2, 0, 0]}
-              animationDuration={450}
-              animationEasing='ease-out'
+              isAnimationActive={false}
             />
           ))}
         </BarChart>
@@ -158,28 +139,9 @@ export const TokenUsagePanel = memo(function TokenUsagePanel(
       description={t('Token usage by model today')}
       icon={<Cpu />}
       iconTone='chart-4'
-      action={
-        <div className='flex items-center gap-4 text-end'>
-          <div>
-            <div className='text-muted-foreground text-[11px]'>
-              {t('Tokens today')}
-            </div>
-            <div className='font-mono text-sm font-semibold tabular-nums'>
-              {formatCompactNumber(props.tokensToday)}
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground text-[11px]'>
-              {t('Requests')}
-            </div>
-            <div className='font-mono text-sm font-semibold tabular-nums'>
-              {formatInteger(props.requestsToday)}
-            </div>
-          </div>
-        </div>
-      }
+      headerClassName='p-3 sm:p-5'
     >
-      <div className='h-64 w-full'>{chartContent}</div>
+      <div className='h-56 w-full sm:h-64'>{chartContent}</div>
     </TitledCard>
   )
 })

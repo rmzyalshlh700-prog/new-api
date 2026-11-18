@@ -24,8 +24,8 @@ import { Progress } from '@/shared/components/ui/progress'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { TitledCard } from '@/shared/components/ui/titled-card'
 import {
+  formatDashboardQuota,
   formatInteger,
-  formatLogQuota,
   formatPercent,
   formatTokens,
 } from '@/shared/lib/format'
@@ -57,15 +57,15 @@ export const TopModelsPanel = memo(function TopModelsPanel(
   let content: ReactNode
   if (props.loading) {
     content = (
-      <div className='space-y-4'>
+      <div className='space-y-3'>
         {['model-1', 'model-2', 'model-3', 'model-4'].map((key) => (
-          <Skeleton key={key} className='h-10 w-full' />
+          <Skeleton key={key} className='h-9 w-full' />
         ))}
       </div>
     )
   } else if (hasData) {
     content = (
-      <ol className='space-y-4'>
+      <ol className='space-y-3'>
         {props.models.map((model, index) => {
           const share = maxTokens > 0 ? (model.tokens / maxTokens) * 100 : 0
           const totalShare =
@@ -97,17 +97,17 @@ export const TopModelsPanel = memo(function TopModelsPanel(
               <Progress
                 value={share}
                 aria-label={`${model.model}: ${formatTokens(model.tokens)} ${t('Tokens')}`}
-                className='mt-1.5 gap-0'
+                className='mt-1 gap-0'
               />
-              <div className='text-muted-foreground mt-1 flex items-center justify-between gap-2 text-[11px]'>
-                <span>
-                  {t('Requests')}: {formatInteger(model.requests)}
+              <div className='text-muted-foreground mt-1 flex items-center justify-between gap-2 text-[10px] sm:text-[11px]'>
+                <span className='truncate'>
+                  {formatInteger(model.requests)} {t('Requests')}
                 </span>
-                <span>
-                  {t('Revenue')}: {formatLogQuota(model.quota)}
+                <span className='truncate font-mono tabular-nums'>
+                  {formatDashboardQuota(model.quota)}
                 </span>
                 <span className='text-foreground shrink-0 font-medium tabular-nums'>
-                  {t('Share of usage')}: {formatPercent(totalShare)}
+                  {formatPercent(totalShare)}
                 </span>
               </div>
             </li>
@@ -129,6 +129,7 @@ export const TopModelsPanel = memo(function TopModelsPanel(
       description={t('Top models by token usage in the last 30 days')}
       icon={<Trophy />}
       iconTone='warning'
+      headerClassName='p-3 sm:p-5'
     >
       {content}
     </TitledCard>

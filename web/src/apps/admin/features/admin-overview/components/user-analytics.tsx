@@ -41,6 +41,7 @@ import type {
   ProcessedUserChartData,
   UserChartsFilters,
 } from '@/apps/client/features/dashboard/types'
+import { useDirection } from '@/shared/components/ui/direction'
 import { IconBadge } from '@/shared/components/ui/icon-badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
@@ -80,6 +81,7 @@ interface UserChartsProps {
 export function UserCharts(props: UserChartsProps) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
+  const isRtl = useDirection() === 'rtl'
   const [themeReady, setThemeReady] = useState(false)
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
@@ -169,6 +171,7 @@ export function UserCharts(props: UserChartsProps) {
       description={t('Consumption ranking across all users')}
       icon={<Users />}
       iconTone='info'
+      headerClassName='p-3 sm:p-5'
     >
       <div className='space-y-3'>
         <div className='flex items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2'>
@@ -243,9 +246,9 @@ export function UserCharts(props: UserChartsProps) {
             return (
               <div
                 key={chart.value}
-                className='overflow-hidden rounded-lg border'
+                className='border-border/60 overflow-hidden rounded-lg border'
               >
-                <div className='flex w-full items-center gap-2 border-b px-3 py-2 sm:px-5 sm:py-3'>
+                <div className='border-border/60 flex w-full items-center gap-2 border-b px-3 py-2 sm:px-5 sm:py-3'>
                   <IconBadge tone='info' size='sm'>
                     <Users />
                   </IconBadge>
@@ -254,7 +257,7 @@ export function UserCharts(props: UserChartsProps) {
                   </div>
                 </div>
 
-                <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
+                <div className='h-[240px] p-1.5 sm:h-96 sm:p-2'>
                   {isLoading ? (
                     <Skeleton className='h-full w-full' />
                   ) : (
@@ -262,10 +265,11 @@ export function UserCharts(props: UserChartsProps) {
                     spec && (
                       <Suspense fallback={null}>
                         <VChart
-                          key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}`}
+                          key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}-${isRtl ? 'rtl' : 'ltr'}`}
                           spec={{
                             ...spec,
                             theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+                            direction: isRtl ? 'rtl' : 'ltr',
                             background: 'transparent',
                           }}
                           option={VCHART_OPTION}

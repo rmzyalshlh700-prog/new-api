@@ -311,6 +311,36 @@ export function formatLogQuota(quota: number): string {
 }
 
 /**
+ * Monetary quota value for dashboard KPIs: two fraction digits for amounts of
+ * one unit or more (e.g. `$1,234.56`), four below it. Uses the configured
+ * display currency, symbol and exchange rate through `Intl.NumberFormat`.
+ */
+export function formatDashboardQuota(quota: number): string {
+  return formatQuotaWithCurrency(quota, {
+    digitsLarge: 2,
+    digitsSmall: 4,
+    abbreviate: false,
+  })
+}
+
+/**
+ * Compact monetary quota value for chart axes (e.g. `$1.2K`, `¥1.2万`), so
+ * tick labels never collide on narrow screens. The currency symbol is kept.
+ */
+export function formatCompactQuota(
+  quota: number,
+  locales: Intl.LocalesArgument = currentIntlLocale()
+): string {
+  return formatQuotaWithCurrency(quota, {
+    compact: true,
+    digitsLarge: 2,
+    digitsSmall: 4,
+    abbreviate: false,
+    locale: locales,
+  })
+}
+
+/**
  * Format tokens count with K/M suffixes
  */
 export function formatTokens(tokens: number): string {

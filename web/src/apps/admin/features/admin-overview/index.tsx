@@ -112,6 +112,9 @@ export function AdminOverview() {
   const quotaRange = isValidTimestamp(windowStart)
     ? safeRange(windowStart, nowSec + 3600)
     : null
+  // The query is disabled without a valid range; this placeholder keeps the
+  // request body well-typed without non-null assertions.
+  const quotaQueryRange = quotaRange ?? { start: nowSec, end: nowSec }
   const rateRange = safeRange(nowSec - 60, nowSec)
 
   const quotaQuery = useQuery({
@@ -119,9 +122,9 @@ export function AdminOverview() {
     queryFn: async () =>
       requireServerSuccess(
         await getAdminQuotaRows({
-          start_timestamp: quotaRange!.start,
+          start_timestamp: quotaQueryRange.start,
           // Include the current hour even when the export lags behind.
-          end_timestamp: quotaRange!.end,
+          end_timestamp: quotaQueryRange.end,
         })
       ),
     enabled: quotaRange !== null,
@@ -256,7 +259,7 @@ export function AdminOverview() {
         </span>
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
-        <div className='flex flex-col gap-3 sm:gap-4'>
+        <div className='flex flex-col gap-2.5 sm:gap-4'>
           {hasError && (
             <Alert variant='destructive'>
               <AlertDescription className='flex flex-wrap items-center justify-between gap-2'>
@@ -352,7 +355,7 @@ export function AdminOverview() {
                 </WidgetErrorBoundary>
               </FadeIn>
 
-              <div className='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2'>
+              <div className='grid grid-cols-1 gap-2.5 sm:gap-4 lg:grid-cols-2'>
                 <FadeIn delay={0.15}>
                   <WidgetErrorBoundary>
                     <TokenUsagePanel
