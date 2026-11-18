@@ -491,7 +491,7 @@ function renderMobile<TData>(
   // the page behind it, and `touch-pan-y` hands vertical gestures to this
   // scroller instead of letting an ancestor claim them.
   return (
-    <div className='min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain'>
+    <div className='min-h-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain'>
       {mobileContent}
     </div>
   )
