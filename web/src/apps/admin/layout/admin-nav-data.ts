@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   BadgeDollarSign,
+  BellRing,
   Box,
   ClipboardList,
   DatabaseBackup,
@@ -71,6 +72,12 @@ export function useAdminSidebarData(): SidebarData {
             title: t('Users'),
             url: '/admin/users',
             icon: Users,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Notifications'),
+            url: '/admin/notifications',
+            icon: BellRing,
             requiredRole: ROLE.ADMIN,
           },
           {

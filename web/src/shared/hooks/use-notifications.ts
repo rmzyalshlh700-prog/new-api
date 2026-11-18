@@ -16,13 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, useMemo, useCallback } from 'react'
 
 import { useStatus } from '@/shared/hooks/use-status'
 import { getNotice } from '@/shared/lib/api'
 import { requireServerSuccess } from '@/shared/lib/server-error-message'
+import {
+  dismissMyNotification,
+  getMyNotifications,
+  markMyNotificationsRead,
+} from '@/shared/lib/user-notifications'
+import type { UserNotificationPage } from '@/shared/lib/user-notifications'
+import { useAuthStore } from '@/shared/stores/auth-store'
 import { useNotificationStore } from '@/shared/stores/notification-store'
+
+export type NotificationTab = 'inbox' | 'notice' | 'announcements'
+
+const INBOX_QUERY_KEY = ['user-notifications', 'inbox'] as const
 
 function hashString(input: string): string {
   let hash = 0
@@ -60,13 +71,18 @@ function getAnnouncementKey(item: Record<string, unknown>): string {
 }
 
 /**
- * Hook to manage notifications (Notice + Announcements)
- * Provides unread counts and read status management
+ * Hook to manage notifications: the signed-in user's personal inbox, the
+ * platform Notice and the announcement timeline.
+ *
+ * The inbox is stored per user on the server, so it survives a new device or a
+ * cleared browser and reaches only the account an administrator addressed.
  */
 export function useNotifications() {
+  const signedIn = useAuthStore((state) => Boolean(state.auth.user))
+  const queryClient = useQueryClient()
   const [popoverOpen, setPopoverOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'notice' | 'announcements'>(
-    'notice'
+  const [activeTab, setActiveTab] = useState<NotificationTab>(() =>
+    signedIn ? 'inbox' : 'notice'
   )
 
   // Fetch Notice from API
@@ -90,6 +106,44 @@ export function useNotifications() {
       20
     )
   }, [announcementsEnabled, status?.announcements])
+
+  // The signed-in user's own inbox. Polls while the bell is closed so a
+  // notification an administrator just sent shows up without a reload.
+  const inboxQuery = useQuery({
+    queryKey: INBOX_QUERY_KEY,
+    queryFn: async () => getMyNotifications({ page_size: 20 }),
+    enabled: signedIn,
+    staleTime: 1000 * 30,
+    refetchInterval: signedIn && !popoverOpen ? 1000 * 60 : false,
+  })
+  const inbox = inboxQuery.data?.items ?? []
+  const inboxUnread = inboxQuery.data?.unread ?? 0
+
+  const markInboxReadMutation = useMutation({
+    mutationFn: (payload: { ids?: number[]; all?: boolean }) =>
+      markMyNotificationsRead(payload),
+    onSuccess: (data) => {
+      queryClient.setQueryData<UserNotificationPage>(INBOX_QUERY_KEY, (prev) =>
+        prev
+          ? {
+              ...prev,
+              unread: data.unread,
+              items: prev.items.map((item) => ({
+                ...item,
+                read_at: item.read_at || Math.floor(Date.now() / 1000),
+              })),
+            }
+          : prev
+      )
+    },
+  })
+
+  const dismissInboxMutation = useMutation({
+    mutationFn: (id: number) => dismissMyNotification(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: INBOX_QUERY_KEY })
+    },
+  })
 
   // Notification store
   const {
@@ -117,65 +171,106 @@ export function useNotifications() {
     ).length
 
     return {
+      inbox: inboxUnread,
       notice: noticeUnread,
       announcements: announcementsUnread,
-      total: noticeUnread + announcementsUnread,
+      total: noticeUnread + announcementsUnread + inboxUnread,
     }
-  }, [noticeContent, lastReadNotice, announcements, isAnnouncementRead])
+  }, [noticeContent, lastReadNotice, announcements, isAnnouncementRead, inboxUnread])
 
-  const markAnnouncementsAsRead = () => {
+  const markAnnouncementsAsRead = useCallback(() => {
     if (announcements.length > 0) {
       const allKeys = announcements.map((item: Record<string, unknown>) =>
         getAnnouncementKey(item)
       )
       markAnnouncementsRead(allKeys)
     }
-  }
+  }, [announcements, markAnnouncementsRead])
+
+  const markInboxAsRead = useCallback(() => {
+    if (inboxUnread > 0) {
+      markInboxReadMutation.mutate({ all: true })
+    }
+  }, [inboxUnread, markInboxReadMutation])
 
   // Handle popover open
-  const handleOpenPopover = (tab?: 'notice' | 'announcements') => {
-    const nextTab = tab || activeTab
+  const handleOpenPopover = useCallback(
+    (tab?: NotificationTab) => {
+      const nextTab = tab || activeTab
 
-    // Mark currently visible content as read when opening the notification center
-    if (noticeContent) {
-      markNoticeRead(noticeContent)
-    }
-    if (nextTab === 'announcements') {
-      markAnnouncementsAsRead()
-    }
+      // Mark currently visible content as read when opening the notification
+      // center. The inbox keeps its unread highlight while it is open and is
+      // marked once the person closes it, so nothing disappears mid-read.
+      if (noticeContent) {
+        markNoticeRead(noticeContent)
+      }
+      if (nextTab === 'announcements') {
+        markAnnouncementsAsRead()
+      }
+      if (nextTab === 'inbox' && signedIn) {
+        void inboxQuery.refetch()
+      }
 
-    setActiveTab(nextTab)
-    setPopoverOpen(true)
-  }
+      setActiveTab(nextTab)
+      setPopoverOpen(true)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      activeTab,
+      noticeContent,
+      markNoticeRead,
+      markAnnouncementsAsRead,
+      signedIn,
+      inboxQuery.refetch,
+    ]
+  )
 
-  const handlePopoverOpenChange = (open: boolean) => {
-    if (open) {
-      handleOpenPopover(activeTab)
-      return
-    }
+  const handlePopoverOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        handleOpenPopover(activeTab)
+        return
+      }
 
-    setPopoverOpen(false)
-  }
+      // Closing the bell is what acknowledges the personal inbox.
+      if (activeTab === 'inbox') {
+        markInboxAsRead()
+      }
+      setPopoverOpen(false)
+    },
+    [activeTab, handleOpenPopover, markInboxAsRead]
+  )
 
   // Handle tab change - mark announcements as read when switching to that tab
-  const handleTabChange = (tab: 'notice' | 'announcements') => {
-    setActiveTab(tab)
+  const handleTabChange = useCallback(
+    (tab: NotificationTab) => {
+      if (activeTab === 'inbox' && tab !== 'inbox') {
+        markInboxAsRead()
+      }
+      setActiveTab(tab)
 
-    if (tab === 'announcements') {
-      markAnnouncementsAsRead()
-    }
-  }
+      if (tab === 'announcements') {
+        markAnnouncementsAsRead()
+      }
+    },
+    [activeTab, markAnnouncementsAsRead, markInboxAsRead]
+  )
 
   return {
     // Data
+    signedIn,
     notice: noticeContent,
     announcements,
+    inbox,
     loading: noticeLoading || statusLoading,
+    inboxLoading: inboxQuery.isLoading,
+    inboxTotal: inboxQuery.data?.total ?? 0,
 
     // Unread counts
     unreadCount: unreadCounts.total,
     unreadNoticeCount: unreadCounts.notice,
     unreadAnnouncementsCount: unreadCounts.announcements,
+    unreadInboxCount: unreadCounts.inbox,
 
     // Popover state
     popoverOpen,
@@ -187,5 +282,10 @@ export function useNotifications() {
     openPopover: handleOpenPopover,
     closePopover: () => setPopoverOpen(false),
     refetchNotice,
+    refetchInbox: inboxQuery.refetch,
+    markInboxRead: markInboxAsRead,
+    dismissInboxItem: (id: number) => dismissInboxMutation.mutate(id),
   }
 }
+
+export type UseNotificationsResult = ReturnType<typeof useNotifications>

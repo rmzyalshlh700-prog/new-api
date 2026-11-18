@@ -308,6 +308,11 @@ export function PublicHeader(props: PublicHeaderProps) {
                   notice={notifications.notice}
                   announcements={notifications.announcements}
                   loading={notifications.loading}
+                  inboxEnabled={notifications.signedIn}
+                  inbox={notifications.inbox}
+                  inboxLoading={notifications.inboxLoading}
+                  onDismissInboxItem={notifications.dismissInboxItem}
+                  onMarkInboxRead={notifications.markInboxRead}
                 />
               )}
 
