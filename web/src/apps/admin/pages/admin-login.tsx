@@ -22,24 +22,31 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { UserAuthForm } from '@/shared/features/auth/sign-in/components/user-auth-form'
+import { LanguageSwitcher } from '@/shared/components/language-switcher'
+import { useStatus } from '@/shared/hooks/use-status'
+import { useSystemConfig } from '@/shared/hooks/use-system-config'
 import { ROLE } from '@/shared/lib/roles'
 import { useAuthStore } from '@/shared/stores/auth-store'
 
 /**
  * Administrator sign-in.
  *
- * Visually distinct from the client login and intentionally minimal: the same
- * hardened credential form is reused in `credentialsOnly` mode, so no OAuth
- * provider, Passkey, WeChat or registration entry point is reachable here.
- * `requiredRole` revokes the fresh session of an account below the Admin role
- * instead of forwarding it to the client portal. The RBAC decision remains
- * enforced by `requireAdminAccess` on every admin route.
+ * A single centred card on a quiet canvas: brand above, credentials in the
+ * middle, the audit notice below. The hardened credential form is reused in
+ * `credentialsOnly` mode, so no OAuth provider, Passkey, WeChat or
+ * registration entry point is reachable here. `requiredRole` revokes the fresh
+ * session of an account below the Admin role instead of forwarding it to the
+ * client portal; the RBAC decision is still enforced by `requireAdminAccess`
+ * on every admin route.
  */
 export function AdminLogin() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const role = useAuthStore((state) => state.auth.user?.role)
   const bootstrapState = useAuthStore((state) => state.auth.bootstrapState)
+  const { status } = useStatus()
+  const { logo } = useSystemConfig()
+  const siteName = status?.system_name || 'Astramux'
 
   useEffect(() => {
     // Forward only a positively resolved session. A stale user kept in memory
@@ -55,30 +62,43 @@ export function AdminLogin() {
   }, [bootstrapState, navigate, role])
 
   return (
-    <div className='flex min-h-svh items-center justify-center bg-slate-950 p-4 text-slate-100'>
-      <div className='grid w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl md:grid-cols-[1fr_1.15fr]'>
-        <aside className='hidden flex-col justify-between gap-8 border-e border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-8 md:flex'>
-          <div className='space-y-3'>
-            <span className='inline-flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400'>
-              <ShieldCheck className='h-5 w-5' aria-hidden='true' />
-            </span>
-            <h1 className='text-xl font-semibold'>
-              {t('Administrator access')}
+    <div className='bg-console-panel text-console-ink relative flex min-h-svh flex-col items-center justify-center px-4 py-10'>
+      {/* Quiet dotted field: gives the card a surface to sit on without a
+          gradient or an illustration competing with the form. */}
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute inset-0 opacity-60 [background-image:radial-gradient(var(--console-line-strong)_1px,transparent_1px)] [background-size:22px_22px]'
+      />
+
+      <div className='absolute end-3 top-3 z-10'>
+        <LanguageSwitcher />
+      </div>
+
+      <main className='relative z-1 w-full max-w-[24rem]'>
+        <div className='mb-6 flex flex-col items-center gap-3 text-center'>
+          <span className='border-console-line bg-console-surface shadow-console-card flex size-14 items-center justify-center overflow-hidden rounded-2xl border'>
+            <img
+              src={logo || '/logo.png'}
+              alt={t('Logo')}
+              width={40}
+              height={40}
+              className='size-10 object-contain'
+            />
+          </span>
+          <div className='space-y-1'>
+            <h1 className='text-console-ink text-lg font-semibold tracking-tight'>
+              {siteName}
             </h1>
-            <p className='text-sm text-slate-400'>
-              {t(
-                'This portal is restricted to administrators. Administrative actions are audited.'
-              )}
-            </p>
+            <p className='text-console-ink-3 text-xs'>{t('Admin console')}</p>
           </div>
-          <p className='text-xs text-slate-500'>
-            {t('Unauthorized access attempts are rejected and logged.')}
-          </p>
-        </aside>
-        <div className='space-y-6 p-6 sm:p-8'>
-          <div className='space-y-2'>
-            <h2 className='text-lg font-semibold'>{t('Admin sign in')}</h2>
-            <p className='text-sm text-slate-400'>
+        </div>
+
+        <div className='bg-console-surface border-console-line shadow-console-pop rounded-2xl border p-5 sm:p-6'>
+          <div className='mb-4 space-y-1'>
+            <h2 className='text-console-ink text-base font-semibold'>
+              {t('Admin sign in')}
+            </h2>
+            <p className='text-console-ink-3 text-xs'>
               {t('Use an administrator or root account to continue.')}
             </p>
           </div>
@@ -88,7 +108,16 @@ export function AdminLogin() {
             requiredRole={ROLE.ADMIN}
           />
         </div>
-      </div>
+
+        <p className='text-console-ink-3 mt-4 flex items-start justify-center gap-1.5 px-2 text-center text-xs leading-relaxed'>
+          <ShieldCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden='true' />
+          <span>
+            {t(
+              'Administrators only. Every administrative action is audited.'
+            )}
+          </span>
+        </p>
+      </main>
     </div>
   )
 }

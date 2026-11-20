@@ -48,7 +48,9 @@ export function AppSidebar(props: AppSidebarProps) {
 
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
-      <SidebarContent className='py-1.5'>
+      {/* Phones keep a deep bottom gutter: the last navigation group scrolls
+          clear of the floating assistant launcher and the home indicator. */}
+      <SidebarContent className='pt-1.5 pb-24 md:pb-1.5'>
         <SidebarContactLinks position={CONTACT_LINK_POSITIONS.sidebarTop} />
         <div className='flex flex-col'>
           {props.navGroups.map((group) => (

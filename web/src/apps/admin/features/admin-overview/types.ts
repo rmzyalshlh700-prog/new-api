@@ -43,6 +43,17 @@ export interface OverviewUserRow {
   token_used?: number
 }
 
+/**
+ * Response data of `GET /api/log/live_stat` (admin): exact totals for one
+ * window, read straight from the logs table.
+ */
+export interface AdminLiveStat {
+  quota: number
+  requests: number
+  tokens: number
+  users: number
+}
+
 /** Response data of `GET /api/log/stat` (admin). */
 export interface AdminLogStat {
   quota: number

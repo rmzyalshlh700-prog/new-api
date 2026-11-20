@@ -85,6 +85,21 @@ For commercial licensing, please contact support@quantumnous.com
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* Console surface tokens: the crisp executive palette used by the admin
+   * console (1px hairlines, flat white cards, stacked micro-shadows).
+   * Distinct from the general app palette so the client portal keeps its look. */
+  --color-console-rail: var(--console-rail);
+  --color-console-panel: var(--console-panel);
+  --color-console-surface: var(--console-surface);
+  --color-console-track: var(--console-track);
+  --color-console-line: var(--console-line);
+  --color-console-line-strong: var(--console-line-strong);
+  --color-console-ink: var(--console-ink);
+  --color-console-ink-2: var(--console-ink-2);
+  --color-console-ink-3: var(--console-ink-3);
+  --shadow-console-card: var(--console-shadow-card);
+  --shadow-console-pop: var(--console-shadow-pop);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -182,6 +197,25 @@ For commercial licensing, please contact support@quantumnous.com
     var(--foreground) 16%,
     var(--background)
   );
+
+  /* Console surfaces (light): rail #f3f3f4 → panel #f8f8f9 → surface #fff.
+     The accent stays Astramux blue; only the neutrals, hairlines and shadows
+     follow the crisp enterprise reference. */
+  --console-rail: #f3f3f4;
+  --console-panel: #f8f8f9;
+  --console-surface: #ffffff;
+  --console-track: #ebebee;
+  --console-line: rgb(0 0 0 / 7%);
+  --console-line-strong: rgb(0 0 0 / 10%);
+  --console-ink: #111113;
+  --console-ink-2: #55555c;
+  --console-ink-3: #76767d;
+  --console-shadow-card:
+    0 1px 2px rgb(0 0 0 / 4%), 0 2px 6px -1px rgb(0 0 0 / 4%),
+    0 10px 24px -12px rgb(0 0 0 / 10%);
+  --console-shadow-pop:
+    0 0 0 1px rgb(0 0 0 / 6%), 0 2px 4px rgb(0 0 0 / 4%),
+    0 12px 28px -6px rgb(0 0 0 / 14%);
 }
 
 .dark {
@@ -253,4 +287,92 @@ For commercial licensing, please contact support@quantumnous.com
     var(--foreground) 24%,
     var(--background)
   );
+
+  /* Console surfaces (dark): near-black rail, charcoal cards, brighter ink.
+     Depth comes from the hairline plus a 4% top highlight, not from shadow. */
+  --console-rail: #0b0b0d;
+  --console-panel: #131316;
+  --console-surface: #18181c;
+  --console-track: #26262c;
+  --console-line: rgb(255 255 255 / 7%);
+  --console-line-strong: rgb(255 255 255 / 11%);
+  --console-ink: #f2f2f4;
+  --console-ink-2: #b4b4bc;
+  --console-ink-3: #86868f;
+  --console-shadow-card: 0 1px 2px rgb(0 0 0 / 50%),
+    0 10px 24px -12px rgb(0 0 0 / 60%);
+  --console-shadow-pop:
+    0 0 0 1px rgb(255 255 255 / 9%), 0 2px 4px rgb(0 0 0 / 40%),
+    0 16px 40px -8px rgb(0 0 0 / 70%);
+}
+
+/*
+ * Admin console scope.
+ *
+ * `AdminLayout` marks <html> with data-portal="admin" while the console is
+ * mounted, so these values reach every admin surface — including dialogs,
+ * sheets and dropdowns, which portal to <body> and therefore need the
+ * variables on the root rather than on a wrapper element.
+ *
+ * Remapping the semantic tokens (instead of restyling every component) is what
+ * unifies all admin pages, tables, forms, modals and drawers in one place: the
+ * shared primitives already read card / popover / muted / border / radius, so
+ * they pick up the crisp executive palette without per-page overrides. The
+ * client portal never sets the attribute and keeps its own look.
+ *
+ * Corners tighten to the reference tiers: 12px base, so cards land near 16px,
+ * menus and inputs near 12px, pills stay pills.
+ */
+[data-portal='admin'] {
+  --radius: 0.75rem;
+  --background: #ffffff;
+  --foreground: #111113;
+  --card: #ffffff;
+  --card-foreground: #111113;
+  --popover: #ffffff;
+  --popover-foreground: #111113;
+  --secondary: #f3f3f4;
+  --secondary-foreground: #42424a;
+  --muted: #f6f6f7;
+  --muted-foreground: #76767d;
+  --accent: color-mix(in oklch, var(--primary) 10%, #ffffff);
+  --accent-foreground: #111113;
+  --border: rgb(0 0 0 / 8%);
+  --input: rgb(0 0 0 / 10%);
+  --ring: color-mix(in oklch, var(--primary) 70%, #ffffff);
+  --sidebar: #f3f3f4;
+  --sidebar-foreground: #111113;
+  --sidebar-accent: color-mix(in oklch, var(--primary) 9%, #ffffff);
+  --sidebar-border: rgb(0 0 0 / 8%);
+  --skeleton-base: #f3f3f4;
+  --skeleton-highlight: #f9f9fa;
+  --table-row: #ffffff;
+  --table-header: #f9f9fa;
+  --table-header-hover: #f3f3f4;
+}
+
+[data-portal='admin'].dark {
+  --background: #111114;
+  --foreground: #f2f2f4;
+  --card: #18181c;
+  --card-foreground: #f2f2f4;
+  --popover: #1d1d22;
+  --popover-foreground: #f2f2f4;
+  --secondary: #1e1e23;
+  --secondary-foreground: #e6e6ea;
+  --muted: #141417;
+  --muted-foreground: #86868f;
+  --accent: color-mix(in oklch, var(--primary) 22%, #111114);
+  --accent-foreground: #f2f2f4;
+  --border: rgb(255 255 255 / 7%);
+  --input: rgb(255 255 255 / 10%);
+  --sidebar: #0b0b0d;
+  --sidebar-foreground: #f2f2f4;
+  --sidebar-accent: color-mix(in oklch, var(--primary) 20%, #111114);
+  --sidebar-border: rgb(255 255 255 / 7%);
+  --skeleton-base: #1e1e23;
+  --skeleton-highlight: #26262c;
+  --table-row: #18181c;
+  --table-header: #1b1b20;
+  --table-header-hover: #1e1e23;
 }

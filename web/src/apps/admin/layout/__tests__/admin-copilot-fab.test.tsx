@@ -217,6 +217,30 @@ test('ignores a malformed stored position', () => {
   expect(leftOf(getFab())).toBe(DEFAULT_X)
 })
 
+test('stands down while the mobile navigation drawer is open', async () => {
+  render(<AdminCopilotFab />)
+  expect(getFab()).toBeTruthy()
+
+  // The drawer is a sheet portalled to the body; its marker attribute is what
+  // the launcher watches for.
+  const drawer = document.createElement('div')
+  drawer.setAttribute('data-slot', 'sidebar')
+  drawer.setAttribute('data-mobile', 'true')
+  document.body.append(drawer)
+
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('button', { name: 'Open Admin Copilot' })
+    ).toBeNull()
+  })
+
+  drawer.remove()
+
+  await waitFor(() => {
+    expect(getFab()).toBeTruthy()
+  })
+})
+
 test('clamp keeps the button inside any viewport', () => {
   expect(clampCopilotFabPosition({ x: -40, y: -40 }, SIZE, MARGIN)).toEqual({
     x: MARGIN,

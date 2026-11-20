@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useChatContext, type WindowProps } from '@copilotkit/react-ui'
 import { Sparkles } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -33,6 +33,32 @@ const FAB_SELECTOR = `.${FAB_CLASS}`
 /** Rendered edge length of the launcher in CSS pixels (`size-12`). */
 const FAB_SIZE = 48
 const FAB_POSITION_STORAGE_KEY = 'admin-copilot-fab:position'
+const MOBILE_NAV_SELECTOR = '[data-slot="sidebar"][data-mobile="true"]'
+
+/**
+ * Whether the mobile navigation drawer is open.
+ *
+ * The drawer is a modal sheet portalled to `document.body`, and the launcher
+ * renders above the shell through CopilotKit's own portal, so the sidebar
+ * context is not reachable here. Its marker attribute is: watching the body
+ * for it keeps the launcher in sync without threading a new context through
+ * the assistant layer.
+ */
+function useMobileNavDrawerOpen(): boolean {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const read = () => {
+      setOpen(document.querySelector(MOBILE_NAV_SELECTOR) !== null)
+    }
+    read()
+    const observer = new MutationObserver(read)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+
+  return open
+}
 
 /**
  * Floating toggle for the Admin Copilot.
@@ -52,6 +78,10 @@ const FAB_POSITION_STORAGE_KEY = 'admin-copilot-fab:position'
  * where `end` is the left edge — so closing now happens in the panel header,
  * with Escape and click-outside as the other ways out.
  *
+ * It also stands down while the mobile navigation drawer is open: the drawer is
+ * the full-height sheet on a phone, and a fixed launcher parked over it covered
+ * the last sidebar entries (Authentication, Security & Limits).
+ *
  * It can be dragged anywhere on screen: the position is held in viewport
  * pixels, kept inside the viewport and remembered in `localStorage`, so the
  * launcher reopens where the operator put it. A drag never counts as a tap,
@@ -65,6 +95,7 @@ const FAB_POSITION_STORAGE_KEY = 'admin-copilot-fab:position'
 export function AdminCopilotFab() {
   const { t } = useTranslation()
   const { open, setOpen } = useChatContext()
+  const mobileNavOpen = useMobileNavDrawerOpen()
   const {
     buttonRef,
     style: fabStyle,
@@ -79,7 +110,7 @@ export function AdminCopilotFab() {
     storageKey: FAB_POSITION_STORAGE_KEY,
   })
 
-  if (open) {
+  if (open || mobileNavOpen) {
     return null
   }
 

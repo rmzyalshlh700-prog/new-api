@@ -35,6 +35,7 @@ import {
   getProfitStats,
 } from './api'
 import { ActivityTrendPanel } from './components/activity-trend-panel'
+import { MonitorCenter } from './components/monitor-center'
 import { OverviewStatCards } from './components/overview-stat-cards'
 import { PaymentOrdersWidget } from './components/payment-orders-widget'
 import { PerformanceOverview } from './components/performance-overview'
@@ -266,6 +267,17 @@ export function AdminOverview() {
           )}
           {!hasMissingData && (
             <>
+              <FadeIn>
+                <WidgetErrorBoundary>
+                  <MonitorCenter
+                    rows={quotaRows}
+                    metrics={platformMetricsQuery.data?.data}
+                    requestsToday={totalsToday.requests}
+                    loading={quotaQuery.isLoading}
+                  />
+                </WidgetErrorBoundary>
+              </FadeIn>
+
               <FadeIn>
                 <OverviewStatCards
                   revenueToday={totalsToday.quota}
