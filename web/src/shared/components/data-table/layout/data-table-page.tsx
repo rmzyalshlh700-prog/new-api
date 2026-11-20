@@ -41,9 +41,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import * as React from 'react'
 
+import { ConsoleTableCard, ConsoleToolbar } from '@/shared/components/console'
 import { PageFooterPortal } from '@/shared/components/layout/components/page-footer'
 import { useMediaQuery } from '@/shared/hooks'
 import { cn } from '@/shared/lib/utils'
+
+import { DataTableSurfaceProvider, type DataTableSurface } from '../core/surface'
 
 import {
   DataTableView,
@@ -222,6 +225,28 @@ export type DataTablePageProps<TData> = {
   afterTable?: React.ReactNode
 
   /**
+   * Panel title shown on the card surface.
+   */
+  cardTitle?: React.ReactNode
+
+  /**
+   * One-line panel hint shown under `cardTitle`.
+   */
+  cardHint?: React.ReactNode
+
+  /**
+   * Frame ownership for the list.
+   *
+   * `plain` (default) keeps the legacy layout: a loose toolbar above a table
+   * that draws its own border, with pagination in the page footer.
+   *
+   * `card` renders one console card that owns the toolbar band, the table body
+   * and the pagination row, so the screen shows a single surface instead of a
+   * stack of nested boxes.
+   */
+  surface?: DataTableSurface
+
+  /**
    * Outer wrapper className (applied to the toolbar+table column).
    */
   className?: string
@@ -338,7 +363,59 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
   const toolbarNode = renderToolbar(props, viewToggle)
   const mobileNode = renderMobile(props, showMobile, cardViewActive, viewMode)
   const desktopNode = renderDesktop(props, showMobile, cardViewActive, viewMode)
-  const paginationNode = renderPagination(props)
+  const cardSurface = props.surface === 'card'
+  const paginationNode = renderPagination(props, cardSurface)
+
+  if (cardSurface) {
+    const fixedHeight = props.fixedHeight !== false
+    const cardInCardView =
+      cardViewActive && viewMode === DATA_TABLE_VIEW_MODES.CARD
+
+    return (
+      <DataTableSurfaceProvider value='card'>
+        <ConsoleTableCard
+          title={props.cardTitle}
+          hint={props.cardHint}
+          className={cn(fixedHeight ? 'h-full' : 'h-auto', props.className)}
+          toolbar={
+            toolbarNode ? (
+              <ConsoleToolbar
+                start={toolbarNode}
+                className='rounded-none border-0 bg-transparent'
+              />
+            ) : undefined
+          }
+          contentClassName={cn(
+            // A flex column gives the table a definite height to stretch into,
+            // so its scroll area ends at the card footer instead of floating
+            // mid-panel.
+            'flex min-h-0 flex-1 flex-col',
+            fixedHeight ? 'overflow-hidden' : 'overflow-auto',
+            cardInCardView
+              ? 'bg-console-panel p-2'
+              : '[&_[data-slot=table-body]>tr]:h-12'
+          )}
+          footerClassName='pb-[calc(var(--admin-overlay-bottom-size,0px)+0.5rem)]'
+          footer={
+            props.afterTable || paginationNode ? (
+              <>
+                {props.afterTable}
+                {/* The pagination sizes itself from a container query, so it
+                    needs a full-width block parent to lay out at all. */}
+                {paginationNode ? (
+                  <div className='w-full min-w-0 flex-1'>{paginationNode}</div>
+                ) : null}
+              </>
+            ) : undefined
+          }
+        >
+          {mobileNode}
+          {desktopNode}
+        </ConsoleTableCard>
+        {(!showMobile || props.showMobileBulkActions) && props.bulkActions}
+      </DataTableSurfaceProvider>
+    )
+  }
 
   return (
     <>
@@ -389,7 +466,8 @@ function renderToolbar<TData>(
 }
 
 function renderPagination<TData>(
-  props: DataTablePageProps<TData>
+  props: DataTablePageProps<TData>,
+  inCard: boolean
 ): React.ReactNode {
   if (props.showPagination === false) {
     return null
@@ -401,6 +479,12 @@ function renderPagination<TData>(
       compact={props.compactPagination}
     />
   )
+
+  // A card owns its footer, so the pagination stays inside the same frame as
+  // the rows it pages through.
+  if (inCard) {
+    return pagination
+  }
 
   return props.paginationInFooter !== false ? (
     <PageFooterPortal>{pagination}</PageFooterPortal>

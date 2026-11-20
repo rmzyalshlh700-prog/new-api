@@ -194,6 +194,7 @@ export function InvoicesTab({ range }: TabProps) {
   })
   return (
     <DataTablePage
+      surface='card'
       table={table}
       columns={columns}
       isLoading={range !== null && query.isLoading}
@@ -260,6 +261,7 @@ export function UsageLogsTab({ range }: TabProps) {
   })
   return (
     <DataTablePage
+      surface='card'
       table={table}
       columns={columns}
       isLoading={range !== null && query.isLoading}

@@ -17,20 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, CheckCircle2, Loader2, Send, UserRound } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Send,
+  UserRound,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ConsoleSectionCard } from '@/shared/components/console'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/shared/components/ui/card'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import {
@@ -114,12 +114,17 @@ export function NotificationComposer() {
       )
       if (result.external.attempted && !result.external.delivered) {
         toast.warning(
-          t('It reached their inbox, but the external delivery failed: {{reason}}', {
-            reason: result.external.message || t('unknown error'),
-          })
+          t(
+            'It reached their inbox, but the external delivery failed: {{reason}}',
+            {
+              reason: result.external.message || t('unknown error'),
+            }
+          )
         )
       } else if (result.external.attempted && result.external.delivered) {
-        toast.success(t('It was also delivered through their notification channel'))
+        toast.success(
+          t('It was also delivered through their notification channel')
+        )
       }
 
       setTitle('')
@@ -153,19 +158,21 @@ export function NotificationComposer() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className='flex items-center gap-2'>
-          <Send className='size-4' />
-          {t('Send a notification')}
-        </CardTitle>
-        <CardDescription>
-          {t(
-            'Address one account by user ID, username or email. Only that user receives it, in their notifications.'
+    <ConsoleSectionCard
+      title={t('Send a notification')}
+      className='min-h-[26rem]'
+      footer={
+        <Button onClick={handleSend} disabled={!canSend}>
+          {sendMutation.isPending ? (
+            <Loader2 className='size-4 animate-spin' />
+          ) : (
+            <Send className='size-4' />
           )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className='flex flex-col gap-4'>
+          {t('Send notification')}
+        </Button>
+      }
+    >
+      <div className='flex flex-col gap-4'>
         {/* Recipient */}
         <div className='flex flex-col gap-2'>
           <Label htmlFor='notification-account'>{t('Recipient')}</Label>
@@ -308,18 +315,7 @@ export function NotificationComposer() {
             onCheckedChange={setDeliverExternal}
           />
         </div>
-
-        <div className='flex justify-end'>
-          <Button onClick={handleSend} disabled={!canSend}>
-            {sendMutation.isPending ? (
-              <Loader2 className='size-4 animate-spin' />
-            ) : (
-              <Send className='size-4' />
-            )}
-            {t('Send notification')}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </ConsoleSectionCard>
   )
 }

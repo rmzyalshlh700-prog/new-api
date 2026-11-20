@@ -111,6 +111,7 @@ export function AuditLogViewer(props: {
   return (
     <div className='flex h-full min-h-0 flex-col'>
       <DataTablePage
+        surface='card'
         table={table}
         columns={columns}
         isLoading={query.isPending && canQuery && !invalidRange}

@@ -139,7 +139,7 @@ export function PaymentLogsFilters(props: PaymentLogsFiltersProps) {
   ].filter(Boolean).length
 
   return (
-    <div className='bg-card/60 shrink-0 rounded-xl border p-3 shadow-xs sm:p-4'>
+    <div className='flex min-w-0 flex-col'>
       <Collapsible open={filtersExpanded} onOpenChange={setFiltersOpen}>
         <CollapsibleTrigger
           render={

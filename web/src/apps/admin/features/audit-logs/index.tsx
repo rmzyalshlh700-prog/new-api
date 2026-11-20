@@ -90,6 +90,7 @@ export function AuditLogs() {
   return (
     <SectionPageLayout fixedContent>
       <SectionPageLayout.Title>{t('Audit Logs')}</SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Administrative actions and their actors.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Actions>
         {canReadAll && !accessRevoked && (
           <Tabs

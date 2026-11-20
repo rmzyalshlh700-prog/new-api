@@ -521,7 +521,7 @@ export function ContactLinksSection(props: ContactLinksSectionProps) {
                       }
                     />
                   </FormControl>
-                  <FormLabel className='!mt-0'>
+                  <FormLabel className='mt-0'>
                     {t('Active (visible to users)')}
                   </FormLabel>
                 </FormItem>

@@ -219,6 +219,7 @@ export function VendorLinkedModels({
         />
       ) : (
         <DataTablePage
+          surface='card'
           showMobileBulkActions
           mobileProps={{ enableRowSelection: true }}
           table={table}

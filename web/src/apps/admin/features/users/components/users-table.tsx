@@ -216,6 +216,7 @@ export function UsersTable() {
 
   return (
     <DataTablePage
+      surface='card'
       table={table}
       columns={columns}
       isLoading={isLoading}

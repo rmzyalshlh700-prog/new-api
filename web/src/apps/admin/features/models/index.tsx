@@ -125,6 +125,7 @@ function ModelsContent() {
         stackActionsOnMobile={activeSection === 'metadata'}
       >
         <SectionPageLayout.Title>{t(meta.titleKey)}</SectionPageLayout.Title>
+        <SectionPageLayout.Hint>{t('Model catalog, ratios and per-model deployment.')}</SectionPageLayout.Hint>
         <SectionPageLayout.Actions>{actions}</SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='flex h-full min-h-0 flex-col gap-4'>

@@ -27,6 +27,7 @@ export function PaymentLogs() {
   return (
     <SectionPageLayout fixedContent>
       <SectionPageLayout.Title>{t('Payment Logs')}</SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Payment orders, refunds and settlement state.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
         {/*
           The table is a `flex h-full min-h-0 flex-col` page whose list is the

@@ -34,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select'
+import { ConsoleTableCard } from '@/shared/components/console'
 import { StatusBadge } from '@/shared/components/status-badge'
 import { SectionPageLayout } from '@/shared/components/layout'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -105,6 +106,7 @@ export function SupportTickets() {
       <SectionPageLayout.Title>
         {t('Support Tickets')}
       </SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Customer threads, replies and resolution state.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
         <div className='space-y-4'>
           <div className='flex items-center gap-2'>
@@ -142,7 +144,7 @@ export function SupportTickets() {
             </Empty>
           )}
           {!isLoading && tickets.length > 0 && (
-            <div className='overflow-hidden rounded-lg border'>
+            <ConsoleTableCard>
               {tickets.map((ticket) => (
                 <div
                   key={ticket.id}
@@ -204,7 +206,7 @@ export function SupportTickets() {
                   </Button>
                 </div>
               ))}
-            </div>
+            </ConsoleTableCard>
           )}
         </div>
 

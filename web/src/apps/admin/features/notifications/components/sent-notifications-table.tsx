@@ -23,15 +23,9 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
+import { ConsoleTableCard } from '@/shared/components/console'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/shared/components/ui/card'
 import { Input } from '@/shared/components/ui/input'
 import {
   Table,
@@ -119,23 +113,43 @@ export function SentNotificationsTable() {
   }, [page, total, t])
 
   return (
-    <Card>
-      <CardHeader className='gap-3 sm:flex-row sm:items-center sm:justify-between'>
-        <div className='flex flex-col gap-1'>
-          <CardTitle>{t('Sent notifications')}</CardTitle>
-          <CardDescription>
-            {t('What each recipient received, and whether they read it')}
-          </CardDescription>
-        </div>
-        <Input
-          value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
-          placeholder={t('Search by recipient or text')}
-          className='sm:w-64'
-        />
-      </CardHeader>
-      <CardContent className='flex flex-col gap-3'>
-        <div className='overflow-x-auto rounded-lg border'>
+    <>
+      <ConsoleTableCard
+        className='min-h-[26rem]'
+        title={t('Sent notifications')}
+        actions={
+          <Input
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder={t('Search by recipient or text')}
+            className='h-8 w-full sm:w-64'
+          />
+        }
+        footer={
+          <>
+            <span>{rangeLabel}</span>
+            <div className='flex items-center gap-2'>
+              <Button
+                variant='outline'
+                size='sm'
+                disabled={page <= 1}
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              >
+                {t('Previous')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                disabled={page >= totalPages}
+                onClick={() => setPage((prev) => prev + 1)}
+              >
+                {t('Next')}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <div className='overflow-x-auto'>
           <Table>
             <TableHeader>
               <TableRow>
@@ -168,7 +182,8 @@ export function SentNotificationsTable() {
                     <TableCell>
                       <div className='flex flex-col'>
                         <span className='font-medium'>
-                          {item.display_name || item.username ||
+                          {item.display_name ||
+                            item.username ||
                             `#${item.user_id}`}
                         </span>
                         <span className='text-muted-foreground text-xs'>
@@ -230,36 +245,14 @@ export function SentNotificationsTable() {
             </TableBody>
           </Table>
         </div>
-
-        <div className='flex items-center justify-between gap-2'>
-          <span className='text-muted-foreground text-xs'>{rangeLabel}</span>
-          <div className='flex items-center gap-2'>
-            <Button
-              variant='outline'
-              size='sm'
-              disabled={page <= 1}
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            >
-              {t('Previous')}
-            </Button>
-            <Button
-              variant='outline'
-              size='sm'
-              disabled={page >= totalPages}
-              onClick={() => setPage((prev) => prev + 1)}
-            >
-              {t('Next')}
-            </Button>
-          </div>
-        </div>
-      </CardContent>
+      </ConsoleTableCard>
 
       <ConfirmDialog
         open={pendingRevoke !== null}
         onOpenChange={(open) => !open && setPendingRevoke(null)}
         title={t('Recall this notification?')}
         desc={t(
-          'It disappears from the recipient\'s inbox. This cannot be undone.'
+          "It disappears from the recipient's inbox. This cannot be undone."
         )}
         confirmText={t('Recall')}
         destructive
@@ -268,6 +261,6 @@ export function SentNotificationsTable() {
           pendingRevoke && revokeMutation.mutate(pendingRevoke.id)
         }
       />
-    </Card>
+    </>
   )
 }

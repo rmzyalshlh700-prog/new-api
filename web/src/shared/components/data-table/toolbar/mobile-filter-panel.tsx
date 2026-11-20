@@ -28,6 +28,8 @@ import {
 } from '@/shared/components/ui/collapsible'
 import { cn } from '@/shared/lib/utils'
 
+import { useDataTableSurface } from '../core/surface'
+
 type DataTableMobileFilterPanelProps = {
   children: ReactNode
   actions: ReactNode
@@ -39,6 +41,7 @@ export function DataTableMobileFilterPanel(
   props: DataTableMobileFilterPanelProps
 ) {
   const { t } = useTranslation()
+  const surface = useDataTableSurface()
   const [open, setOpen] = useState(true)
 
   return (
@@ -46,7 +49,8 @@ export function DataTableMobileFilterPanel(
       open={open}
       onOpenChange={setOpen}
       className={cn(
-        'bg-card/50 flex min-w-0 flex-col rounded-lg border p-2.5',
+        'flex min-w-0 flex-col',
+        surface === 'plain' && 'bg-card/50 rounded-lg border p-2.5',
         open && (props.compact ? 'gap-2.5' : 'gap-2'),
         props.className
       )}

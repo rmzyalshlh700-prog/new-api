@@ -235,6 +235,7 @@ export function ModelsTable() {
 
   return (
     <DataTablePage
+      surface='card'
       showMobileBulkActions
       mobileProps={{ enableRowSelection: true }}
       table={table}

@@ -33,6 +33,7 @@ export function Notifications() {
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Notifications')}</SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Announcements and inbox delivery.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
         <div className='grid gap-4 xl:grid-cols-2'>
           <NotificationComposer />

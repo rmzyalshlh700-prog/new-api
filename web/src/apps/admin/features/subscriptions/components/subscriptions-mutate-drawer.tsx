@@ -520,7 +520,7 @@ export function SubscriptionsMutateDrawer({
                   name='enabled'
                   render={({ field }) => (
                     <FormItem className={sideDrawerSwitchItemClassName()}>
-                      <FormLabel className='!mt-0'>
+                      <FormLabel className='mt-0'>
                         {t('Enabled Status')}
                       </FormLabel>
                       <FormControl>
@@ -538,7 +538,7 @@ export function SubscriptionsMutateDrawer({
                   name='allow_balance_pay'
                   render={({ field }) => (
                     <FormItem className={sideDrawerSwitchItemClassName()}>
-                      <FormLabel className='!mt-0'>
+                      <FormLabel className='mt-0'>
                         {t('Allow balance redemption')}
                       </FormLabel>
                       <FormControl>
@@ -556,7 +556,7 @@ export function SubscriptionsMutateDrawer({
                   name='allow_wallet_overflow'
                   render={({ field }) => (
                     <FormItem className={sideDrawerSwitchItemClassName()}>
-                      <FormLabel className='!mt-0'>
+                      <FormLabel className='mt-0'>
                         {t('Allow wallet balance after quota used up')}
                       </FormLabel>
                       <FormControl>

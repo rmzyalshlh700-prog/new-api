@@ -132,7 +132,7 @@ function ChannelCardComponent({
             <dl className='col-span-3 grid grid-cols-subgrid gap-y-1'>
               <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
                 <dt className={labelClass}>{t('Used / Remaining')}</dt>
-                <dd className='min-w-0 text-sm tabular-nums [&_[data-slot=status-badge]]:!ms-0 [&>div]:ms-0 [&>div]:flex-wrap [&>div]:gap-x-3'>
+                <dd className='min-w-0 text-sm tabular-nums [&_[data-slot=status-badge]]:ms-0 [&>div]:ms-0 [&>div]:flex-wrap [&>div]:gap-x-3'>
                   {balanceCell ?? (
                     <span className='text-muted-foreground'>-</span>
                   )}
@@ -140,7 +140,7 @@ function ChannelCardComponent({
               </div>
               <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
                 <dt className={labelClass}>{t('Response')}</dt>
-                <dd className='min-w-0 text-sm tabular-nums [&_[data-slot=status-badge]]:!ms-0'>
+                <dd className='min-w-0 text-sm tabular-nums [&_[data-slot=status-badge]]:ms-0'>
                   {responseCell ?? (
                     <span className='text-muted-foreground'>-</span>
                   )}
@@ -148,7 +148,7 @@ function ChannelCardComponent({
               </div>
               <div className='row-span-2 grid min-w-0 grid-rows-subgrid'>
                 <dt className={labelClass}>{t('Last Tested')}</dt>
-                <dd className='min-w-0 text-sm [&_[data-slot=status-badge]]:!ms-0'>
+                <dd className='min-w-0 text-sm [&_[data-slot=status-badge]]:ms-0'>
                   {testCell ?? <span className='text-muted-foreground'>-</span>}
                 </dd>
               </div>

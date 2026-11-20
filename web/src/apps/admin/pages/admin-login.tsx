@@ -21,6 +21,7 @@ import { ShieldCheck } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConsoleSectionCard } from '@/shared/components/console'
 import { UserAuthForm } from '@/shared/features/auth/sign-in/components/user-auth-form'
 import { LanguageSwitcher } from '@/shared/components/language-switcher'
 import { useStatus } from '@/shared/hooks/use-status'
@@ -93,21 +94,18 @@ export function AdminLogin() {
           </div>
         </div>
 
-        <div className='bg-console-surface border-console-line shadow-console-pop rounded-2xl border p-5 sm:p-6'>
-          <div className='mb-4 space-y-1'>
-            <h2 className='text-console-ink text-base font-semibold'>
-              {t('Admin sign in')}
-            </h2>
-            <p className='text-console-ink-3 text-xs'>
-              {t('Use an administrator or root account to continue.')}
-            </p>
-          </div>
+        <ConsoleSectionCard
+          title={t('Admin sign in')}
+          hint={t('Use an administrator or root account to continue.')}
+          className='shadow-console-pop gap-0'
+          contentClassName='px-5 py-4 sm:px-6 sm:py-5'
+        >
           <UserAuthForm
             redirectTo='/admin/overview'
             credentialsOnly
             requiredRole={ROLE.ADMIN}
           />
-        </div>
+        </ConsoleSectionCard>
 
         <p className='text-console-ink-3 mt-4 flex items-start justify-center gap-1.5 px-2 text-center text-xs leading-relaxed'>
           <ShieldCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden='true' />

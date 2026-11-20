@@ -33,6 +33,7 @@ export function Redemptions() {
         <SectionPageLayout.Title>
           {t('Redemption Codes')}
         </SectionPageLayout.Title>
+        <SectionPageLayout.Hint>{t('Prepaid codes, batches and remaining quota.')}</SectionPageLayout.Hint>
         <SectionPageLayout.Actions>
           <RedemptionsPrimaryButtons />
         </SectionPageLayout.Actions>

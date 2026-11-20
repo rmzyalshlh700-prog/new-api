@@ -34,6 +34,7 @@ function UsersContent() {
     <>
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t('Users')}</SectionPageLayout.Title>
+        <SectionPageLayout.Hint>{t('Every account, role, group and quota in one place.')}</SectionPageLayout.Hint>
         <SectionPageLayout.Actions>
           <UsersPrimaryButtons />
         </SectionPageLayout.Actions>

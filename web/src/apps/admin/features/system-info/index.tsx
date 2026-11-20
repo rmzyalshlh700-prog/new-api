@@ -37,6 +37,7 @@ export function SystemInfo() {
           </Badge>
         </span>
       </SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Runtime, version and node status.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
         <div className='space-y-4'>
           <SystemInstancesPanel />

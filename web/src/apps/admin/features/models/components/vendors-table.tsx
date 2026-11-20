@@ -251,6 +251,7 @@ export function VendorsTable() {
   return (
     <>
       <DataTablePage
+        surface='card'
         showMobileBulkActions
         mobileProps={{ enableRowSelection: true }}
         table={table}

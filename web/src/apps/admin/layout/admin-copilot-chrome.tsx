@@ -49,6 +49,7 @@ const MODAL_SURFACE_SELECTOR = [
   '[data-slot="dialog-content"]',
   '[data-slot="alert-dialog-content"]',
   '[data-slot="sheet-content"]',
+  '[data-slot="drawer-content"]',
 ].join(', ')
 
 /**

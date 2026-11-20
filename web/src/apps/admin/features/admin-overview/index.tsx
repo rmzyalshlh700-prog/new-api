@@ -228,6 +228,7 @@ export function AdminOverview() {
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Control Panel')}</SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Traffic, revenue and platform health at a glance.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Actions>
         <span className='text-muted-foreground flex items-center gap-1.5 text-xs'>
           {!hasError && (

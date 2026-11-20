@@ -42,6 +42,7 @@ import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin/index'
 import { Route as AdminAdminArchiveRouteImport } from './routes/_admin/admin/archive'
 import { Route as AdminAdminBackupRouteImport } from './routes/_admin/admin/backup'
+import { Route as AdminAdminMonitorRouteImport } from './routes/_admin/admin/monitor'
 import { Route as AdminAdminNotificationsRouteImport } from './routes/_admin/admin/notifications'
 import { Route as AdminAdminOverviewRouteImport } from './routes/_admin/admin/overview'
 import { Route as AdminAdminPaymentsRouteImport } from './routes/_admin/admin/payments'
@@ -248,6 +249,11 @@ const AdminAdminArchiveRoute = AdminAdminArchiveRouteImport.update({
 const AdminAdminBackupRoute = AdminAdminBackupRouteImport.update({
   id: '/admin/backup',
   path: '/admin/backup',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAdminMonitorRoute = AdminAdminMonitorRouteImport.update({
+  id: '/admin/monitor',
+  path: '/admin/monitor',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminAdminNotificationsRoute = AdminAdminNotificationsRouteImport.update({
@@ -529,6 +535,7 @@ export interface FileRoutesByFullPath {
   '/user/reset': typeof authUserResetRoute
   '/admin/archive': typeof AdminAdminArchiveRoute
   '/admin/backup': typeof AdminAdminBackupRoute
+  '/admin/monitor': typeof AdminAdminMonitorRoute
   '/admin/notifications': typeof AdminAdminNotificationsRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
@@ -604,6 +611,7 @@ export interface FileRoutesByTo {
   '/user/reset': typeof authUserResetRoute
   '/admin/archive': typeof AdminAdminArchiveRoute
   '/admin/backup': typeof AdminAdminBackupRoute
+  '/admin/monitor': typeof AdminAdminMonitorRoute
   '/admin/notifications': typeof AdminAdminNotificationsRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
@@ -684,6 +692,7 @@ export interface FileRoutesById {
   '/(auth)/user/reset': typeof authUserResetRoute
   '/_admin/admin/archive': typeof AdminAdminArchiveRoute
   '/_admin/admin/backup': typeof AdminAdminBackupRoute
+  '/_admin/admin/monitor': typeof AdminAdminMonitorRoute
   '/_admin/admin/notifications': typeof AdminAdminNotificationsRoute
   '/_admin/admin/overview': typeof AdminAdminOverviewRoute
   '/_admin/admin/payments': typeof AdminAdminPaymentsRoute
@@ -763,6 +772,7 @@ export interface FileRouteTypes {
     | '/user/reset'
     | '/admin/archive'
     | '/admin/backup'
+    | '/admin/monitor'
     | '/admin/notifications'
     | '/admin/overview'
     | '/admin/payments'
@@ -838,6 +848,7 @@ export interface FileRouteTypes {
     | '/user/reset'
     | '/admin/archive'
     | '/admin/backup'
+    | '/admin/monitor'
     | '/admin/notifications'
     | '/admin/overview'
     | '/admin/payments'
@@ -917,6 +928,7 @@ export interface FileRouteTypes {
     | '/(auth)/user/reset'
     | '/_admin/admin/archive'
     | '/_admin/admin/backup'
+    | '/_admin/admin/monitor'
     | '/_admin/admin/notifications'
     | '/_admin/admin/overview'
     | '/_admin/admin/payments'
@@ -1218,6 +1230,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/backup'
       fullPath: '/admin/backup'
       preLoaderRoute: typeof AdminAdminBackupRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_admin/admin/monitor': {
+      id: '/_admin/admin/monitor'
+      path: '/admin/monitor'
+      fullPath: '/admin/monitor'
+      preLoaderRoute: typeof AdminAdminMonitorRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_admin/admin/notifications': {
@@ -1625,6 +1644,7 @@ interface AdminRouteRouteChildren {
   AdminAdminSystemSettingsRouteRoute: typeof AdminAdminSystemSettingsRouteRouteWithChildren
   AdminAdminArchiveRoute: typeof AdminAdminArchiveRoute
   AdminAdminBackupRoute: typeof AdminAdminBackupRoute
+  AdminAdminMonitorRoute: typeof AdminAdminMonitorRoute
   AdminAdminNotificationsRoute: typeof AdminAdminNotificationsRoute
   AdminAdminOverviewRoute: typeof AdminAdminOverviewRoute
   AdminAdminPaymentsRoute: typeof AdminAdminPaymentsRoute
@@ -1646,6 +1666,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
     AdminAdminSystemSettingsRouteRouteWithChildren,
   AdminAdminArchiveRoute: AdminAdminArchiveRoute,
   AdminAdminBackupRoute: AdminAdminBackupRoute,
+  AdminAdminMonitorRoute: AdminAdminMonitorRoute,
   AdminAdminNotificationsRoute: AdminAdminNotificationsRoute,
   AdminAdminOverviewRoute: AdminAdminOverviewRoute,
   AdminAdminPaymentsRoute: AdminAdminPaymentsRoute,

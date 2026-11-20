@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/shared/components/copy-button'
+import { useDataTableSurface } from '@/shared/components/data-table'
 import { DetailRow } from '@/shared/components/detail-row'
 import { StatusBadge } from '@/shared/components/status-badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
@@ -29,12 +30,14 @@ import {
   formatLocalCurrencyAmount,
 } from '@/shared/lib/currency'
 import { formatTimestampToDate } from '@/shared/lib/format'
+import { cn } from '@/shared/lib/utils'
 
 import { getPaymentProviderLabel, getPaymentStatusBadge } from '../constants'
 import type { PaymentLogEntry } from '../types'
 
 function PaymentLogMobileCard(props: { entry: PaymentLogEntry }) {
   const { t, i18n } = useTranslation()
+  const surface = useDataTableSurface()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const { entry } = props
   const status = getPaymentStatusBadge(entry.status, t)
@@ -44,7 +47,12 @@ function PaymentLogMobileCard(props: { entry: PaymentLogEntry }) {
   const identity = entry.user_email || entry.username || `#${entry.user_id}`
 
   return (
-    <div className='bg-card min-w-0 overflow-hidden rounded-lg border p-3'>
+    <div
+      className={cn(
+        'bg-card min-w-0 overflow-hidden p-3',
+        surface === 'plain' && 'rounded-lg border'
+      )}
+    >
       <div className='flex items-start justify-between gap-2'>
         <div className='min-w-0 flex-1'>
           <div className='flex min-w-0 items-center gap-1'>
@@ -118,6 +126,8 @@ export function PaymentLogsMobileCard(props: {
   emptyTitle: string
   emptyDescription: string
 }) {
+  const surface = useDataTableSurface()
+
   if (props.isLoading) {
     return (
       <div className='space-y-2'>
@@ -143,7 +153,12 @@ export function PaymentLogsMobileCard(props: {
 
   if (props.entries.length === 0) {
     return (
-      <div className='text-muted-foreground flex min-h-32 flex-col items-center justify-center rounded-lg border p-6 text-center'>
+      <div
+        className={cn(
+          'text-muted-foreground flex min-h-32 flex-col items-center justify-center p-6 text-center',
+          surface === 'plain' && 'rounded-lg border'
+        )}
+      >
         <p className='text-sm font-medium'>{props.emptyTitle}</p>
         <p className='mt-1 text-xs'>{props.emptyDescription}</p>
       </div>

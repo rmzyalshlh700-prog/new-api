@@ -29,6 +29,7 @@ import {
 import { DataTableColgroup } from './data-table-colgroup'
 import { DataTableHeader } from './data-table-header'
 import { DataTableRow } from './data-table-row'
+import { useDataTableSurface } from './surface'
 import { TableEmpty } from './table-empty'
 import { getTableSizeStyle } from './table-sizing'
 import { TableSkeleton } from './table-skeleton'
@@ -49,6 +50,7 @@ export { DataTableRowActionMenu } from './row-action-menu'
 
 export function DataTableView<TData>(props: DataTableViewProps<TData>) {
   const rows = props.rows ?? props.table.getRowModel().rows
+  const surface = useDataTableSurface()
   const colSpan = React.useMemo(
     () => props.table.getVisibleLeafColumns().length,
     [props.table]
@@ -62,7 +64,8 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-lg border',
+        'overflow-hidden',
+        surface === 'plain' && 'rounded-lg border',
         props.containerClassName
       )}
       {...props.containerProps}

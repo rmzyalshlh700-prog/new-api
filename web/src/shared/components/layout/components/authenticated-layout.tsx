@@ -28,6 +28,7 @@ import { cn } from '@/shared/lib/utils'
 import { useAuthStore } from '@/shared/stores/auth-store'
 
 import type { NavGroup } from '../types'
+import { AdminHeader } from './admin-header'
 import { AppHeader } from './app-header'
 import { AppSidebar } from './app-sidebar'
 
@@ -50,9 +51,13 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
       <SearchProvider>
         <SidebarProvider defaultOpen={defaultOpen} className='flex-col'>
           <SkipToMain />
-          <AppHeader portal={props.portal} />
+          {props.portal === 'admin' ? (
+            <AdminHeader />
+          ) : (
+            <AppHeader portal={props.portal} />
+          )}
           <div className='flex min-h-0 w-full flex-1'>
-            <AppSidebar navGroups={props.navGroups} />
+            <AppSidebar navGroups={props.navGroups} portal={props.portal} />
             <SidebarInset
               className={cn(
                 '@container/content',

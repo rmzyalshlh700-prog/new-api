@@ -28,6 +28,7 @@ export function Archive() {
   return (
     <SectionPageLayout fixedContent>
       <SectionPageLayout.Title>{t('Archive')}</SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Historical records kept for audit and recovery.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
         <div className='space-y-3'>
           <p className='text-muted-foreground text-sm'>

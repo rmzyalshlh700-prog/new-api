@@ -193,6 +193,7 @@ export function PaymentLogsTable() {
 
   return (
     <DataTablePage
+      surface='card'
       table={table}
       columns={columns}
       isLoading={isLoading}
