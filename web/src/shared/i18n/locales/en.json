@@ -8363,7 +8363,13 @@
     "landing.code.copy": "Copy",
     "landing.code.copied": "Copied",
     "landing.connection.step": "01",
-    "landing.control.step": "02"
+    "landing.control.step": "02",
+    "Toggle sidebar": "Toggle sidebar",
+    "Command palette": "Command palette",
+    "Search for a command to run...": "Search for a command to run...",
+    "Breadcrumb": "Breadcrumb",
+    "Pagination": "Pagination",
+    "More pages": "More pages"
   },
   "Report date": "Report date",
   "Invoices": "Invoices",

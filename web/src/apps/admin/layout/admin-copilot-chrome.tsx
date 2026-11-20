@@ -36,24 +36,49 @@ const FAB_POSITION_STORAGE_KEY = 'admin-copilot-fab:position'
 const MOBILE_NAV_SELECTOR = '[data-slot="sidebar"][data-mobile="true"]'
 
 /**
- * Whether the mobile navigation drawer is open.
+ * Every modal surface that can cover the launcher: the mobile navigation
+ * drawer, dialogs, confirmation dialogs and slide-over sheets.
  *
- * The drawer is a modal sheet portalled to `document.body`, and the launcher
- * renders above the shell through CopilotKit's own portal, so the sidebar
- * context is not reachable here. Its marker attribute is: watching the body
- * for it keeps the launcher in sync without threading a new context through
- * the assistant layer.
+ * All of them portal to `document.body`, and the launcher renders above the
+ * shell through CopilotKit's own portal, so no React context is reachable
+ * here. Their marker attributes are: watching the body for them keeps the
+ * launcher in sync without threading a context through the assistant layer.
  */
-function useMobileNavDrawerOpen(): boolean {
+const MODAL_SURFACE_SELECTOR = [
+  MOBILE_NAV_SELECTOR,
+  '[data-slot="dialog-content"]',
+  '[data-slot="alert-dialog-content"]',
+  '[data-slot="sheet-content"]',
+].join(', ')
+
+/**
+ * Whether a modal surface above the launcher is open.
+ *
+ * A closing surface stays mounted for the length of its exit animation, so the
+ * `data-closed` marker is excluded rather than relying on unmount timing.
+ */
+function useOverlayOpen(): boolean {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
     const read = () => {
-      setOpen(document.querySelector(MOBILE_NAV_SELECTOR) !== null)
+      const surfaces = document.querySelectorAll(MODAL_SURFACE_SELECTOR)
+      let visible = false
+      for (const surface of surfaces) {
+        if (surface.getAttribute('data-closed') !== null) continue
+        visible = true
+        break
+      }
+      setOpen(visible)
     }
     read()
     const observer = new MutationObserver(read)
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-open', 'data-closed', 'data-slot'],
+    })
     return () => observer.disconnect()
   }, [])
 
@@ -78,9 +103,12 @@ function useMobileNavDrawerOpen(): boolean {
  * where `end` is the left edge — so closing now happens in the panel header,
  * with Escape and click-outside as the other ways out.
  *
- * It also stands down while the mobile navigation drawer is open: the drawer is
- * the full-height sheet on a phone, and a fixed launcher parked over it covered
- * the last sidebar entries (Authentication, Security & Limits).
+ * It also stands down while any modal surface is open. The mobile navigation
+ * drawer is the full-height sheet on a phone, where a fixed launcher parked
+ * over it covered the last sidebar entries (Authentication, Security &
+ * Limits); the same applied to dialogs and slide-over sheets, whose footer
+ * actions sit in the corner the launcher occupies (the cancel and save buttons
+ * of a right-hand sheet under `dir=rtl`).
  *
  * It can be dragged anywhere on screen: the position is held in viewport
  * pixels, kept inside the viewport and remembered in `localStorage`, so the
@@ -95,7 +123,7 @@ function useMobileNavDrawerOpen(): boolean {
 export function AdminCopilotFab() {
   const { t } = useTranslation()
   const { open, setOpen } = useChatContext()
-  const mobileNavOpen = useMobileNavDrawerOpen()
+  const overlayOpen = useOverlayOpen()
   const {
     buttonRef,
     style: fabStyle,
@@ -110,7 +138,7 @@ export function AdminCopilotFab() {
     storageKey: FAB_POSITION_STORAGE_KEY,
   })
 
-  if (open || mobileNavOpen) {
+  if (open || overlayOpen) {
     return null
   }
 

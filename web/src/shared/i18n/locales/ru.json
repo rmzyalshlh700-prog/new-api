@@ -2146,7 +2146,7 @@
     "Display Token Statistics": "Показать статистику токенов",
     "Displayed": "Отображается",
     "Displayed in": "Отображается в",
-    "Displays the mobile sidebar.": "Отображает мобильную боковую панель.",
+    "Displays the mobile sidebar.": "Показывает боковую панель на телефоне.",
     "Divide by exchange rate (÷ {{rate}})": "Разделить на курс (÷ {{rate}})",
     "Do not keep sessions": "Не сохранять привязку",
     "Do not over-trust this feature. IP may be spoofed. Please use with nginx, CDN and other gateways.": "Не доверяйте этой функции слишком сильно. IP может быть подделан. Используйте с nginx, CDN и другими шлюзами.",
@@ -8264,7 +8264,13 @@
     "landing.code.copy": "Копировать",
     "landing.code.copied": "Скопировано",
     "landing.connection.step": "01",
-    "landing.control.step": "02"
+    "landing.control.step": "02",
+    "Toggle sidebar": "Свернуть или развернуть боковую панель",
+    "Command palette": "Палитра команд",
+    "Search for a command to run...": "Найдите команду для запуска...",
+    "Breadcrumb": "Навигационная цепочка",
+    "Pagination": "Постраничная навигация",
+    "More pages": "Другие страницы"
   },
   "Report date": "Дата отчёта",
   "Invoices": "Счета",

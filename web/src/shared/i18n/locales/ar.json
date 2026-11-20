@@ -2245,7 +2245,7 @@
     "Display Token Statistics": "عرض إحصاءات الرموز",
     "Displayed": "معروض",
     "Displayed in": "يُعرض في",
-    "Displays the mobile sidebar.": "يعرض الشريط الجانبي للجوال.",
+    "Displays the mobile sidebar.": "يعرض الشريط الجانبي على الهاتف.",
     "Divide by exchange rate (÷ {{rate}})": "القسمة على سعر الصرف (÷ {{rate}})",
     "Do not keep sessions": "عدم الاحتفاظ بالجلسات",
     "Do not over-trust this feature. IP may be spoofed. Please use with nginx, CDN and other gateways.": "لا تفرط في الاعتماد على هذه الميزة، فقد يتم انتحال عنوان IP. يرجى استخدامها مع nginx وشبكة CDN وغيرها من البوابات.",
@@ -8363,7 +8363,13 @@
     "landing.code.copy": "نسخ",
     "landing.code.copied": "تم النسخ",
     "landing.connection.step": "01",
-    "landing.control.step": "02"
+    "landing.control.step": "02",
+    "Toggle sidebar": "إظهار الشريط الجانبي أو إخفاؤه",
+    "Command palette": "لوحة الأوامر",
+    "Search for a command to run...": "ابحث عن أمر لتنفيذه...",
+    "Breadcrumb": "مسار التنقل",
+    "Pagination": "ترقيم الصفحات",
+    "More pages": "صفحات أخرى"
   },
   "Report date": "تاريخ التقرير",
   "Invoices": "الفواتير",

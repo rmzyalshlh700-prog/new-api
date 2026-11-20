@@ -23,15 +23,18 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/shared/components/ui/button'
 import { cn } from '@/shared/lib/utils'
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {
+  const { t } = useTranslation()
+
   return (
     <nav
       role='navigation'
-      aria-label='pagination'
+      aria-label={t('Pagination')}
       data-slot='pagination'
       className={cn('mx-auto flex w-full justify-center', className)}
       {...props}
@@ -87,12 +90,14 @@ function PaginationLink({
 
 function PaginationPrevious({
   className,
-  text = 'Previous',
+  text,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+  const { t } = useTranslation()
+
   return (
     <PaginationLink
-      aria-label='Go to previous page'
+      aria-label={t('Go to previous page')}
       size='default'
       className={cn('ps-1.5!', className)}
       {...props}
@@ -103,24 +108,26 @@ function PaginationPrevious({
         data-icon='inline-start'
         className='rtl:rotate-180'
       />
-      <span className='hidden sm:block'>{text}</span>
+      <span className='hidden sm:block'>{text ?? t('Previous')}</span>
     </PaginationLink>
   )
 }
 
 function PaginationNext({
   className,
-  text = 'Next',
+  text,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+  const { t } = useTranslation()
+
   return (
     <PaginationLink
-      aria-label='Go to next page'
+      aria-label={t('Go to next page')}
       size='default'
       className={cn('pe-1.5!', className)}
       {...props}
     >
-      <span className='hidden sm:block'>{text}</span>
+      <span className='hidden sm:block'>{text ?? t('Next')}</span>
       <HugeiconsIcon
         icon={ArrowRight01Icon}
         strokeWidth={2}
@@ -135,6 +142,7 @@ function PaginationEllipsis({
   className,
   ...props
 }: React.ComponentProps<'span'>) {
+  const { t } = useTranslation()
   return (
     <span
       aria-hidden
@@ -146,7 +154,7 @@ function PaginationEllipsis({
       {...props}
     >
       <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} />
-      <span className='sr-only'>More pages</span>
+      <span className='sr-only'>{t('More pages')}</span>
     </span>
   )
 }

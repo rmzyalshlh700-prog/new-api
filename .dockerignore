@@ -5,6 +5,7 @@
 .gitignore
 Makefile
 docs
+.agents/skills/library
 .eslintcache
 .gocache
 /web/node_modules
