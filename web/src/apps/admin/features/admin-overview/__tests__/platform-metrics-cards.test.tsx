@@ -9,20 +9,33 @@ const metrics: DashboardMetrics = {
   total_liabilities_quota: 500000,
   active_visitors_today: 42,
   failed_requests_today: 7,
+  provider_errors_today: 5,
+  rejected_requests_today: 2,
+  api_keys_created_today: 9,
+  api_keys_total: 9,
 }
 
 describe('platform metrics cards', () => {
-  it('renders all four metric cards with their values', () => {
+  it('renders the metric cards with their values', () => {
     render(<PlatformMetricsCards metrics={metrics} loading={false} />)
 
     expect(screen.getByText('Total Registered Users')).toBeInTheDocument()
-    expect(screen.getByText('Total Customer Balances')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Total Customer Balances')
+    ).not.toBeInTheDocument()
     expect(screen.getByText("Today's Active Visitors")).toBeInTheDocument()
     expect(screen.getByText('Failed Requests Today')).toBeInTheDocument()
+    expect(screen.getByText('API Keys Created Today')).toBeInTheDocument()
 
     expect(screen.getByText('1,234')).toBeInTheDocument()
     expect(screen.getByText('42')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
+    expect(screen.getByText('Total API keys: 9')).toBeInTheDocument()
+    // The failed-request total splits into provider errors and rejections.
+    expect(screen.getByText('From model providers')).toBeInTheDocument()
+    expect(screen.getByText('Rejected before a provider')).toBeInTheDocument()
+    expect(screen.getByText('5')).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
   })
 
   it('hides values while loading and keeps card titles', () => {

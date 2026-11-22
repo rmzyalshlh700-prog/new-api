@@ -20,7 +20,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { api } from '@/shared/lib/http-client'
+import { api } from '@/shared/lib/api'
 
 import { ArchiveExplorer } from '../ArchiveExplorer'
 
@@ -40,34 +40,27 @@ afterEach(() => {
 })
 
 describe('archive date filters', () => {
-  it('associates the start and end date labels with their own picker', () => {
+  it('associates the report date label with its picker', () => {
     vi.spyOn(api, 'get').mockResolvedValue({
-      data: { success: true, message: '', data: { items: [], total: 0 } },
+      data: { success: true, message: '', data: [] },
     })
     renderExplorer()
 
-    const start = screen.getByLabelText('Start date')
-    const end = screen.getByLabelText('End date')
+    const date = screen.getByLabelText('Report date')
 
-    expect(start).toHaveAttribute('id', 'archive-start-date')
-    expect(end).toHaveAttribute('id', 'archive-end-date')
+    expect(date).toHaveAttribute('id', 'archive-start-date')
     // The label wins over the button contents, so screen readers announce the
-    // filter each trigger controls instead of the same "Select date" twice.
-    expect(start).toHaveAccessibleName('Start date')
-    expect(end).toHaveAccessibleName('End date')
+    // filter each trigger controls instead of a generic "Select date".
+    expect(date).toHaveAccessibleName('Report date')
   })
 
-  it('announces the date pickers as dialog triggers', () => {
+  it('announces the date picker as a dialog trigger', () => {
     vi.spyOn(api, 'get').mockResolvedValue({
-      data: { success: true, message: '', data: { items: [], total: 0 } },
+      data: { success: true, message: '', data: [] },
     })
     renderExplorer()
 
-    expect(screen.getByLabelText('Start date')).toHaveAttribute(
-      'aria-haspopup',
-      'dialog'
-    )
-    expect(screen.getByLabelText('End date')).toHaveAttribute(
+    expect(screen.getByLabelText('Report date')).toHaveAttribute(
       'aria-haspopup',
       'dialog'
     )

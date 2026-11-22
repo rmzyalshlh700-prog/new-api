@@ -1,23 +1,27 @@
 import { Activity } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid } from 'recharts'
 
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/shared/components/ui/chart'
+import { ChartContainer, type ChartConfig } from '@/shared/components/ui/chart'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs'
 import { TitledCard } from '@/shared/components/ui/titled-card'
-import { formatCompactNumber, formatInteger } from '@/shared/lib/format'
+import { formatInteger } from '@/shared/lib/format'
 
 import { buildUsageTrend } from '../lib/aggregate'
 import type { OverviewQuotaRow } from '../types'
+import { AnalyticsTooltip, AnalyticsXAxis, AnalyticsYAxis } from './chart-kit'
 
-export function ActivityTrendPanel({
+type Metric = 'requests' | 'tokens'
+type Range = '1' | '7' | '30'
+
+/**
+ * Requests and tokens share one chart with a metric switch instead of two
+ * stacked charts: on a phone the pair used to double the card height while
+ * showing the same time axis twice.
+ */
+export const ActivityTrendPanel = memo(function ActivityTrendPanel({
   rows,
   now,
   loading,
@@ -31,11 +35,37 @@ export function ActivityTrendPanel({
   ratesLoading: boolean
 }) {
   const { t } = useTranslation()
-  const [range, setRange] = useState<'1' | '7' | '30'>('7')
+  const [range, setRange] = useState<Range>('7')
+  const [metric, setMetric] = useState<Metric>('requests')
   const points = useMemo(
     () => buildUsageTrend(rows, Number(range) as 1 | 7 | 30, now),
     [rows, range, now]
   )
+  const totals = useMemo(
+    () => ({
+      requests: points.reduce((sum, point) => sum + point.requests, 0),
+      tokens: points.reduce((sum, point) => sum + point.tokens, 0),
+    }),
+    [points]
+  )
+  const metricLabel = metric === 'requests' ? t('Requests') : t('Tokens')
+
+  let requestsRate = '—'
+  let tokensRate = '—'
+  if (ratesLoading) {
+    requestsRate = '…'
+    tokensRate = '…'
+  } else if (rates != null) {
+    requestsRate = formatInteger(rates.rpm)
+    tokensRate = formatInteger(rates.tpm)
+  }
+
+  const config: ChartConfig = {
+    [metric]: {
+      label: metricLabel,
+      color: metric === 'requests' ? 'var(--chart-1)' : 'var(--chart-3)',
+    },
+  }
 
   return (
     <TitledCard
@@ -43,6 +73,7 @@ export function ActivityTrendPanel({
       description={t('Usage data may lag by a few minutes')}
       icon={<Activity className='size-5' />}
       iconTone='chart-1'
+      headerClassName='p-3 sm:p-5'
       action={
         <Tabs
           value={range}
@@ -53,103 +84,125 @@ export function ActivityTrendPanel({
           }}
         >
           <TabsList aria-label={t('Time range')}>
-            <TabsTrigger value='1'>{t('Today')}</TabsTrigger>
-            <TabsTrigger value='7'>{t('7 Days')}</TabsTrigger>
-            <TabsTrigger value='30'>{t('30 days')}</TabsTrigger>
+            <TabsTrigger value='1' className='px-2.5 text-xs sm:px-3 sm:text-sm'>
+              {t('Today')}
+            </TabsTrigger>
+            <TabsTrigger value='7' className='px-2.5 text-xs sm:px-3 sm:text-sm'>
+              {t('7 Days')}
+            </TabsTrigger>
+            <TabsTrigger value='30' className='px-2.5 text-xs sm:px-3 sm:text-sm'>
+              {t('30 days')}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       }
     >
-      <div className='grid gap-4 lg:grid-cols-2'>
-        {(['requests', 'tokens'] as const).map((metric) => {
-          const label = metric === 'requests' ? t('Requests') : t('Tokens')
-          const total = points.reduce((sum, point) => sum + point[metric], 0)
-          const rate = metric === 'requests' ? rates?.rpm : rates?.tpm
-          const rateLabel =
-            metric === 'requests'
-              ? t('Requests per minute')
-              : t('Tokens per minute')
-          let rateValue = '—'
-          if (ratesLoading) {
-            rateValue = '…'
-          } else if (rate != null && Number.isFinite(rate)) {
-            rateValue = formatInteger(rate)
-          }
-          const config: ChartConfig = {
-            [metric]: {
-              label,
-              color:
-                metric === 'requests' ? 'var(--chart-1)' : 'var(--chart-3)',
-            },
-          }
-          return (
-            <div
-              key={metric}
-              className='bg-muted/30 min-w-0 rounded-xl border p-4'
-            >
-              <div className='text-muted-foreground text-sm font-medium'>
-                {label}
-              </div>
-              {loading ? (
-                <Skeleton className='mt-2 h-8 w-24' />
-              ) : (
-                <div className='mt-1 text-2xl font-semibold tracking-tight tabular-nums'>
-                  {formatInteger(total)}
-                </div>
-              )}
-              <div className='text-muted-foreground mt-2 text-xs'>
-                {rateLabel}: {rateValue}
-              </div>
-              <div className='mt-4 h-36'>
-                {loading && <Skeleton className='h-full w-full' />}
-                {!loading && total === 0 && (
-                  <div className='text-muted-foreground flex h-full items-center justify-center text-sm'>
-                    {t('No data available')}
-                  </div>
-                )}
-                {!loading && total > 0 && (
-                  <ChartContainer
-                    config={config}
-                    className='aspect-auto h-full w-full'
-                  >
-                    <AreaChart
-                      data={points}
-                      margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-                    >
-                      <CartesianGrid vertical={false} strokeDasharray='3 3' />
-                      <XAxis
-                        dataKey='label'
-                        tickLine={false}
-                        axisLine={false}
-                        minTickGap={24}
-                        tickMargin={8}
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        width={42}
-                        allowDecimals={false}
-                        tickFormatter={(value) =>
-                          formatCompactNumber(Number(value))
-                        }
-                      />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Area
-                        type='monotone'
-                        dataKey={metric}
-                        stroke={`var(--color-${metric})`}
-                        fill={`var(--color-${metric})`}
-                        fillOpacity={0.12}
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                )}
-              </div>
+      <div className='flex flex-col gap-3'>
+        <div className='grid grid-cols-4 items-end gap-2'>
+          <Kpi label={t('Requests')} value={formatInteger(totals.requests)} />
+          <Kpi label={t('Tokens')} value={formatInteger(totals.tokens)} />
+          <div className='col-span-2 flex min-w-0 flex-col gap-0.5 self-center text-end'>
+            <span className='text-muted-foreground truncate text-[10px] font-medium'>
+              {t('Requests per minute')}: {requestsRate}
+            </span>
+            <span className='text-muted-foreground truncate text-[10px] font-medium'>
+              {t('Tokens per minute')}: {tokensRate}
+            </span>
+          </div>
+        </div>
+
+        <div className='flex items-center justify-between gap-2'>
+          <Tabs
+            value={metric}
+            onValueChange={(value) => {
+              if (value === 'requests' || value === 'tokens') setMetric(value)
+            }}
+          >
+            <TabsList aria-label={t('Usage')}>
+              <TabsTrigger
+                value='requests'
+                className='px-2.5 text-xs sm:px-3 sm:text-sm'
+              >
+                {t('Requests')}
+              </TabsTrigger>
+              <TabsTrigger
+                value='tokens'
+                className='px-2.5 text-xs sm:px-3 sm:text-sm'
+              >
+                {t('Tokens')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <div className='h-40 w-full sm:h-48'>
+          {loading && <Skeleton className='h-full w-full' />}
+          {!loading && totals[metric] === 0 && (
+            <div className='text-muted-foreground flex h-full items-center justify-center text-sm'>
+              {t('No data available')}
             </div>
-          )
-        })}
+          )}
+          {!loading && totals[metric] > 0 && (
+            <ChartContainer
+              config={config}
+              className='aspect-auto h-full w-full'
+            >
+              <AreaChart
+                data={points}
+                margin={{ top: 6, right: 4, bottom: 0, left: 0 }}
+              >
+                <defs>
+                  <linearGradient
+                    id='activityTrendGradient'
+                    x1='0'
+                    y1='0'
+                    x2='0'
+                    y2='1'
+                  >
+                    <stop
+                      offset='0%'
+                      stopColor={`var(--color-${metric})`}
+                      stopOpacity={0.28}
+                    />
+                    <stop
+                      offset='100%'
+                      stopColor={`var(--color-${metric})`}
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray='3 3' />
+                <AnalyticsXAxis dataKey='label' />
+                <AnalyticsYAxis kind='count' />
+                <AnalyticsTooltip formatter={formatInteger} />
+                <Area
+                  type='monotone'
+                  dataKey={metric}
+                  stroke={`var(--color-${metric})`}
+                  fill='url(#activityTrendGradient)'
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 3, strokeWidth: 0 }}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ChartContainer>
+          )}
+        </div>
       </div>
     </TitledCard>
+  )
+})
+
+function Kpi(props: { label: string; value: string }) {
+  return (
+    <div className='min-w-0'>
+      <div className='text-muted-foreground truncate text-[10px] font-medium'>
+        {props.label}
+      </div>
+      <div className='mt-0.5 truncate font-mono text-base font-semibold tabular-nums sm:text-lg'>
+        {props.value}
+      </div>
+    </div>
   )
 }

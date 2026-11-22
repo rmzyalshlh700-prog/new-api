@@ -841,3 +841,55 @@ func TestQuotaOutboxDatabaseMatrix(t *testing.T) {
 		})
 	}
 }
+
+// A claimed refund is durable before it is credited: the outbox row survives a
+// crash between the two steps, and the sweep finishes the payment exactly once.
+func TestPendingWalletRefundIsSweptExactlyOnce(t *testing.T) {
+	const (
+		startQuota  = 1_000
+		preConsumed = 400
+		requestId   = "sweep-pending-refund"
+	)
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	user := createReserveTestUser(t, startQuota)
+	require.NoError(t, DecreaseUserQuota(user.Id, preConsumed, true))
+	require.Equal(t, startQuota-preConsumed, getUserQuotaFromDB(t, user.Id))
+
+	// The claim only records the debt; no money moves yet.
+	require.NoError(t, ClaimWalletRefund(requestId, user.Id, preConsumed))
+	assert.Equal(t, startQuota-preConsumed, getUserQuotaFromDB(t, user.Id), "a claim must not credit the wallet")
+
+	var pending int64
+	require.NoError(t, DB.Model(&WalletRefundRecord{}).
+		Where("request_id = ? AND status = ?", requestId, WalletRefundStatusPending).Count(&pending).Error)
+	require.EqualValues(t, 1, pending)
+
+	// The sweep pays it, and a second sweep is a no-op.
+	credited, err := SweepPendingWalletRefunds(10)
+	require.NoError(t, err)
+	assert.Equal(t, 1, credited)
+	assert.Equal(t, startQuota, getUserQuotaFromDB(t, user.Id))
+
+	credited, err = SweepPendingWalletRefunds(10)
+	require.NoError(t, err)
+	assert.Equal(t, 0, credited, "a completed refund must not be paid twice")
+	assert.Equal(t, startQuota, getUserQuotaFromDB(t, user.Id))
+}
+
+// Re-claiming an existing key must not change its owner or amount: the claimed
+// record is the payable, so a later caller cannot redirect or resize it.
+func TestClaimWalletRefundKeepsFirstOwnerAndAmount(t *testing.T) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	owner := createReserveTestUser(t, 500)
+	other := createReserveTestUser(t, 500)
+
+	require.NoError(t, ClaimWalletRefund("claim-immutable", owner.Id, 100))
+	require.NoError(t, ClaimWalletRefund("claim-immutable", other.Id, 999))
+
+	_, err := SettleWalletRefund("claim-immutable")
+	require.NoError(t, err)
+	assert.Equal(t, 600, getUserQuotaFromDB(t, owner.Id), "the first owner must receive the first claimed amount (500+100)")
+	assert.Equal(t, 500, getUserQuotaFromDB(t, other.Id), "a re-claim must not pay a different user")
+}

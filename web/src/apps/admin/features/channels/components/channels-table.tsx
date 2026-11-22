@@ -525,6 +525,7 @@ export function ChannelsTable() {
         className='relative h-full min-h-0 data-[priority-dragging=true]:select-none data-[priority-dragging=true]:[&_[data-sortable-id]]:pointer-events-none'
       >
         <DataTablePage
+          surface='card'
           table={table}
           columns={columns}
           isLoading={isLoading}

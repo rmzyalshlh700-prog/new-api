@@ -11,6 +11,8 @@ type ConsoleSetting struct {
 	UptimeKumaEnabled    bool   `json:"uptime_kuma_enabled"`   // 是否启用 Uptime Kuma 面板
 	AnnouncementsEnabled bool   `json:"announcements_enabled"` // 是否启用系统公告面板
 	FAQEnabled           bool   `json:"faq_enabled"`           // 是否启用常见问答面板
+	SocialLinksPosition  string `json:"social_links_position"` // 社交链接位置: sidebar_bottom / sidebar_top / footer
+	SocialIconSize       string `json:"social_icon_size"`      // 社交图标尺寸: small / medium / large
 }
 
 // 默认配置
@@ -23,6 +25,8 @@ var defaultConsoleSetting = ConsoleSetting{
 	UptimeKumaEnabled:    true,
 	AnnouncementsEnabled: true,
 	FAQEnabled:           true,
+	SocialLinksPosition:  SocialLinksPositionSidebarBottom,
+	SocialIconSize:       SocialIconSizeMedium,
 }
 
 // 全局实例

@@ -16,32 +16,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import i18n from 'i18next'
+import i18n, { type i18n as I18n } from 'i18next'
+import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
 import {
-  convertDetectedLanguage,
+  matchInterfaceLanguage,
   normalizeInterfaceLanguage,
   type InterfaceLanguageCode,
 } from './languages'
 import en from './locales/en.json'
 
 /**
- * Storage key for the interface language. It must stay `i18nextLng` because the
- * pre-paint direction script in `index.html` reads the same key.
+ * Storage key for the interface language. It must stay `i18nextLng` because
+ * the `LanguageDetector` caches manual choices under it and the pre-paint
+ * direction script in `index.html` reads the same key.
  */
 const LANGUAGE_STORAGE_KEY = 'i18nextLng'
 
-export const SUPPORTED_LANGUAGES = [
-  'en',
-  'zhCN',
-  'fr',
-  'ru',
-  'ja',
-  'vi',
-  'zhTW',
-  'ar',
-] as const
+export const SUPPORTED_LANGUAGES = ['en', 'ru', 'ar'] as const
 
 type LocaleBundle = { translation: Record<string, string> }
 type LazyLocaleCode = Exclude<InterfaceLanguageCode, 'en'>
@@ -55,77 +48,61 @@ const LAZY_LOCALES: Record<
   LazyLocaleCode,
   () => Promise<{ default: LocaleBundle }>
 > = {
-  zhCN: () => import('./locales/zh.json'),
-  fr: () => import('./locales/fr.json'),
   ru: () => import('./locales/ru.json'),
-  ja: () => import('./locales/ja.json'),
-  vi: () => import('./locales/vi.json'),
-  zhTW: () => import('./locales/zh-TW.json'),
   ar: () => import('./locales/ar.json'),
 }
 
-const loadedLanguages = new Set<string>(['en'])
+/** Locales already registered on an i18next instance, per instance. */
+const loadedLanguages = new WeakMap<I18n, Set<string>>()
 
-/**
- * Resolve a stored or browser-reported locale onto one of our interface codes.
- *
- * `normalizeInterfaceLanguage` falls back to English for anything it does not
- * know, so a non-English candidate is only accepted when it really is English.
- */
-function matchSupportedLanguage(value: string): string | null {
-  const converted = convertDetectedLanguage(value)
-  const normalized = normalizeInterfaceLanguage(converted)
-  const isEnglish = /^en\b/i.test(converted.trim().replaceAll('_', '-'))
-  if (normalized === 'en' && !isEnglish) return null
-  return normalized
-}
-
-/** Interface language for this page load: stored choice first, then browser. */
-export function detectInterfaceLanguage(): string {
-  try {
-    const cached = window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
-    if (cached) {
-      const matched = matchSupportedLanguage(cached)
-      if (matched) return matched
-    }
-  } catch {
-    // Storage blocked (private mode): fall through to the browser languages.
+function loadedLanguageSet(instance: I18n): Set<string> {
+  let loaded = loadedLanguages.get(instance)
+  if (!loaded) {
+    loaded = new Set(['en'])
+    loadedLanguages.set(instance, loaded)
   }
-
-  if (typeof navigator !== 'undefined') {
-    for (const candidate of navigator.languages ?? [navigator.language]) {
-      const matched = matchSupportedLanguage(candidate)
-      if (matched) return matched
-    }
-  }
-
-  return 'en'
+  return loaded
 }
 
 async function loadBundle(code: string): Promise<LocaleBundle | undefined> {
-  if (code === 'en') return undefined
   const loader = LAZY_LOCALES[code as LazyLocaleCode]
   if (!loader) return undefined
   const { default: bundle } = await loader()
-  loadedLanguages.add(code)
   return bundle
 }
 
 /**
- * Load a locale chunk into the running i18next instance. Idempotent, and safe
- * to await before switching languages so the UI never renders raw keys.
+ * Load a locale chunk into the given i18next instance. Idempotent per instance,
+ * and safe to await before switching languages so the UI never renders raw keys.
  */
 export async function ensureLanguageResources(
-  language: string
+  language: string,
+  instance: I18n = i18n
 ): Promise<string> {
   const code = normalizeInterfaceLanguage(language)
-  if (loadedLanguages.has(code)) return code
+  const loaded = loadedLanguageSet(instance)
+  if (loaded.has(code)) return code
 
   const bundle = await loadBundle(code)
-  if (bundle) i18n.addResourceBundle(code, 'translation', bundle.translation, true, true)
+  if (bundle) {
+    instance.addResourceBundle(
+      code,
+      'translation',
+      bundle.translation,
+      true,
+      true
+    )
+  }
+  loaded.add(code)
   return code
 }
 
+/**
+ * Remember a *manual* language choice. Only `changeInterfaceLanguage` calls
+ * this: a language merely detected from the browser must not be stored, or the
+ * detection becomes one-shot and an OS language change is never followed again.
+ * The presence of `i18nextLng` therefore means "the user chose this".
+ */
 function persistInterfaceLanguage(code: string) {
   try {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, code)
@@ -147,21 +124,65 @@ export async function changeInterfaceLanguage(
   return code
 }
 
-const initialLanguage = detectInterfaceLanguage()
+/**
+ * Language to boot with: the manual choice stored under `i18nextLng` first,
+ * then the browser's locales, then English.
+ *
+ * This cannot be delegated to `LanguageDetector.detect()`: the plugin does not
+ * exist until `init()` has run, and by then i18next has already resolved (and
+ * fallen back to English for) a language whose chunk was not passed as
+ * `resources`. The chunk therefore has to be chosen before `init()`.
+ */
+export function resolveStartupLanguage(): string {
+  let stored: string | null = null
+  try {
+    stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
+  } catch {
+    // Storage can be unavailable in private mode; fall back to the browser.
+  }
+  const storedMatch = matchInterfaceLanguage(stored)
+  if (storedMatch) return storedMatch
+
+  let browserLocales: readonly string[] = []
+  if (typeof navigator !== 'undefined') {
+    browserLocales = navigator.languages?.length
+      ? navigator.languages
+      : [navigator.language]
+  }
+  for (const locale of browserLocales) {
+    const match = matchInterfaceLanguage(locale)
+    if (match) return match
+  }
+  return 'en'
+}
 
 /**
- * Resolves once the initial language chunk is loaded and i18next is ready.
- * `main.tsx` awaits it before rendering so no untranslated key is ever painted.
+ * Boot i18next and settle on the interface language before the first render.
  */
-export const i18nReady: Promise<void> = (async () => {
-  const initialBundle = await loadBundle(initialLanguage)
-  await i18n.use(initReactI18next).init({
-    resources: initialBundle
-      ? { en, [initialLanguage]: initialBundle }
+export async function initializeI18n(instance: I18n = i18n): Promise<void> {
+  instance.use(LanguageDetector).use(initReactI18next)
+
+  const startupLanguage = resolveStartupLanguage()
+  const startupBundle = await loadBundle(startupLanguage)
+
+  await instance.init({
+    // Resolved above so the matching locale chunk ships with the first render.
+    lng: startupLanguage,
+    detection: {
+      order: ['localStorage', 'navigator', 'htmlTag'],
+      lookupLocalStorage: LANGUAGE_STORAGE_KEY,
+      // Read-only: this detector must never cache. Booting with `lng` makes
+      // i18next call changeLanguage, which caches through this option, and a
+      // cached auto-detected language would freeze browser detection after the
+      // first visit. Only a manual switch writes the key (persistInterfaceLanguage).
+      caches: [],
+    },
+    resources: startupBundle
+      ? { en, [startupLanguage]: startupBundle }
       : { en },
-    lng: initialLanguage,
-    fallbackLng: 'en',
     supportedLngs: [...SUPPORTED_LANGUAGES],
+    nonExplicitSupportedLngs: true,
+    fallbackLng: 'en',
     load: 'currentOnly',
     nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
     debug: import.meta.env.DEV,
@@ -169,7 +190,19 @@ export const i18nReady: Promise<void> = (async () => {
       escapeValue: false, // not needed for react as it escapes by default
     },
   })
-  persistInterfaceLanguage(initialLanguage)
-})()
+
+  if (startupBundle) loadedLanguageSet(instance).add(startupLanguage)
+
+  const code = await ensureLanguageResources(instance.language, instance)
+  if (instance.language !== code) {
+    await instance.changeLanguage(code)
+  }
+}
+
+/**
+ * Resolves once the initial language chunk is loaded and i18next is ready.
+ * `main.tsx` awaits it before rendering so no untranslated key is ever painted.
+ */
+export const i18nReady: Promise<void> = initializeI18n()
 
 export default i18n

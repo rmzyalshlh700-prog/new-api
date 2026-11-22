@@ -355,7 +355,7 @@ func newResponsesWSBillingTest(t *testing.T, expression string, handle func(*web
 		"group_ratio_setting.group_ratio": `{"default":1}`,
 		"perf_metrics_setting.enabled":    "true",
 	}))
-	require.NoError(t, model.DB.AutoMigrate(&model.Channel{}, &model.Ability{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.WalletRefundRecord{}))
 	require.NoError(t, model.LOG_DB.AutoMigrate(&model.Log{}))
 	require.NoError(t, model.DB.Model(user).Updates(map[string]any{"quota": 100000, "setting": `{"billing_preference":"wallet_only"}`}).Error)
 	require.NoError(t, model.DB.Model(token).Update("remain_quota", 3000).Error)
@@ -844,6 +844,11 @@ func TestResponsesWebSocketInitialUpstreamRejectionRefundsReservation(t *testing
 					}
 				}
 			}))
+			// The refund restores the token and the user wallet from the same
+			// asynchronous worker, so the wait below tracks both balances; the
+			// token alone can settle first.
+			initialTokenQuota := fixture.token.RemainQuota
+			initialUserQuota := fixture.user.Quota
 			require.NoError(t, fixture.client.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.create","model":"ws-billing","input":"hi","max_output_tokens":10}`)))
 			rejection := readResponsesWSTestEvent(t, fixture.client)
 			assert.Equal(t, "error", rejection["type"])
@@ -856,7 +861,8 @@ func TestResponsesWebSocketInitialUpstreamRejectionRefundsReservation(t *testing
 			defer deadline.Stop()
 			for {
 				require.NoError(t, model.DB.First(fixture.token, fixture.token.Id).Error)
-				if fixture.token.RemainQuota == 3000 {
+				require.NoError(t, model.DB.First(fixture.user, fixture.user.Id).Error)
+				if fixture.token.RemainQuota == initialTokenQuota && fixture.user.Quota == initialUserQuota {
 					break
 				}
 				select {

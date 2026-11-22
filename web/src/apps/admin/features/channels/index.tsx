@@ -94,6 +94,7 @@ export function Channels() {
             {retryBadge}
           </span>
         </SectionPageLayout.Title>
+        <SectionPageLayout.Hint>{t('Upstream providers, weights and connection health.')}</SectionPageLayout.Hint>
         <SectionPageLayout.Actions>
           <ChannelsPrimaryButtons />
         </SectionPageLayout.Actions>

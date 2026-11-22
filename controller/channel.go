@@ -556,7 +556,7 @@ func GetChannelKey(c *gin.Context) {
 	// 返回渠道密钥
 	// A plugin credential shows as its summary, never its secrets.
 	common.ApiSuccessT(c, "Fetched successfully", map[string]any{
-		"key": jsplugin.RedactCredentialLines(channel.Key),
+		"key": jsplugin.RedactCredentialLines(channel.Key.String()),
 	})
 }
 
@@ -691,7 +691,7 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		if channel.Key == "" && !service.ChannelSupportsPluginLogin(channel) {
 			return fmt.Errorf("channel cannot be empty")
 		}
-		if err := service.CheckSubmittedPluginCredentials(channel.Type, channel.GetSetting().TaskPluginKey, channel.Key, ""); err != nil {
+		if err := service.CheckSubmittedPluginCredentials(channel.Type, channel.GetSetting().TaskPluginKey, channel.Key.String(), ""); err != nil {
 			return err
 		}
 
@@ -727,7 +727,7 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 
 	// Codex OAuth key validation (optional, only when JSON object is provided)
 	if channel.Type == constant.ChannelTypeCodex {
-		trimmedKey := strings.TrimSpace(channel.Key)
+		trimmedKey := strings.TrimSpace(channel.Key.String())
 		if isAdd || trimmedKey != "" {
 			if !strings.HasPrefix(trimmedKey, "{") {
 				return fmt.Errorf("Codex key must be a valid JSON object")
@@ -849,14 +849,14 @@ func AddChannel(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if err := checkPluginChannelKeys(c, addChannelRequest.Channel, addChannelRequest.Channel.Key, ""); err != nil {
+	if err := checkPluginChannelKeys(c, addChannelRequest.Channel, addChannelRequest.Channel.Key.String(), ""); err != nil {
 		common.ApiError(c, err)
 		return
 	}
 
 	// A channel of a plugin that logs in may start without a key and wait for
 	// a login; batch mode makes one channel per key, so it still needs keys.
-	keyless := strings.TrimSpace(addChannelRequest.Channel.Key) == "" && service.ChannelSupportsPluginLogin(addChannelRequest.Channel)
+	keyless := strings.TrimSpace(addChannelRequest.Channel.Key.String()) == "" && service.ChannelSupportsPluginLogin(addChannelRequest.Channel)
 	if keyless && addChannelRequest.Mode == "batch" {
 		common.ApiError(c, fmt.Errorf("channel cannot be empty"))
 		return
@@ -884,17 +884,17 @@ func AddChannel(c *gin.Context) {
 		addChannelRequest.Channel.ChannelInfo.IsMultiKey = true
 		addChannelRequest.Channel.ChannelInfo.MultiKeyMode = addChannelRequest.MultiKeyMode
 		if addChannelRequest.Channel.Type == constant.ChannelTypeVertexAi && addChannelRequest.Channel.GetOtherSettings().VertexKeyType != dto.VertexKeyTypeAPIKey {
-			array, indices, err := getVertexArrayKeys(addChannelRequest.Channel.Key)
+			array, indices, err := getVertexArrayKeys(addChannelRequest.Channel.Key.String())
 			if err != nil {
 				common.ApiError(c, err)
 				return
 			}
 			addChannelRequest.Channel.ChannelInfo.MultiKeySize = len(array)
-			addChannelRequest.Channel.Key = strings.Join(array, "\n")
+			addChannelRequest.Channel.Key = common.SecretString(strings.Join(array, "\n"))
 			inputIndices = indices
 		} else {
 			cleanKeys := make([]string, 0)
-			for i, key := range strings.Split(addChannelRequest.Channel.Key, "\n") {
+			for i, key := range strings.Split(addChannelRequest.Channel.Key.String(), "\n") {
 				if key == "" {
 					continue
 				}
@@ -903,25 +903,25 @@ func AddChannel(c *gin.Context) {
 				inputIndices = append(inputIndices, i)
 			}
 			addChannelRequest.Channel.ChannelInfo.MultiKeySize = len(cleanKeys)
-			addChannelRequest.Channel.Key = strings.Join(cleanKeys, "\n")
+			addChannelRequest.Channel.Key = common.SecretString(strings.Join(cleanKeys, "\n"))
 		}
-		keys = []string{addChannelRequest.Channel.Key}
+		keys = []string{addChannelRequest.Channel.Key.String()}
 	case "batch":
 		if addChannelRequest.Channel.Type == constant.ChannelTypeVertexAi && addChannelRequest.Channel.GetOtherSettings().VertexKeyType != dto.VertexKeyTypeAPIKey {
 			// multi json
-			keys, inputIndices, err = getVertexArrayKeys(addChannelRequest.Channel.Key)
+			keys, inputIndices, err = getVertexArrayKeys(addChannelRequest.Channel.Key.String())
 			if err != nil {
 				common.ApiError(c, err)
 				return
 			}
 		} else {
-			keys = strings.Split(addChannelRequest.Channel.Key, "\n")
+			keys = strings.Split(addChannelRequest.Channel.Key.String(), "\n")
 			for i := range keys {
 				inputIndices = append(inputIndices, i)
 			}
 		}
 	case "single":
-		keys = []string{addChannelRequest.Channel.Key}
+		keys = []string{addChannelRequest.Channel.Key.String()}
 		inputIndices = []int{0}
 	default:
 		common.ApiErrorT(c, "Unsupported add mode")
@@ -935,7 +935,7 @@ func AddChannel(c *gin.Context) {
 			continue
 		}
 		localChannel := addChannelRequest.Channel
-		localChannel.Key = key
+		localChannel.Key = common.SecretString(key)
 		if addChannelRequest.BatchAddSetKeyPrefix2Name && len(keys) > 1 {
 			keyPrefix := localChannel.Key
 			if len(localChannel.Key) > 8 {
@@ -1328,13 +1328,13 @@ func UpdateChannel(c *gin.Context) {
 
 	// nextKey is the key the edit sets on a stored key: a submitted key replaces
 	// it, and an empty one keeps it.
-	nextKey := func(stored string) (string, error) { return channel.Key, nil }
+	nextKey := func(stored string) (string, error) { return channel.Key.String(), nil }
 	// 处理多key模式下的密钥追加/覆盖逻辑
 	if channel.KeyMode != nil && *channel.KeyMode == "append" && channel.ChannelInfo.IsMultiKey {
 		// 追加模式：将新密钥添加到现有密钥列表
 		nextKey = func(stored string) (string, error) {
 			if stored == "" {
-				return channel.Key, nil
+				return channel.Key.String(), nil
 			}
 			var newKeys []string
 			var existingKeys []string
@@ -1357,19 +1357,19 @@ func UpdateChannel(c *gin.Context) {
 			// 处理 Vertex AI 的特殊情况
 			if channel.Type == constant.ChannelTypeVertexAi && channel.GetOtherSettings().VertexKeyType != dto.VertexKeyTypeAPIKey {
 				// 尝试解析新密钥为JSON数组
-				if strings.HasPrefix(strings.TrimSpace(channel.Key), "[") {
-					array, _, err := getVertexArrayKeys(channel.Key)
+				if strings.HasPrefix(strings.TrimSpace(channel.Key.String()), "[") {
+					array, _, err := getVertexArrayKeys(channel.Key.String())
 					if err != nil {
 						return "", common.NewMessage("Failed to parse appended keys: {{error}}", map[string]any{"error": err.Error()})
 					}
 					newKeys = array
 				} else {
 					// 单个JSON密钥
-					newKeys = []string{channel.Key}
+					newKeys = []string{channel.Key.String()}
 				}
 			} else {
 				// 普通渠道的处理
-				inputKeys := strings.SplitSeq(channel.Key, "\n")
+				inputKeys := strings.SplitSeq(channel.Key.String(), "\n")
 				for key := range inputKeys {
 					key = strings.TrimSpace(key)
 					if key != "" {
@@ -1403,18 +1403,18 @@ func UpdateChannel(c *gin.Context) {
 			return strings.Join(allKeys, "\n"), nil
 		}
 	}
-	requestedKey, err := nextKey(originChannel.Key)
+	requestedKey, err := nextKey(originChannel.Key.String())
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	// An edit that leaves the key as it read it writes no key, so it cannot put
 	// back a credential a refresh replaced meanwhile.
-	keyChanged := requestedKey != "" && requestedKey != originChannel.Key
+	keyChanged := requestedKey != "" && requestedKey != originChannel.Key.String()
 	// A type or setting left out keeps the stored one.
 	keptKey, keptType, keptPluginKey := originChannel.Key, channel.Type, channel.GetSetting().TaskPluginKey
 	if keyChanged {
-		keptKey = requestedKey
+		keptKey = common.SecretString(requestedKey)
 	}
 	if keptType == 0 {
 		keptType = originChannel.Type
@@ -1422,7 +1422,7 @@ func UpdateChannel(c *gin.Context) {
 	if !settingProvided {
 		keptPluginKey = originChannel.GetSetting().TaskPluginKey
 	}
-	if err := service.CheckSubmittedPluginCredentials(keptType, keptPluginKey, keptKey, originChannel.Key); err != nil {
+	if err := service.CheckSubmittedPluginCredentials(keptType, keptPluginKey, keptKey.String(), originChannel.Key.String()); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -1446,7 +1446,7 @@ func UpdateChannel(c *gin.Context) {
 		if checked.BaseURL == nil {
 			checked.BaseURL = originChannel.BaseURL
 		}
-		if err := checkPluginChannelKeys(c, &checked, keptKey, originChannel.Key); err != nil {
+		if err := checkPluginChannelKeys(c, &checked, keptKey.String(), originChannel.Key.String()); err != nil {
 			common.ApiError(c, err)
 			return
 		}
@@ -1456,21 +1456,21 @@ func UpdateChannel(c *gin.Context) {
 	var keyBefore, keyAfter string
 	if keyChanged {
 		stored, err := model.UpdateChannelLocked(channel.Id, func(stored *model.Channel) error {
-			next, err := nextKey(stored.Key)
+			next, err := nextKey(stored.Key.String())
 			if err != nil {
 				return err
 			}
-			if err := service.CheckSubmittedPluginCredentials(keptType, keptPluginKey, next, stored.Key); err != nil {
+			if err := service.CheckSubmittedPluginCredentials(keptType, keptPluginKey, next, stored.Key.String()); err != nil {
 				return err
 			}
-			keyBefore, stored.Key = stored.Key, next
+			keyBefore, stored.Key = stored.Key.String(), common.SecretString(next)
 			return nil
 		})
 		if err != nil {
 			common.ApiError(c, err)
 			return
 		}
-		keyAfter = stored.Key
+		keyAfter = stored.Key.String()
 	}
 	err = channel.Update()
 	if err != nil {
@@ -1639,7 +1639,7 @@ func buildAdvancedCustomModelPreviewChannel(req fetchModelsRequest) (*model.Chan
 		}
 		channel = &model.Channel{
 			Type: req.Type,
-			Key:  key,
+			Key:  common.SecretString(key),
 		}
 	}
 
@@ -1768,7 +1768,7 @@ func FetchModels(c *gin.Context) {
 		}
 		channel = &model.Channel{
 			Type:    req.Type,
-			Key:     key,
+			Key:     common.SecretString(key),
 			BaseURL: &baseURL,
 		}
 		if req.Type == constant.ChannelTypeTaskPlugin {
@@ -2273,7 +2273,7 @@ func ManageMultiKeys(c *gin.Context) {
 				return common.NewMessage("Key index out of range")
 			}
 
-			keyBefore = stored.Key
+			keyBefore = stored.Key.String()
 			keys := stored.GetKeys()
 			var remainingKeys []string
 			var newStatusList = make(map[int]int)
@@ -2313,7 +2313,7 @@ func ManageMultiKeys(c *gin.Context) {
 			}
 
 			// Update channel with remaining keys
-			stored.Key = strings.Join(remainingKeys, "\n")
+			stored.Key = common.SecretString(strings.Join(remainingKeys, "\n"))
 			stored.ChannelInfo.MultiKeySize = len(remainingKeys)
 			stored.ChannelInfo.MultiKeyStatusList = newStatusList
 			stored.ChannelInfo.MultiKeyDisabledTime = newDisabledTime
@@ -2327,7 +2327,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 		model.InitChannelCache()
-		service.RevokeRemovedChannelCredentials(stored, keyBefore, stored.Key)
+		service.RevokeRemovedChannelCredentials(stored, keyBefore, stored.Key.String())
 		if shouldCloseWebSocket {
 			closeActiveChannelWebSockets([]int{channel.Id})
 		}
@@ -2340,7 +2340,7 @@ func ManageMultiKeys(c *gin.Context) {
 		var deletedCount int
 		shouldCloseWebSocket := false
 		stored, err := model.UpdateChannelLocked(channel.Id, func(stored *model.Channel) error {
-			keyBefore = stored.Key
+			keyBefore = stored.Key.String()
 			keys := stored.GetKeys()
 			var remainingKeys []string
 			var newStatusList = make(map[int]int)
@@ -2384,7 +2384,7 @@ func ManageMultiKeys(c *gin.Context) {
 			}
 
 			// Update channel with remaining keys
-			stored.Key = strings.Join(remainingKeys, "\n")
+			stored.Key = common.SecretString(strings.Join(remainingKeys, "\n"))
 			stored.ChannelInfo.MultiKeySize = len(remainingKeys)
 			stored.ChannelInfo.MultiKeyStatusList = newStatusList
 			stored.ChannelInfo.MultiKeyDisabledTime = newDisabledTime
@@ -2398,7 +2398,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 		model.InitChannelCache()
-		service.RevokeRemovedChannelCredentials(stored, keyBefore, stored.Key)
+		service.RevokeRemovedChannelCredentials(stored, keyBefore, stored.Key.String())
 		if shouldCloseWebSocket {
 			closeActiveChannelWebSockets([]int{channel.Id})
 		}
@@ -2462,7 +2462,7 @@ func OllamaPullModel(c *gin.Context) {
 		baseURL = channel.GetBaseURL()
 	}
 
-	key := strings.Split(channel.Key, "\n")[0]
+	key := strings.Split(channel.Key.String(), "\n")[0]
 	err = ollama.PullOllamaModel(baseURL, key, req.ModelName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -2531,7 +2531,7 @@ func OllamaPullModelStream(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("Access-Control-Allow-Origin", "*")
 
-	key := strings.Split(channel.Key, "\n")[0]
+	key := strings.Split(channel.Key.String(), "\n")[0]
 
 	// 创建进度回调函数
 	progressCallback := func(progress ollama.OllamaPullResponse) {
@@ -2607,7 +2607,7 @@ func OllamaDeleteModel(c *gin.Context) {
 		baseURL = channel.GetBaseURL()
 	}
 
-	key := strings.Split(channel.Key, "\n")[0]
+	key := strings.Split(channel.Key.String(), "\n")[0]
 	err = ollama.DeleteOllamaModel(baseURL, key, req.ModelName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -2656,7 +2656,7 @@ func OllamaVersion(c *gin.Context) {
 		baseURL = channel.GetBaseURL()
 	}
 
-	key := strings.Split(channel.Key, "\n")[0]
+	key := strings.Split(channel.Key.String(), "\n")[0]
 	version, err := ollama.FetchOllamaVersion(baseURL, key)
 	if err != nil {
 		common.ApiErrorT(c, "Failed to fetch Ollama version: {{error}}", map[string]any{"error": err.Error()})

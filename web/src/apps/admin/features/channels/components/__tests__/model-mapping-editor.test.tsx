@@ -23,7 +23,7 @@ import { I18nextProvider } from 'react-i18next'
 import { expect, test, vi } from 'vitest'
 
 import en from '@/shared/i18n/locales/en.json'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 
 import { ModelMappingEditor } from '../model-mapping-editor'
 
@@ -49,7 +49,7 @@ test('language changes preserve draft mappings and explain the same direction in
   await i18n.init({
     lng: 'en',
     fallbackLng: 'en',
-    resources: { en, zh },
+    resources: { en, ru },
     keySeparator: false,
     interpolation: { escapeValue: false },
   })
@@ -67,17 +67,19 @@ test('language changes preserve draft mappings and explain the same direction in
     'provider-model'
   )
 
-  await act(() => i18n.changeLanguage('zh'))
-  expect(screen.getByText('请求模型名称')).toBeVisible()
-  expect(screen.getByText('上游模型名称')).toBeVisible()
+  await act(() => i18n.changeLanguage('ru'))
+  expect(screen.getByText('Имя модели в запросе')).toBeVisible()
+  expect(screen.getByText('Имя модели у провайдера')).toBeVisible()
   expect(screen.getByDisplayValue('client-alias')).toBeVisible()
   expect(screen.getByDisplayValue('provider-model')).toBeVisible()
 
   await user.click(screen.getByRole('tab', { name: 'JSON' }))
   expect(
-    screen.getByText('JSON 的键是请求模型名称，值是上游模型名称。')
+    screen.getByText(
+      'Ключи JSON — имена моделей в запросах; значения — имена моделей у провайдера.'
+    )
   ).toBeVisible()
-  expect(screen.getByRole('textbox', { name: '模型映射' })).toHaveValue(
+  expect(screen.getByRole('textbox', { name: 'Маппинг моделей' })).toHaveValue(
     '{\n  "client-alias": "provider-model"\n}'
   )
   expect(onChange).toHaveBeenLastCalledWith(

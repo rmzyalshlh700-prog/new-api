@@ -17,11 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TopNavLink } from '../types'
+import { PublicFooter } from './public-footer'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
+
+/**
+ * The public header is a brand bar with zero navigation links. Pages are
+ * discovered from the unified footer, the docs sidebar and the client
+ * console's Explore group, which all respect the admin visibility switches.
+ */
+const PUBLIC_NAV_LINKS: TopNavLink[] = []
 
 type PublicLayoutProps = {
   children: React.ReactNode
   showMainContainer?: boolean
+  showFooter?: boolean
   navContent?: React.ReactNode
   headerProps?: Omit<PublicHeaderProps, 'navContent'>
   navLinks?: TopNavLink[]
@@ -30,14 +39,16 @@ type PublicLayoutProps = {
   showNotifications?: boolean
   logo?: React.ReactNode
   siteName?: string
+  hideNavLinks?: boolean
 }
 
 export function PublicLayout(props: PublicLayoutProps) {
   return (
-    <div className='bg-background text-foreground relative min-h-svh overflow-x-clip'>
+    <div className='bg-background text-foreground relative flex min-h-svh flex-col overflow-x-clip'>
       <PublicHeader
         navContent={props.navContent}
-        navLinks={props.navLinks}
+        hideNavLinks={props.hideNavLinks ?? true}
+        navLinks={props.navLinks ?? PUBLIC_NAV_LINKS}
         showThemeSwitch={props.showThemeSwitch}
         showAuthButtons={props.showAuthButtons}
         showNotifications={props.showNotifications}
@@ -47,12 +58,14 @@ export function PublicLayout(props: PublicLayoutProps) {
       />
 
       {props.showMainContainer !== false ? (
-        <main className='container px-4 py-6 pt-20 md:px-4'>
+        <main className='container flex-1 px-4 py-6 pt-20 md:px-4'>
           {props.children}
         </main>
       ) : (
         props.children
       )}
+
+      {props.showFooter !== false && <PublicFooter />}
     </div>
   )
 }

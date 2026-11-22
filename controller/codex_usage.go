@@ -82,7 +82,7 @@ func fetchCodexChannelWhamData(
 		return
 	}
 
-	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(ch.Key))
+	oauthKey, err := codex.ParseOAuthKey(strings.TrimSpace(ch.Key.String()))
 	if err != nil {
 		common.SysError(common.LogText("failed to parse oauth key: %s", err.Error()))
 		common.ApiErrorT(c, "Failed to parse credentials. Please check the channel configuration")

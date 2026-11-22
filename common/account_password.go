@@ -14,7 +14,11 @@ import (
 )
 
 const (
-	MinAccountPasswordLength = 8
+	// Product decision: users may choose any password, so the historical
+	// 8-128 length policy is retired. MaxAccountPasswordLength stays as an
+	// upper bound only for KDF input sanity; MinAccountPasswordLength is kept
+	// for legacy callers that report the old message.
+	MinAccountPasswordLength = 1
 	MaxAccountPasswordLength = 128
 	accountPasswordMemory    = 19 * 1024
 	accountPasswordTime      = 2
@@ -23,7 +27,7 @@ const (
 )
 
 var (
-	ErrAccountPasswordLength = errors.New("Password must contain between 8 and 128 characters.")
+	ErrAccountPasswordLength = errors.New("Password must not be empty")
 	ErrAccountPasswordSame   = errors.New("New password must be different from current password")
 	ErrPasswordLegacyLimit   = errors.New("Long passwords are unavailable until the password storage upgrade is complete.")
 )

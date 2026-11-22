@@ -23,7 +23,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 import { BillingHistoryDialog } from '@/apps/client/features/wallet/components/dialogs/billing-history-dialog'
 import en from '@/shared/i18n/locales/en.json'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 
 import { RechargeFormCard } from '../components/recharge-form-card'
@@ -32,10 +32,10 @@ const i18n = createInstance()
 
 beforeEach(async () => {
   await i18n.use(initReactI18next).init({
-    lng: 'zh',
+    lng: 'ru',
     fallbackLng: false,
     nsSeparator: false,
-    resources: { en, zh },
+    resources: { en, ru },
     interpolation: { escapeValue: false },
   })
 })

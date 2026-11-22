@@ -35,7 +35,7 @@ import {
 /**
  * Locale for the active interface language, ready for `Intl.*`.
  *
- * Interface codes such as `zhCN` / `zhTW` are not valid BCP-47 tags, so they
+ * Interface codes must be valid BCP-47 tags, so they
  * always pass through `toIntlLocale`. This is the single place where the
  * interface language is read for formatting; non-React helpers use it as their
  * default, while components pass `toIntlLocale(i18n.language)` explicitly so
@@ -307,6 +307,36 @@ export function formatLogQuota(quota: number): string {
     digitsLarge: 4,
     digitsSmall: 6,
     abbreviate: false,
+  })
+}
+
+/**
+ * Monetary quota value for dashboard KPIs: two fraction digits for amounts of
+ * one unit or more (e.g. `$1,234.56`), four below it. Uses the configured
+ * display currency, symbol and exchange rate through `Intl.NumberFormat`.
+ */
+export function formatDashboardQuota(quota: number): string {
+  return formatQuotaWithCurrency(quota, {
+    digitsLarge: 2,
+    digitsSmall: 4,
+    abbreviate: false,
+  })
+}
+
+/**
+ * Compact monetary quota value for chart axes (e.g. `$1.2K`, `¥1.2万`), so
+ * tick labels never collide on narrow screens. The currency symbol is kept.
+ */
+export function formatCompactQuota(
+  quota: number,
+  locales: Intl.LocalesArgument = currentIntlLocale()
+): string {
+  return formatQuotaWithCurrency(quota, {
+    compact: true,
+    digitsLarge: 2,
+    digitsSmall: 4,
+    abbreviate: false,
+    locale: locales,
   })
 }
 

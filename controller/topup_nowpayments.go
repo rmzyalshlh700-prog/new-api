@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"math"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,7 +21,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
@@ -56,19 +59,84 @@ type nowPaymentsMinAmount struct {
 	MinAmount float64 `json:"min_amount"`
 }
 
-// nowPaymentsIpnPayload is the NOWPayments IPN callback body.
+// nowPaymentsIpnPayload is the NOWPayments IPN callback body. PaymentId and
+// InvoiceId use the tolerant identifier types below: the gateway's own
+// GET /v1/payment/{id} response — which the IPN body mirrors — sends both as JSON
+// numbers, so declaring them as int64 and string respectively rejected the real
+// payload with "cannot unmarshal number into Go struct field … invoice_id of
+// type string" after the signature had already been accepted.
 type nowPaymentsIpnPayload struct {
-	PaymentId       int64           `json:"payment_id"`
-	PaymentStatus   string          `json:"payment_status"`
-	PayAmount       decimal.Decimal `json:"pay_amount"`
-	ActuallyPaid    decimal.Decimal `json:"actually_paid"`
-	PayCurrency     string          `json:"pay_currency"`
-	PriceAmount     decimal.Decimal `json:"price_amount"`
-	PriceCurrency   string          `json:"price_currency"`
-	OrderId         string          `json:"order_id"`
-	InvoiceId       string          `json:"invoice_id"`
-	OutcomeAmount   decimal.Decimal `json:"outcome_amount"`
-	OutcomeCurrency string          `json:"outcome_currency"`
+	PaymentId       nowPaymentsID       `json:"payment_id"`
+	PaymentStatus   string              `json:"payment_status"`
+	PayAmount       decimal.Decimal     `json:"pay_amount"`
+	ActuallyPaid    decimal.Decimal     `json:"actually_paid"`
+	PayCurrency     string              `json:"pay_currency"`
+	PriceAmount     decimal.Decimal     `json:"price_amount"`
+	PriceCurrency   string              `json:"price_currency"`
+	OrderId         string              `json:"order_id"`
+	InvoiceId       nowPaymentsIDString `json:"invoice_id"`
+	OutcomeAmount   decimal.Decimal     `json:"outcome_amount"`
+	OutcomeCurrency string              `json:"outcome_currency"`
+}
+
+// nowPaymentsID is a numeric NOWPayments identifier (payment_id). The gateway
+// sends it as a JSON number; a quoted number or an integral float is accepted
+// too, so a representation change on their side cannot turn an otherwise valid
+// callback into a 400 after the signature has been verified.
+type nowPaymentsID int64
+
+func (id *nowPaymentsID) UnmarshalJSON(raw []byte) error {
+	text := strings.Trim(strings.TrimSpace(string(raw)), `"`)
+	if text == "" || text == "null" {
+		*id = 0
+		return nil
+	}
+	if value, err := strconv.ParseInt(text, 10, 64); err == nil {
+		*id = nowPaymentsID(value)
+		return nil
+	}
+	// 5898863378.0 identifies the same payment as 5898863378; anything with a
+	// fractional part is not an identifier and is refused.
+	if value, err := strconv.ParseFloat(text, 64); err == nil && value == math.Trunc(value) && math.Abs(value) < 1<<53 {
+		*id = nowPaymentsID(int64(value))
+		return nil
+	}
+	return fmt.Errorf("invalid NOWPayments identifier %q", text)
+}
+
+func (id nowPaymentsID) Int64() int64 {
+	return int64(id)
+}
+
+// nowPaymentsIDString is a NOWPayments identifier the gateway sends as a JSON
+// number (invoice_id) but documents as a string. Unmarshalling it into a plain
+// string fails on the numeric form, so both representations are accepted.
+type nowPaymentsIDString string
+
+func (id *nowPaymentsIDString) UnmarshalJSON(raw []byte) error {
+	text := strings.TrimSpace(string(raw))
+	if text == "" || text == "null" {
+		*id = ""
+		return nil
+	}
+	if len(text) > 1 && text[0] == '"' && text[len(text)-1] == '"' {
+		var unquoted string
+		if err := common.Unmarshal(raw, &unquoted); err != nil {
+			return err
+		}
+		*id = nowPaymentsIDString(unquoted)
+		return nil
+	}
+	// A bare JSON number: keep the literal as sent, digits intact.
+	if _, err := strconv.ParseFloat(text, 64); err != nil {
+		return fmt.Errorf("invalid NOWPayments identifier %q", text)
+	}
+	*id = nowPaymentsIDString(text)
+	return nil
+}
+
+func (id nowPaymentsIDString) String() string {
+	return string(id)
 }
 
 func getNowPaymentsCreditedQuota(amount int64, group string) decimal.Decimal {
@@ -130,6 +198,29 @@ func nowPaymentsMinFiatAmount(ctx context.Context, priceAmount float64) (float64
 		return 0, err
 	}
 	return result.MinAmount, nil
+}
+
+// nowPaymentsIpnDirectURL is the endpoint NOWPayments must POST IPNs to.
+//
+// It deliberately does not follow service.GetCallbackAddress()/ServerAddress.
+// The gateway stores ipn_callback_url on each invoice and a "Resend IPN" goes
+// to the URL that invoice was created with, so this value decides delivery —
+// and the ServerAddress hostname (astramux.com) sits behind an edge that
+// silently drops these POSTs before they reach the origin. Customer-facing
+// redirects (success_url, cancel_url) keep using ServerAddress; only the IPN
+// callback is pinned here, because a wrong IPN URL means a paid order that is
+// never credited, while a wrong redirect URL only costs a click.
+//
+// NOWPAYMENTS_IPN_URL overrides it without a rebuild, which is what to use if
+// the host's address ever changes (this hostname is IP-derived: if the address
+// moves, this name stops resolving and callbacks stop being delivered).
+const nowPaymentsIpnDirectURL = "https://new-api-82768e.162-35-18-133.sslip.io/api/webhooks/nowpayments"
+
+func nowPaymentsIpnCallbackURL() string {
+	if override := strings.TrimSpace(os.Getenv("NOWPAYMENTS_IPN_URL")); override != "" {
+		return override
+	}
+	return nowPaymentsIpnDirectURL
 }
 
 // createNowPaymentsInvoice calls POST /v1/invoice and returns the hosted
@@ -254,8 +345,7 @@ func (*NowPaymentsAdaptor) RequestPay(c *gin.Context, req *NowPaymentsPayRequest
 	reference := fmt.Sprintf("new-api-np-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	tradeNo := "np_" + common.Sha1([]byte(reference))
 
-	callBackAddress := service.GetCallbackAddress()
-	ipnCallbackUrl := callBackAddress + "/api/webhooks/nowpayments"
+	ipnCallbackUrl := nowPaymentsIpnCallbackURL()
 
 	invoice, err := createNowPaymentsInvoice(ctx, tradeNo, payMoney, fmt.Sprintf("TUC%d", req.Amount), ipnCallbackUrl, req.SuccessURL, req.CancelURL)
 	if err != nil {
@@ -309,10 +399,148 @@ func RequestNowPaymentsPay(c *gin.Context) {
 	nowPaymentsAdaptor.RequestPay(c, &req)
 }
 
-// NowPaymentsWebhook handles the NOWPayments IPN callback. The signature in
-// the x-nowpayments-sig header must be a valid HMAC-SHA512 over the sorted
-// values of the JSON body keyed by the saved IPN secret; anything else is
-// rejected before parsing is trusted.
+// nowPaymentsWebhookDebugEnv turns on the verbose request dump for the IPN
+// endpoint. It is off by default: a full dump carries the customer's pay_address,
+// payment hashes and every header the edge forwarded, which does not belong in a
+// production log. NOWPAYMENTS_WEBHOOK_DEBUG=1 enables it while diagnosing.
+const nowPaymentsWebhookDebugEnv = "NOWPAYMENTS_WEBHOOK_DEBUG"
+
+// nowPaymentsSensitiveHeaders are never logged, even in debug mode: they carry
+// credentials rather than transport metadata.
+var nowPaymentsSensitiveHeaders = []string{"cookie", "authorization", "proxy-authorization", "set-cookie", "x-api-key", "cf-access-jwt-assertion"}
+
+// nowPaymentsSignatureFromRequest reads the IPN signature header. Go's
+// http.Header.Get already matches the name case-insensitively (the server
+// canonicalises header names, so X-NOWPAYMENTS-SIG, x-nowpayments-sig and
+// X-NowPayments-Sig all resolve), but a proxy or WAF in front of the app may
+// rewrite the dashes as underscores, which canonicalisation does not cover. The
+// fallback scan normalises case and -/_ before comparing so a rewritten header
+// still verifies.
+func nowPaymentsSignatureFromRequest(c *gin.Context) (signature string, headerName string) {
+	if value := strings.TrimSpace(c.GetHeader(nowPaymentsIpnSignatureHeader)); value != "" {
+		return value, nowPaymentsIpnSignatureHeader
+	}
+	wanted := strings.ReplaceAll(nowPaymentsIpnSignatureHeader, "-", "_")
+	for name, values := range c.Request.Header {
+		normalised := strings.ReplaceAll(strings.ToLower(name), "-", "_")
+		if normalised != wanted {
+			continue
+		}
+		for _, value := range values {
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed, name
+			}
+		}
+	}
+	return "", ""
+}
+
+// redactHeaderValue keeps a header's first characters so an operator can match it
+// against a gateway dashboard without the value being usable as a credential.
+func redactHeaderValue(value string) string {
+	if len(value) <= 8 {
+		return "[REDACTED]"
+	}
+	return value[:8] + "…"
+}
+
+// nowPaymentsWebhookHeaderDump renders the request headers for the diagnostic
+// log, redacting credential-bearing ones.
+func nowPaymentsWebhookHeaderDump(c *gin.Context) string {
+	names := make([]string, 0, len(c.Request.Header))
+	for name := range c.Request.Header {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var builder strings.Builder
+	for _, name := range names {
+		value := strings.Join(c.Request.Header.Values(name), ", ")
+		lowered := strings.ToLower(name)
+		for _, sensitive := range nowPaymentsSensitiveHeaders {
+			if lowered == sensitive {
+				value = "[REDACTED]"
+				break
+			}
+		}
+		if builder.Len() > 0 {
+			builder.WriteString("; ")
+		}
+		builder.WriteString(name)
+		builder.WriteString("=")
+		builder.WriteString(value)
+	}
+	return builder.String()
+}
+
+// logNowPaymentsWebhookRequest writes one line per IPN request: the transport
+// facts that decide whether a callback can be verified at all, plus a fingerprint
+// of the body so a rejected request can be diffed against a local re-sign. Richer
+// detail (header dump, body) is written only when NOWPAYMENTS_WEBHOOK_DEBUG is set.
+func logNowPaymentsWebhookRequest(ctx context.Context, c *gin.Context, payload []byte, signaturePresent bool) {
+	sum := sha256.Sum256(payload)
+	debug := common.GetEnvOrDefaultBool(nowPaymentsWebhookDebugEnv, false)
+	logger.LogInfo(ctx, common.LogText(
+		"NOWPayments webhook received method=%s path=%q client_ip=%s ua=%q content_type=%q content_length=%d body_len=%d body_sha256=%x sig_present=%t",
+		c.Request.Method, c.Request.RequestURI, c.ClientIP(), c.Request.UserAgent(),
+		c.GetHeader("Content-Type"), c.Request.ContentLength, len(payload), sum[:8], signaturePresent))
+	if !debug {
+		return
+	}
+	logger.LogInfo(ctx, common.LogText("NOWPayments webhook debug headers=%q body=%q", nowPaymentsWebhookHeaderDump(c), truncateForLog(string(payload), 4096)))
+}
+
+// truncateForLog bounds a diagnostic value so one oversized body cannot flood the
+// log sink.
+func truncateForLog(value string, limit int) string {
+	if len(value) <= limit {
+		return value
+	}
+	return value[:limit] + "…(truncated)"
+}
+
+// nowPaymentsWebhookExpectedSignature is used only on the failure path, to log
+// what we computed next to what arrived. It returns "" when the body cannot be
+// canonicalised.
+func nowPaymentsWebhookExpectedSignature(payload []byte, secret string) string {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return ""
+	}
+	preimage, err := nowPaymentsSignaturePreimage(payload)
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(nowPaymentsHmacSha512(secret, preimage))
+}
+
+// nowPaymentsStoredIpnSecret reads the IPN secret straight from the options table.
+// The in-memory copy is refreshed every minute by the option sync task, so a
+// secret rotated in the database can be up to that stale; the webhook failure path
+// re-reads it once before rejecting a callback.
+func nowPaymentsStoredIpnSecret() (string, bool) {
+	// A webhook must never panic because the main database is unavailable
+	// (startup, an outage, or a unit test with no database): fall back to the
+	// in-memory option instead.
+	if model.DB == nil {
+		return "", false
+	}
+	options, err := model.AllOption()
+	if err != nil {
+		return "", false
+	}
+	for _, option := range options {
+		if option != nil && option.Key == "NowPaymentsIpnSecret" {
+			return option.Value, true
+		}
+	}
+	return "", true
+}
+
+// NowPaymentsWebhook handles the NOWPayments IPN callback. The signature in the
+// x-nowpayments-sig header must be a valid HMAC-SHA512, keyed by the saved IPN
+// secret, over the deep-key-sorted JSON encoding of the body; anything else is
+// rejected before parsing is trusted. See VerifyNowPaymentsSignature for why the
+// preimage is the re-encoded document and not the raw bytes or a value blob.
 func NowPaymentsWebhook(c *gin.Context) {
 	ctx := c.Request.Context()
 	if !isNowPaymentsWebhookEnabled() {
@@ -332,18 +560,65 @@ func NowPaymentsWebhook(c *gin.Context) {
 		return
 	}
 
-	signature := c.GetHeader("x-nowpayments-sig")
-	logger.LogInfo(ctx, common.LogText("NOWPayments webhook received request path=%q client_ip=%s content_length=%d signature_present=%t", c.Request.RequestURI, c.ClientIP(), len(payload), signature != ""))
+	signature, signatureHeader := nowPaymentsSignatureFromRequest(c)
+	logNowPaymentsWebhookRequest(ctx, c, payload, signature != "")
 
-	if !VerifyNowPaymentsSignature(payload, signature, setting.NowPaymentsIpnSecret) {
-		logger.LogWarn(ctx, common.LogText("NOWPayments webhook signature verification failed path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
+	ipnSecret := setting.NowPaymentsIpnSecret
+	verified := VerifyNowPaymentsSignature(payload, signature, ipnSecret)
+	if !verified && signature != "" {
+		// Only the failure path pays for a database read: the in-memory option is
+		// refreshed once a minute, so a secret that was just rotated in the
+		// database would otherwise reject a perfectly valid callback until the
+		// next sync.
+		if storedSecret, found := nowPaymentsStoredIpnSecret(); found && storedSecret != ipnSecret {
+			if VerifyNowPaymentsSignature(payload, signature, storedSecret) {
+				logger.LogWarn(ctx, common.LogText("NOWPayments webhook verified with the freshly loaded ipn secret; the in-memory option was stale path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
+				ipnSecret = storedSecret
+				verified = true
+			} else {
+				logger.LogWarn(ctx, common.LogText("NOWPayments webhook ipn secret differs between memory and database, and neither verifies path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
+			}
+		}
+	}
+
+	if !verified {
+		expected := nowPaymentsWebhookExpectedSignature(payload, ipnSecret)
+		debug := common.GetEnvOrDefaultBool(nowPaymentsWebhookDebugEnv, false)
+		if signature == "" {
+			// A missing signature is a transport problem, not a secret mismatch:
+			// log which header carried it (if any) and what actually arrived.
+			logger.LogWarn(ctx, common.LogText("NOWPayments webhook rejected reason=missing_signature path=%q client_ip=%s expected_header=%q headers=%q", c.Request.RequestURI, c.ClientIP(), nowPaymentsIpnSignatureHeader, nowPaymentsWebhookHeaderDump(c)))
+		} else if debug {
+			logger.LogWarn(ctx, common.LogText("NOWPayments webhook signature verification failed path=%q client_ip=%s header=%q received=%s expected=%s body=%q", c.Request.RequestURI, c.ClientIP(), signatureHeader, signature, expected, truncateForLog(string(payload), 4096)))
+		} else {
+			logger.LogWarn(ctx, common.LogText("NOWPayments webhook signature verification failed path=%q client_ip=%s header=%q received_prefix=%s received_len=%d expected_prefix=%s expected_len=%d", c.Request.RequestURI, c.ClientIP(), signatureHeader, redactHeaderValue(signature), len(signature), redactHeaderValue(expected), len(expected)))
+		}
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
 	var ipn nowPaymentsIpnPayload
-	if err := common.Unmarshal(payload, &ipn); err != nil || ipn.OrderId == "" {
+	if err := common.Unmarshal(payload, &ipn); err != nil {
+		// Previously this branch also covered ipn.OrderId == "" and called
+		// err.Error() unconditionally: a well-formed body without order_id
+		// dereferenced a nil error, and Gin's Recovery answered 200, so the
+		// gateway considered the callback delivered and stopped retrying.
 		logger.LogError(ctx, common.LogText("NOWPayments webhook failed to parse payload path=%q client_ip=%s error=%q", c.Request.RequestURI, c.ClientIP(), err.Error()))
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	// Payout (withdrawal) IPNs share this endpoint but describe no payment
+	// order: they carry batch_withdrawal_id and a payout status instead. They
+	// are acknowledged so the gateway clears them, and never touch a wallet.
+	if ipn.PaymentId == 0 && ipn.PaymentStatus == "" {
+		logger.LogInfo(ctx, common.LogText("NOWPayments webhook acknowledged non-payment ipn path=%q client_ip=%s order_id=%q", c.Request.RequestURI, c.ClientIP(), ipn.OrderId))
+		c.Status(http.StatusOK)
+		return
+	}
+
+	if ipn.OrderId == "" {
+		logger.LogError(ctx, common.LogText("NOWPayments webhook rejected reason=missing_order_id payment_id=%d payment_status=%s client_ip=%s", ipn.PaymentId, ipn.PaymentStatus, c.ClientIP()))
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -442,68 +717,119 @@ func nowPaymentsExpireOrder(ctx context.Context, ipn nowPaymentsIpnPayload, call
 	}
 }
 
-// VerifyNowPaymentsSignature implements the NOWPayments IPN signature scheme:
-// sort the top-level JSON keys alphabetically, concatenate their values in
-// sorted order (nested objects are sorted recursively), then compare
-// HMAC-SHA512(ipn_secret, concatenated) with the x-nowpayments-sig header.
+// nowPaymentsIpnSignatureHeader carries the HMAC-SHA512 of the IPN body.
+const nowPaymentsIpnSignatureHeader = "x-nowpayments-sig"
+
+// VerifyNowPaymentsSignature reports whether signature is the HMAC-SHA512 of
+// NOWPayments' signing preimage for payload, keyed by ipnSecret.
+//
+// NOWPayments signs JSON.stringify(sortObjectDeep(params)) — the compact JSON
+// encoding of the body with every object's keys sorted — not a concatenation of
+// the values (IPN docs, "Sorting and converting the received POST request by
+// keys … JSON.stringify(params, Object.keys(params).sort())"; and
+// nowpayments-sdk-nodejs/src/ipn.js createWebhookSignature). The signature is
+// therefore computed over a re-encoded document rather than the raw bytes: the
+// raw body may carry any key order, indentation or escaping, while the gateway's
+// hash is taken over the normalised form. Two details make the encoding match
+// JSON.stringify byte for byte:
+//
+//   - json.Number keeps every numeric literal as it was sent, so 1.0010351 does
+//     not become 1.0010351000000001;
+//   - SetEscapeHTML(false) stops Go escaping <, > and & as \u003c, \u003e, \u0026.
+//
+// A JSON null encodes as null (JSON.stringify's own token); Go's previous
+// fmt.Sprintf("%v") fallback emitted "<nil>", which broke any payload carrying a
+// null field.
 func VerifyNowPaymentsSignature(payload []byte, signature string, ipnSecret string) bool {
-	if strings.TrimSpace(ipnSecret) == "" || strings.TrimSpace(signature) == "" {
+	signature = strings.ToLower(strings.TrimSpace(signature))
+	// The gateway trims the secret before signing (createWebhookSignature's
+	// secret.trim()), so a secret pasted with a trailing newline still verifies.
+	ipnSecret = strings.TrimSpace(ipnSecret)
+	if signature == "" || ipnSecret == "" {
 		return false
 	}
 
-	// signature verification must hash the exact numeric literals sent by
+	preimage, err := nowPaymentsSignaturePreimage(payload)
+	if err != nil {
+		return false
+	}
+	expected := hex.EncodeToString(nowPaymentsHmacSha512(ipnSecret, preimage))
+	return hmac.Equal([]byte(expected), []byte(signature))
+}
+
+// nowPaymentsSignaturePreimage rebuilds the exact JSON document NOWPayments
+// signed. The whole body must be one JSON value: trailing data after the first
+// value is rejected rather than ignored, because a body the gateway signed and a
+// body we only partly verified must not differ.
+func nowPaymentsSignaturePreimage(payload []byte) ([]byte, error) {
+	decoder := encoding_json.NewDecoder(bytes.NewReader(payload))
+	// Signature verification must hash the exact numeric literals sent by
 	// NOWPayments, which requires decoder.UseNumber semantics the common codec
 	// wrapper does not expose. This is a parse-only path, never used for
 	// (re)marshalling business payloads.
-	decoder := encoding_json.NewDecoder(bytes.NewReader(payload))
 	decoder.UseNumber()
-	var body map[string]any
-	if err := decoder.Decode(&body); err != nil || body == nil {
-		return false
+	var body any
+	if err := decoder.Decode(&body); err != nil {
+		return nil, err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return nil, errors.New("trailing data after the JSON body")
 	}
 
-	expected := hex.EncodeToString(nowPaymentsHmacSha512(ipnSecret, nowPaymentsSortedValuesString(body)))
-	return hmac.Equal([]byte(expected), []byte(strings.ToLower(strings.TrimSpace(signature))))
+	sorted, err := sortJSONKeysDeep(body)
+	if err != nil {
+		return nil, err
+	}
+
+	var buffer bytes.Buffer
+	encoder := encoding_json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(sorted); err != nil {
+		return nil, err
+	}
+	// Encoder.Encode terminates the value with a newline that JSON.stringify
+	// does not emit.
+	return bytes.TrimSuffix(buffer.Bytes(), []byte("\n")), nil
 }
 
-func nowPaymentsHmacSha512(secret string, data string) []byte {
-	mac := hmac.New(sha512.New, []byte(secret))
-	mac.Write([]byte(data))
-	return mac.Sum(nil)
-}
-
-// nowPaymentsSortedValuesString concatenates the values of a JSON object in
-// alphabetically sorted key order. Nested objects are sorted recursively and
-// concatenated without separators, matching the official Node SDK behavior.
-func nowPaymentsSortedValuesString(value any) string {
-	switch v := value.(type) {
+// sortJSONKeysDeep mirrors the SDK's sortObjectDeep. Go already emits map keys in
+// sorted order, but the normalisation is kept explicit so the preimage does not
+// silently depend on that encoder detail.
+func sortJSONKeysDeep(value any) (any, error) {
+	switch typed := value.(type) {
 	case map[string]any:
-		keys := make([]string, 0, len(v))
-		for key := range v {
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		var builder strings.Builder
+		sorted := make(map[string]any, len(typed))
 		for _, key := range keys {
-			builder.WriteString(nowPaymentsSortedValuesString(v[key]))
+			child, err := sortJSONKeysDeep(typed[key])
+			if err != nil {
+				return nil, err
+			}
+			sorted[key] = child
 		}
-		return builder.String()
+		return sorted, nil
 	case []any:
-		var builder strings.Builder
-		for _, item := range v {
-			builder.WriteString(nowPaymentsSortedValuesString(item))
+		sorted := make([]any, len(typed))
+		for i, item := range typed {
+			child, err := sortJSONKeysDeep(item)
+			if err != nil {
+				return nil, err
+			}
+			sorted[i] = child
 		}
-		return builder.String()
-	case string:
-		return v
-	case encoding_json.Number:
-		return v.String()
-	case bool:
-		if v {
-			return "true"
-		}
-		return "false"
+		return sorted, nil
 	default:
-		return fmt.Sprintf("%v", v)
+		return value, nil
 	}
+}
+
+func nowPaymentsHmacSha512(secret string, data []byte) []byte {
+	mac := hmac.New(sha512.New, []byte(secret))
+	mac.Write(data)
+	return mac.Sum(nil)
 }

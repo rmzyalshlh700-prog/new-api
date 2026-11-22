@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/shared/lib/api'
 
 import type {
+  AdminLiveStat,
   AdminLogStat,
   DashboardMetrics,
   OverviewQuotaRow,
@@ -85,6 +86,22 @@ export async function getAdminLogStat(params: {
     message?: string
     data?: AdminLogStat
   }>('/api/log/stat', { params })
+  return validateOverviewResponse(res.data)
+}
+
+/**
+ * Exact consumption totals for one window. Admin-only
+ * (`GET /api/log/live_stat`); the backend caps the window at 31 days.
+ */
+export async function getAdminLiveStat(params: {
+  start_timestamp: number
+  end_timestamp: number
+}) {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: AdminLiveStat
+  }>('/api/log/live_stat', { params })
   return validateOverviewResponse(res.data)
 }
 

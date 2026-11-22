@@ -1,8 +1,24 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
 package controller
 
 import (
-	"encoding/csv"
-	"strconv"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -92,8 +108,20 @@ func GetArchivePayments(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
-// ExportArchiveDay downloads one day's logs and payments as JSON (default) or
-// CSV (format=csv). Each side is capped at archiveExportRowLimit rows.
+// archiveExportPayload is the JSON export structure: one day summary plus
+// the human-readable invoice and API-key tables behind it.
+type archiveExportPayload struct {
+	Date     string                     `json:"date"`
+	Summary  *model.DailyArchive        `json:"summary"`
+	Invoices []model.TopUp              `json:"invoices"`
+	NewKeys  []model.ArchiveNewKeyEntry `json:"new_keys"`
+}
+
+// ExportArchiveDay downloads one day's financial report as JSON: the daily
+// summary, its payment invoices (trade_no + payment method for gateway
+// cross-referencing) and the API keys created that day. The raw log/CSV dump
+// was removed; this structured payload is what the console renders as a
+// multi-sheet workbook.
 func ExportArchiveDay(c *gin.Context) {
 	date := c.Query("date")
 	day, err := time.ParseInLocation(model.DailyArchiveDateLayout, date, time.Local)
@@ -102,47 +130,27 @@ func ExportArchiveDay(c *gin.Context) {
 		return
 	}
 	start, end := model.DayBounds(day)
-	logs, err := model.GetArchiveLogsForExport(start, end, archiveExportRowLimit)
+	summary, err := model.GetDailyArchiveByDate(date)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	topUps, err := model.GetArchiveTopUpsForExport(start, end, archiveExportRowLimit)
+	invoices, err := model.GetArchiveTopUpsForExport(start, end, archiveExportRowLimit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	newKeys, err := model.GetArchiveNewKeysForExport(start, end, archiveExportRowLimit)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 
-	if c.Query("format") != "csv" {
-		c.Header("Content-Disposition", `attachment; filename="archive-`+date+`.json"`)
-		c.JSON(200, gin.H{"date": date, "logs": logs, "payments": topUps})
-		return
-	}
-
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", `attachment; filename="archive-`+date+`.csv"`)
-	w := csv.NewWriter(c.Writer)
-	_ = w.Write([]string{"section", "id", "time", "user_id", "username", "type_or_status", "model_or_method", "quota_or_money", "upstream_cost", "prompt_tokens", "completion_tokens", "ref"})
-	for _, l := range logs {
-		_ = w.Write([]string{"log", strconv.Itoa(l.Id), strconv.FormatInt(l.CreatedAt, 10), strconv.Itoa(l.UserId), csvSafe(l.Username),
-			strconv.Itoa(l.Type), csvSafe(l.ModelName), strconv.Itoa(l.Quota), strconv.FormatInt(l.UpstreamCost, 10),
-			strconv.Itoa(l.PromptTokens), strconv.Itoa(l.CompletionTokens), csvSafe(l.RequestId)})
-	}
-	for _, t := range topUps {
-		_ = w.Write([]string{"payment", strconv.Itoa(t.Id), strconv.FormatInt(t.CreateTime, 10), strconv.Itoa(t.UserId), "",
-			csvSafe(t.Status), csvSafe(t.PaymentMethod), strconv.FormatFloat(t.Money, 'f', -1, 64), "", "", "", csvSafe(t.TradeNo)})
-	}
-	w.Flush()
-}
-
-// csvSafe neutralises spreadsheet formula injection in user-controlled text.
-func csvSafe(value string) string {
-	if value == "" {
-		return value
-	}
-	switch value[0] {
-	case '=', '+', '-', '@', '\t', '\r':
-		return "'" + value
-	}
-	return value
+	c.Header("Content-Disposition", `attachment; filename="archive-`+date+`.json"`)
+	c.JSON(200, archiveExportPayload{
+		Date:     date,
+		Summary:  summary,
+		Invoices: invoices,
+		NewKeys:  newKeys,
+	})
 }

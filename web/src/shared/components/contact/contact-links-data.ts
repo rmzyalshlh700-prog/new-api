@@ -30,15 +30,12 @@ import {
   Image,
   Library,
   LifeBuoy,
-  type LucideIcon,
   Mail,
-  MessageCircle,
   MessagesSquare,
   Newspaper,
   Package,
   Play,
   Rocket,
-  Send,
   Settings,
   Share2,
   ShoppingBag,
@@ -49,6 +46,9 @@ import {
   Webhook,
   Zap,
 } from 'lucide-react'
+import type { ComponentType } from 'react'
+
+import { BrandIcons } from './brand-icons'
 
 export const CONTACT_LINK_POSITIONS = {
   sidebarBottom: 'sidebar_bottom',
@@ -60,6 +60,72 @@ export const CONTACT_LINK_POSITIONS = {
 export type ContactLinkPosition =
   (typeof CONTACT_LINK_POSITIONS)[keyof typeof CONTACT_LINK_POSITIONS]
 
+/** Sidebar slots a link can occupy. The administrator picks which slot renders. */
+export const SIDEBAR_LINK_POSITIONS: readonly ContactLinkPosition[] = [
+  CONTACT_LINK_POSITIONS.sidebarBottom,
+  CONTACT_LINK_POSITIONS.sidebarTop,
+]
+
+/**
+ * Placement of the whole sidebar social group, chosen in System Settings.
+ * `footer` keeps the links out of the sidebar entirely.
+ */
+export const SOCIAL_LINK_PLACEMENTS = {
+  sidebarBottom: CONTACT_LINK_POSITIONS.sidebarBottom,
+  sidebarTop: CONTACT_LINK_POSITIONS.sidebarTop,
+  footer: CONTACT_LINK_POSITIONS.footer,
+} as const
+
+export type SocialLinkPlacement =
+  (typeof SOCIAL_LINK_PLACEMENTS)[keyof typeof SOCIAL_LINK_PLACEMENTS]
+
+export const SOCIAL_ICON_SIZES = {
+  small: 'small',
+  medium: 'medium',
+  large: 'large',
+} as const
+
+export type SocialIconSize =
+  (typeof SOCIAL_ICON_SIZES)[keyof typeof SOCIAL_ICON_SIZES]
+
+export const DEFAULT_SOCIAL_LINK_PLACEMENT: SocialLinkPlacement =
+  SOCIAL_LINK_PLACEMENTS.sidebarBottom
+export const DEFAULT_SOCIAL_ICON_SIZE: SocialIconSize = SOCIAL_ICON_SIZES.medium
+
+/** Rendered icon edge length in pixels, matching the administrator's choice. */
+export const SOCIAL_ICON_SIZE_PX: Record<SocialIconSize, number> = {
+  small: 16,
+  medium: 20,
+  large: 24,
+}
+
+const SOCIAL_ICON_SIZE_CLASS: Record<SocialIconSize, string> = {
+  small: 'size-4',
+  medium: 'size-5',
+  large: 'size-6',
+}
+
+export function socialIconSizeClass(size: SocialIconSize): string {
+  return SOCIAL_ICON_SIZE_CLASS[size]
+}
+
+/** Coerce an API value into a renderable placement, defaulting to the bottom. */
+export function normalizeSocialLinkPlacement(
+  value: unknown
+): SocialLinkPlacement {
+  return value === SOCIAL_LINK_PLACEMENTS.sidebarTop ||
+    value === SOCIAL_LINK_PLACEMENTS.footer
+    ? value
+    : DEFAULT_SOCIAL_LINK_PLACEMENT
+}
+
+/** Coerce an API value into a renderable icon size, defaulting to medium. */
+export function normalizeSocialIconSize(value: unknown): SocialIconSize {
+  return value === SOCIAL_ICON_SIZES.small || value === SOCIAL_ICON_SIZES.large
+    ? value
+    : DEFAULT_SOCIAL_ICON_SIZE
+}
+
 export interface ContactLink {
   id: string
   title: string
@@ -70,12 +136,42 @@ export interface ContactLink {
 }
 
 /**
- * Curated icon registry shared by the admin icon picker and the client
- * renderer. Icon names are stable identifiers stored in the backend.
+ * Icon component accepted by the contact-link renderer. Both lucide icons and
+ * the colourful brand wrappers are sized through `className`.
  */
-export const CONTACT_LINK_ICONS: { name: string; icon: LucideIcon; label: string }[] = [
-  { name: 'send', icon: Send, label: 'Telegram' },
-  { name: 'message-circle', icon: MessageCircle, label: 'Discord' },
+export type ContactLinkIcon = ComponentType<{ className?: string }>
+
+export interface ContactLinkIconEntry {
+  name: string
+  icon: ContactLinkIcon
+  label: string
+}
+
+/**
+ * Curated icon registry shared by the admin icon picker and the client
+ * renderer. Icon names are stable identifiers stored in the backend, so the
+ * legacy lucide names (`send`, `message-circle`) stay valid even though they
+ * now render their colourful brand glyph.
+ */
+export const CONTACT_LINK_ICONS: ContactLinkIconEntry[] = [
+  { name: 'send', icon: BrandIcons.telegram, label: 'Telegram' },
+  { name: 'message-circle', icon: BrandIcons.discord, label: 'Discord' },
+  { name: 'whatsapp', icon: BrandIcons.whatsapp, label: 'WhatsApp' },
+  { name: 'github', icon: BrandIcons.github, label: 'GitHub' },
+  { name: 'twitter', icon: BrandIcons.twitter, label: 'Twitter' },
+  { name: 'youtube', icon: BrandIcons.youtube, label: 'YouTube' },
+  { name: 'instagram', icon: BrandIcons.instagram, label: 'Instagram' },
+  { name: 'facebook', icon: BrandIcons.facebook, label: 'Facebook' },
+  { name: 'linkedin', icon: BrandIcons.linkedin, label: 'LinkedIn' },
+  { name: 'reddit', icon: BrandIcons.reddit, label: 'Reddit' },
+  { name: 'tiktok', icon: BrandIcons.tiktok, label: 'TikTok' },
+  { name: 'medium', icon: BrandIcons.medium, label: 'Medium' },
+  { name: 'spotify', icon: BrandIcons.spotify, label: 'Spotify' },
+  { name: 'twitch', icon: BrandIcons.twitch, label: 'Twitch' },
+  { name: 'slack', icon: BrandIcons.slack, label: 'Slack' },
+  { name: 'google', icon: BrandIcons.google, label: 'Google' },
+  { name: 'pinterest', icon: BrandIcons.pinterest, label: 'Pinterest' },
+  { name: 'snapchat', icon: BrandIcons.snapchat, label: 'Snapchat' },
   { name: 'messages-square', icon: MessagesSquare, label: 'Chat' },
   { name: 'bot', icon: Bot, label: 'Bot' },
   { name: 'life-buoy', icon: LifeBuoy, label: 'Support' },
@@ -106,6 +202,6 @@ export const CONTACT_LINK_ICONS: { name: string; icon: LucideIcon; label: string
   { name: 'video', icon: Video, label: 'Video' },
 ]
 
-export function getContactLinkIcon(name: string): LucideIcon {
+export function getContactLinkIcon(name: string): ContactLinkIcon {
   return CONTACT_LINK_ICONS.find((entry) => entry.name === name)?.icon ?? Globe
 }

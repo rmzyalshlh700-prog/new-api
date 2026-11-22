@@ -23,60 +23,6 @@ const newKeys = {
     'Unauthorized, only the root account can use internal network upstreams':
       'Unauthorized, only the root account can use internal network upstreams',
   },
-  zh: {
-    'Control Panel': '控制台',
-    'Live data, refreshed every 3 seconds': '实时数据，每 3 秒自动刷新',
-    'Client Balances': '客户余额',
-    'Remaining balance and usage of each client': '每位客户的剩余余额与用量',
-    'Highest balance': '余额最高',
-    'Lowest balance': '余额最低',
-    'Recently active': '最近活跃',
-    'View all clients': '查看全部客户',
-    'Total clients': '客户总数',
-    'Unauthorized, only the root account can use internal network upstreams':
-      '无权进行此操作，只有超级管理员可以使用内网上游',
-  },
-  'zh-TW': {
-    'Control Panel': '控制台',
-    'Live data, refreshed every 3 seconds': '即時資料，每 3 秒自動重新整理',
-    'Client Balances': '客戶餘額',
-    'Remaining balance and usage of each client': '每位客戶的剩餘餘額與用量',
-    'Highest balance': '餘額最高',
-    'Lowest balance': '餘額最低',
-    'Recently active': '最近活躍',
-    'View all clients': '檢視全部客戶',
-    'Total clients': '客戶總數',
-    'Unauthorized, only the root account can use internal network upstreams':
-      '無權進行此操作，只有超級管理員可以使用內網上游',
-  },
-  fr: {
-    'Control Panel': 'Panneau de contrôle',
-    'Live data, refreshed every 3 seconds':
-      'Données en direct, actualisées toutes les 3 secondes',
-    'Client Balances': 'Soldes des clients',
-    'Remaining balance and usage of each client':
-      'Solde restant et consommation de chaque client',
-    'Highest balance': 'Solde le plus élevé',
-    'Lowest balance': 'Solde le plus bas',
-    'Recently active': 'Récemment actif',
-    'View all clients': 'Voir tous les clients',
-    'Total clients': 'Total des clients',
-    'Unauthorized, only the root account can use internal network upstreams':
-      'Non autorisé, seul le super administrateur peut utiliser des serveurs internes',
-  },
-  ja: {
-    'Control Panel': 'コントロールパネル',
-    'Live data, refreshed every 3 seconds': 'リアルタイムデータ、3秒ごとに自動更新',
-    'Client Balances': '顧客残高',
-    'Remaining balance and usage of each client': '各顧客の残高と使用量',
-    'Highest balance': '残高が多い順',
-    'Lowest balance': '残高が少ない順',
-    'Recently active': '最近のアクティブ',
-    'View all clients': 'すべての顧客を表示',
-    'Total clients': '顧客総数',
-    'Unauthorized, only the root account can use internal network upstreams':
-      '権限不足のため、この操作は実行できません。内部ネットワークの宛先はスーパー管理者のみ利用できます',
-  },
   ru: {
     'Control Panel': 'Панель управления',
     'Live data, refreshed every 3 seconds':
@@ -91,20 +37,6 @@ const newKeys = {
     'Total clients': 'Всего клиентов',
     'Unauthorized, only the root account can use internal network upstreams':
       'Нет доступа, использовать внутренние серверы может только суперадминистратор',
-  },
-  vi: {
-    'Control Panel': 'Bảng điều khiển',
-    'Live data, refreshed every 3 seconds': 'Dữ liệu trực tiếp, cập nhật mỗi 3 giây',
-    'Client Balances': 'Số dư khách hàng',
-    'Remaining balance and usage of each client':
-      'Số dư còn lại và mức sử dụng của từng khách hàng',
-    'Highest balance': 'Số dư cao nhất',
-    'Lowest balance': 'Số dư thấp nhất',
-    'Recently active': 'Hoạt động gần đây',
-    'View all clients': 'Xem tất cả khách hàng',
-    'Total clients': 'Tổng số khách hàng',
-    'Unauthorized, only the root account can use internal network upstreams':
-      'Không được phép, chỉ siêu quản trị viên mới có thể dùng máy chủ trong mạng nội bộ',
   },
   ar: {
     'Control Panel': 'لوحة التحكم',

@@ -40,6 +40,17 @@ func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.Han
 				controller.RelayNotFound(c)
 				return
 			}
+			// A build file that is not in this release must never be answered
+			// with the index page. Every deploy renames the hashed chunks, so
+			// a tab opened before it asks for the old names; serving HTML with
+			// a 200 makes the browser report "Importing a module script
+			// failed" and the router shows its generic error page instead of
+			// recovering. A plain 404 is what lets chunk-load recovery reload
+			// once and pick up the new hashes.
+			if strings.HasPrefix(c.Request.RequestURI, "/static/") {
+				c.Status(http.StatusNotFound)
+				return
+			}
 			c.Header("Cache-Control", "no-cache")
 			c.Data(http.StatusOK, "text/html; charset=utf-8", assets.IndexPage)
 		},

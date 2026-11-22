@@ -90,7 +90,14 @@ func UpdateChannelLocked(channelID int, update func(channel *Channel) error) (*C
 		if err := DB.Where("id = ?", channelID).First(&channel).Error; err != nil {
 			return nil, err
 		}
-		stored := channel.Key
+		// The compare-and-swap guard compares against the value in the database.
+		// channel.Key is decrypted plaintext and the column holds the encrypted
+		// envelope, so read the raw stored value without scanning it.
+		var storedRow struct{ Key string }
+		if err := DB.Session(&gorm.Session{SkipHooks: true}).Model(&Channel{}).Select("key").Where("id = ?", channelID).Take(&storedRow).Error; err != nil {
+			return nil, err
+		}
+		stored := storedRow.Key
 		updates, err := changes()
 		if err != nil {
 			return nil, err
@@ -125,7 +132,7 @@ func UpdateChannelLocked(channelID int, update func(channel *Channel) error) (*C
 		defer BumpSyncTopic(SyncTopicChannels)
 	}
 	if keyChanged {
-		CacheUpdateChannelKey(channelID, channel.Key)
+		CacheUpdateChannelKey(channelID, channel.Key.String())
 	}
 	if statusChanged {
 		if err := UpdateAbilityStatus(channelID, channel.Status == common.ChannelStatusEnabled); err != nil {
@@ -209,7 +216,7 @@ func CacheUpdateChannelKey(id int, key string) {
 		return
 	}
 	updated := *cached
-	updated.Key = key
+	updated.Key = common.SecretString(key)
 	updated.Keys = nil
 	updated.Keys = updated.GetKeys()
 	channelsIDM[id] = &updated
@@ -293,7 +300,7 @@ func UpdateScheduledChannelLocked(ctx context.Context, channelID int, update fun
 	}
 	defer BumpSyncTopic(SyncTopicChannels)
 	if keyChanged {
-		CacheUpdateChannelKey(channelID, channel.Key)
+		CacheUpdateChannelKey(channelID, channel.Key.String())
 	}
 	if common.MemoryCacheEnabled && (statusChanged || infoChanged || otherChanged) {
 		channelSyncLock.Lock()
@@ -352,7 +359,7 @@ func SetScheduledChannelKeyStatus(channel *Channel, keyIndex, status int, reason
 		return false
 	}
 	channel.Keys = nil
-	keys := []string{channel.Key}
+	keys := []string{channel.Key.String()}
 	if channel.ChannelInfo.IsMultiKey {
 		keys = channel.GetKeys()
 	}

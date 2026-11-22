@@ -23,13 +23,15 @@ import type React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/shared/lib/api'
-import { formatDateStr } from '@/shared/lib/format'
 
 import { ArchiveExplorer } from '../ArchiveExplorer'
-import { isValidArchiveRange, type ArchiveRange } from '../api'
-import { SummaryTab } from '../components/archive-tables'
+import { InvoicesTab } from '../components/archive-tables'
+import type { ArchiveRange } from '../api'
 
 const SUMMARY_PAYLOAD = {
+  data: { success: true, message: '', data: [] },
+}
+const PAYMENTS_PAYLOAD = {
   data: { success: true, message: '', data: { items: [], total: 0 } },
 }
 
@@ -85,39 +87,35 @@ afterEach(() => {
 })
 
 describe('archive date range guard', () => {
-  it('keeps Apply disabled and sends nothing while the range is invalid', async () => {
-    const get = vi.spyOn(api, 'get').mockResolvedValue(SUMMARY_PAYLOAD)
-    const user = renderWithQuery(<ArchiveExplorer />)
+  it('starts on today with the report applied', async () => {
+    const get = vi.spyOn(api, 'get').mockImplementation((url: string) =>
+      Promise.resolve(
+        url.includes('/summary') ? SUMMARY_PAYLOAD : PAYMENTS_PAYLOAD
+      ) as never
+    )
     const today = new Date()
 
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
-    expect(get).not.toHaveBeenCalled()
+    renderWithQuery(<ArchiveExplorer />)
 
-    await pickDay(user, 'Start date', today)
-
-    // A half-picked range is never committed, so no query is issued.
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
-    expect(get).not.toHaveBeenCalled()
-
-    // The guard the Apply button uses rejects a reversed range outright. The
-    // pickers' min/max bounds already make it unreachable through the UI.
-    expect(
-      isValidArchiveRange({
-        start_date: formatDateStr(today),
-        end_date: formatDateStr(yesterday(today)),
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith('/api/admin/archive/summary', {
+        params: {
+          start_date: formatDate(today),
+          end_date: formatDate(today),
+        },
       })
-    ).toBe(false)
+    )
   })
 
-  it('never queries the summary API for a reversed range', async () => {
-    const get = vi.spyOn(api, 'get').mockResolvedValue(SUMMARY_PAYLOAD)
+  it('never queries the invoices API for a reversed range', async () => {
+    const get = vi.spyOn(api, 'get').mockResolvedValue(PAYMENTS_PAYLOAD)
     const today = new Date()
     const reversed: ArchiveRange = {
-      start_date: formatDateStr(today),
-      end_date: formatDateStr(yesterday(today)),
+      start_date: formatDate(today),
+      end_date: formatDate(yesterday(today)),
     }
 
-    renderWithQuery(<SummaryTab range={reversed} />)
+    renderWithQuery(<InvoicesTab range={reversed} />)
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
@@ -125,24 +123,32 @@ describe('archive date range guard', () => {
     expect(get).not.toHaveBeenCalled()
   })
 
-  it('commits a valid range with exactly one summary request', async () => {
-    const get = vi.spyOn(api, 'get').mockResolvedValue(SUMMARY_PAYLOAD)
+  it('applies a picked day as a single-day report', async () => {
+    const get = vi.spyOn(api, 'get').mockImplementation((url: string) =>
+      Promise.resolve(
+        url.includes('/summary') ? SUMMARY_PAYLOAD : PAYMENTS_PAYLOAD
+      ) as never
+    )
     const user = renderWithQuery(<ArchiveExplorer />)
-    const today = new Date()
+    const yesterdayDate = yesterday(new Date())
 
-    await pickDay(user, 'Start date', today)
-    await pickDay(user, 'End date', today)
+    await pickDay(user, 'Report date', yesterdayDate)
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
 
-    const apply = screen.getByRole('button', { name: 'Apply' })
-    expect(apply).toBeEnabled()
-    await user.click(apply)
-
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
-    expect(get).toHaveBeenCalledWith('/api/admin/archive/summary', {
-      params: {
-        start_date: formatDateStr(today),
-        end_date: formatDateStr(today),
-      },
-    })
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith('/api/admin/archive/summary', {
+        params: {
+          start_date: formatDate(yesterdayDate),
+          end_date: formatDate(yesterdayDate),
+        },
+      })
+    )
   })
 })
+
+function formatDate(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}

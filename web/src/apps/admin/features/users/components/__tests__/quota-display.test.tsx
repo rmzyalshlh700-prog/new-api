@@ -43,7 +43,7 @@ import { I18nextProvider } from 'react-i18next'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { TooltipProvider } from '@/shared/components/ui/tooltip'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 import { formatTimestampToDate } from '@/shared/lib/format'
 import { useAuthStore } from '@/shared/stores/auth-store'
@@ -343,8 +343,8 @@ it('shows balance above usage on mobile cards in Chinese', async () => {
     ...originalMatchMedia(query),
     matches: query.includes('max-width'),
   }))
-  i18n.addResourceBundle('zh', 'translation', zh.translation)
-  await i18n.changeLanguage('zh')
+  i18n.addResourceBundle('ru', 'translation', ru.translation)
+  await i18n.changeLanguage('ru')
   try {
     await renderUsersList()
     expect(screen.getByText('可用余额 ($)')).toBeInTheDocument()

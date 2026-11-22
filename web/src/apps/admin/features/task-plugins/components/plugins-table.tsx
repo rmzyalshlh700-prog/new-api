@@ -444,6 +444,7 @@ export function PluginsTable(props: PluginsTableProps) {
   return (
     <>
       <DataTablePage
+        surface='card'
         table={table}
         columns={columns}
         isLoading={pluginsQuery.isLoading}

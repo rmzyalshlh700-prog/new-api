@@ -18,13 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { memo } from 'react'
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/shared/components/ui/card'
+import { ConsoleSectionCard } from '@/shared/components/console'
 
 type SettingsCardProps = {
   title: string
@@ -33,6 +27,12 @@ type SettingsCardProps = {
   className?: string
 }
 
+/**
+ * One settings section: a single console card with a compact header and one
+ * content region. Every settings screen composes this instead of stacking
+ * legacy cards, so section titles, dividers and padding never drift between
+ * Site, Models, Operations or Security.
+ */
 export const SettingsCard = memo(function SettingsCard({
   title,
   description,
@@ -40,12 +40,12 @@ export const SettingsCard = memo(function SettingsCard({
   className,
 }: SettingsCardProps) {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <ConsoleSectionCard
+      title={title}
+      hint={description}
+      className={className}
+    >
+      {children}
+    </ConsoleSectionCard>
   )
 })

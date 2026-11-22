@@ -19,6 +19,10 @@ func TestGetAdminDashboardMetrics(t *testing.T) {
 	setupNowPaymentsWebhookDB(t)
 
 	gin.SetMode(gin.TestMode)
+	// The shared fixture migrates users, top-ups and logs; the metrics also read
+	// the API key table, so it has to exist here too.
+	require.NoError(t, model.DB.AutoMigrate(&model.Token{}))
+
 	router := gin.New()
 	router.GET("/api/data/metrics", GetAdminDashboardMetrics)
 
@@ -32,14 +36,26 @@ func TestGetAdminDashboardMetrics(t *testing.T) {
 	require.NoError(t, model.DB.Create(&model.User{Id: 2, Username: "bob", AffCode: "bbb", Quota: 250}).Error)
 	require.NoError(t, model.DB.Create(&model.User{Id: 3, Username: "carol", AffCode: "ccc", Quota: 100}).Error)
 
-	// Today: alice consumed, alice + bob logged in, one failed request.
+	// Today: alice consumed, alice + bob logged in, three failed requests: two
+	// that reached a channel (provider errors) and one rejected before one.
 	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 1, Type: model.LogTypeConsume, CreatedAt: today}).Error)
 	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 1, Type: model.LogTypeLogin, CreatedAt: today}).Error)
 	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 2, Type: model.LogTypeLogin, CreatedAt: today}).Error)
-	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 1, Type: model.LogTypeError, CreatedAt: today}).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 1, Type: model.LogTypeError, CreatedAt: today, ChannelId: 7, ModelName: "gpt-4o"}).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 1, Type: model.LogTypeError, CreatedAt: today, ChannelId: 7, ModelName: "gpt-4o"}).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 2, Type: model.LogTypeError, CreatedAt: today, ChannelId: 0, ModelName: "unknown-model"}).Error)
 	// Yesterday: must not count towards today's metrics.
 	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 3, Type: model.LogTypeConsume, CreatedAt: yesterday}).Error)
-	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 3, Type: model.LogTypeError, CreatedAt: yesterday}).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{UserId: 3, Type: model.LogTypeError, CreatedAt: yesterday, ChannelId: 3}).Error)
+
+	// Two API keys created today and one older key: the older one counts only
+	// towards the total. A soft-deleted key counts towards neither.
+	require.NoError(t, model.DB.Create(&model.Token{UserId: 1, Key: "sk-today-1", Name: "today-1", CreatedTime: today}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{UserId: 2, Key: "sk-today-2", Name: "today-2", CreatedTime: today}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{UserId: 3, Key: "sk-older", Name: "older", CreatedTime: yesterday}).Error)
+	deleted := &model.Token{UserId: 1, Key: "sk-deleted", Name: "deleted", CreatedTime: today}
+	require.NoError(t, model.DB.Create(deleted).Error)
+	require.NoError(t, model.DB.Delete(deleted).Error)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/data/metrics", nil)
 	rec := httptest.NewRecorder()
@@ -54,6 +70,10 @@ func TestGetAdminDashboardMetrics(t *testing.T) {
 			TotalLiabilitiesQuota int64 `json:"total_liabilities_quota"`
 			ActiveVisitorsToday   int64 `json:"active_visitors_today"`
 			FailedRequestsToday   int64 `json:"failed_requests_today"`
+			ProviderErrorsToday   int64 `json:"provider_errors_today"`
+			RejectedRequestsToday int64 `json:"rejected_requests_today"`
+			APIKeysCreatedToday   int64 `json:"api_keys_created_today"`
+			APIKeysTotal          int64 `json:"api_keys_total"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
@@ -63,8 +83,12 @@ func TestGetAdminDashboardMetrics(t *testing.T) {
 	assert.Equal(t, int64(500), body.Data.TotalLiabilitiesQuota)
 	// Distinct users with API requests or logins today: alice, bob.
 	assert.Equal(t, int64(2), body.Data.ActiveVisitorsToday)
-	// Only today's error logs count.
-	assert.Equal(t, int64(1), body.Data.FailedRequestsToday)
+	// Only today's error logs count, split by whether a channel was reached.
+	assert.Equal(t, int64(3), body.Data.FailedRequestsToday)
+	assert.Equal(t, int64(2), body.Data.ProviderErrorsToday)
+	assert.Equal(t, int64(1), body.Data.RejectedRequestsToday)
+	assert.Equal(t, int64(2), body.Data.APIKeysCreatedToday)
+	assert.Equal(t, int64(3), body.Data.APIKeysTotal)
 }
 
 // TestGetProfitStats verifies net profit is consume revenue minus upstream cost

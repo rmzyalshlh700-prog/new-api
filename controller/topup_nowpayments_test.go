@@ -20,6 +20,167 @@ import (
 	"gorm.io/gorm"
 )
 
+// nowPaymentsSDKSecret signs the fixtures below.
+const nowPaymentsSDKSecret = "test-ipn-secret"
+
+// nowPaymentsSDKFixturePayload is a real IPN body: the shape NOWPayments sent
+// for payment 5898863378, including a JSON null (payin_extra_id) and a decimal
+// pay_amount.
+const nowPaymentsSDKFixturePayload = `{"payment_id":5898863378,"payment_status":"finished","pay_address":"0xDc1b5AeE1908d46F18a85F80d7f422D4941A21fa","price_amount":1,"price_currency":"usd","pay_amount":1.0010351,"actually_paid":1.002,"pay_currency":"usdtbsc","order_id":"np_7a414039d01623bf1947d416a05cb40858c8137c","order_description":"TUC1","purchase_id":4982370482,"payin_extra_id":null}`
+
+// nowPaymentsSDKFixtureSignature was produced by the official SDK, not by this
+// package. It is the anchor that keeps the verifier honest: the implementation
+// must match an implementation it did not write.
+//
+//	import { createWebhookSignature } from 'nowpayments-sdk-nodejs';
+//	createWebhookSignature(JSON.parse(payload), 'test-ipn-secret')
+const nowPaymentsSDKFixtureSignature = "9de2ef176bcb4f853fdc9f8c560d8cbfaf809ad7e83c6fb4a74ff31a3c2fde409f2f6e01513325718ea86128cabb54a209f14737ca0b978061cd09d1eb61705e"
+
+// signCanonicalPayload signs a body that is already the canonical preimage: the
+// endpoint fixtures are written with keys in alphabetical order, no whitespace
+// and no escaped characters, so JSON.stringify of the sorted object equals the
+// raw bytes and the expected signature is produced without the code under test.
+func signCanonicalPayload(t *testing.T, secret string, canonicalPayload string) string {
+	t.Helper()
+	mac := hmac.New(sha512.New, []byte(secret))
+	mac.Write([]byte(canonicalPayload))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func TestVerifyNowPaymentsSignature(t *testing.T) {
+	secret := nowPaymentsSDKSecret
+
+	t.Run("matches the official SDK signature", func(t *testing.T) {
+		assert.True(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), nowPaymentsSDKFixtureSignature, secret))
+	})
+
+	t.Run("rejects the legacy value-concatenation signature", func(t *testing.T) {
+		// The pre-fix scheme hashed the concatenated values of the sorted keys.
+		// It must never be accepted again.
+		legacySig := signCanonicalPayload(t, secret, "1TUC1np_7a414039d01623bf1947d416a05cb40858c8137c1.0010351usd1usdtbsc5898863378finished")
+		assert.False(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), legacySig, secret))
+	})
+
+	t.Run("null values hash as the JSON null token", func(t *testing.T) {
+		payload := `{"payin_extra_id":null}`
+		assert.True(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, `{"payin_extra_id":null}`), secret))
+		// Neither the Go <nil> rendering nor an empty string is the preimage.
+		assert.False(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, `{"payin_extra_id":<nil>}`), secret))
+		assert.False(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, `{"payin_extra_id":""}`), secret))
+	})
+
+	t.Run("nested objects and arrays are sorted deeply", func(t *testing.T) {
+		payload := `{"zeta":1,"meta":{"b":2,"a":[{"d":4,"c":3}]}}`
+		// Keys sorted at every level; array order preserved, element keys sorted.
+		canonical := `{"meta":{"a":[{"c":3,"d":4}],"b":2},"zeta":1}`
+		assert.True(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, canonical), secret))
+	})
+
+	t.Run("array element order is significant", func(t *testing.T) {
+		payload := `{"items":[1,2]}`
+		assert.True(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, `{"items":[1,2]}`), secret))
+		assert.False(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, `{"items":[2,1]}`), secret))
+	})
+
+	t.Run("numeric literals are not reformatted", func(t *testing.T) {
+		payload := `{"pay_amount":1.0010351}`
+		assert.True(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, `{"pay_amount":1.0010351}`), secret))
+	})
+
+	t.Run("payload key order does not matter", func(t *testing.T) {
+		resorted := `{"payin_extra_id":null,"purchase_id":4982370482,"order_description":"TUC1","order_id":"np_7a414039d01623bf1947d416a05cb40858c8137c","pay_currency":"usdtbsc","actually_paid":1.002,"pay_amount":1.0010351,"price_currency":"usd","price_amount":1,"pay_address":"0xDc1b5AeE1908d46F18a85F80d7f422D4941A21fa","payment_status":"finished","payment_id":5898863378}`
+		assert.True(t, VerifyNowPaymentsSignature([]byte(resorted), nowPaymentsSDKFixtureSignature, secret))
+	})
+
+	t.Run("html characters are not escaped", func(t *testing.T) {
+		payload := `{"order_description":"a<b>c&d"}`
+		assert.True(t, VerifyNowPaymentsSignature([]byte(payload), signCanonicalPayload(t, secret, `{"order_description":"a<b>c&d"}`), secret))
+	})
+
+	t.Run("signature header is case-insensitive and trimmed", func(t *testing.T) {
+		assert.True(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), "  "+strings.ToUpper(nowPaymentsSDKFixtureSignature)+" ", secret))
+	})
+
+	t.Run("secret is trimmed like the SDK", func(t *testing.T) {
+		assert.True(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), nowPaymentsSDKFixtureSignature, "  "+secret+"\n"))
+	})
+
+	t.Run("tampered payload rejected", func(t *testing.T) {
+		tampered := strings.Replace(nowPaymentsSDKFixturePayload, `"actually_paid":1.002`, `"actually_paid":1000`, 1)
+		assert.False(t, VerifyNowPaymentsSignature([]byte(tampered), nowPaymentsSDKFixtureSignature, secret))
+	})
+
+	t.Run("wrong secret rejected", func(t *testing.T) {
+		assert.False(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), nowPaymentsSDKFixtureSignature, "other-secret"))
+	})
+
+	t.Run("missing or empty inputs rejected", func(t *testing.T) {
+		assert.False(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), "", secret))
+		assert.False(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), nowPaymentsSDKFixtureSignature, ""))
+		assert.False(t, VerifyNowPaymentsSignature([]byte(nowPaymentsSDKFixturePayload), "", ""))
+	})
+
+	t.Run("invalid json rejected", func(t *testing.T) {
+		assert.False(t, VerifyNowPaymentsSignature([]byte(`{not json`), nowPaymentsSDKFixtureSignature, secret))
+		assert.False(t, VerifyNowPaymentsSignature([]byte(``), nowPaymentsSDKFixtureSignature, secret))
+	})
+
+	t.Run("trailing data after the body rejected", func(t *testing.T) {
+		body := `{"payment_id":1}{"payment_id":2}`
+		assert.False(t, VerifyNowPaymentsSignature([]byte(body), signCanonicalPayload(t, secret, `{"payment_id":1}`), secret))
+	})
+}
+
+// TestNowPaymentsIpnPayloadIdentifiers pins the identifier decoding: the
+// gateway's payment body sends payment_id and invoice_id as JSON numbers, and
+// declaring either as a plain int64/string rejected the real payload after the
+// signature had already been accepted.
+func TestNowPaymentsIpnPayloadIdentifiers(t *testing.T) {
+	decode := func(t *testing.T, body string) nowPaymentsIpnPayload {
+		t.Helper()
+		var ipn nowPaymentsIpnPayload
+		require.NoError(t, common.Unmarshal([]byte(body), &ipn))
+		return ipn
+	}
+
+	t.Run("real payment body types decode", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":5898863378,"invoice_id":5829872928,"payment_status":"finished","pay_amount":1.0010351,"actually_paid":1.002,"order_id":"np_7a41","outcome_amount":0.94672379,"outcome_currency":"usdtbsc","payin_extra_id":null}`)
+		assert.Equal(t, int64(5898863378), ipn.PaymentId.Int64())
+		assert.Equal(t, "5829872928", ipn.InvoiceId.String())
+	})
+
+	t.Run("quoted payment_id decodes", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":"5898863378","payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, int64(5898863378), ipn.PaymentId.Int64())
+	})
+
+	t.Run("integral float payment_id decodes", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":5898863378.0,"payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, int64(5898863378), ipn.PaymentId.Int64())
+	})
+
+	t.Run("null identifiers decode to empty", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":null,"invoice_id":null,"payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, int64(0), ipn.PaymentId.Int64())
+		assert.Equal(t, "", ipn.InvoiceId.String())
+	})
+
+	t.Run("quoted invoice_id decodes", func(t *testing.T) {
+		ipn := decode(t, `{"payment_id":1,"invoice_id":"5829872928","payment_status":"finished","order_id":"np_x"}`)
+		assert.Equal(t, "5829872928", ipn.InvoiceId.String())
+	})
+
+	t.Run("fractional payment_id is refused", func(t *testing.T) {
+		var ipn nowPaymentsIpnPayload
+		assert.Error(t, common.Unmarshal([]byte(`{"payment_id":1.5,"order_id":"np_x"}`), &ipn))
+	})
+
+	t.Run("non-numeric payment_id is refused", func(t *testing.T) {
+		var ipn nowPaymentsIpnPayload
+		assert.Error(t, common.Unmarshal([]byte(`{"payment_id":"abc","order_id":"np_x"}`), &ipn))
+	})
+}
+
 // setupNowPaymentsWebhookDB backs the endpoint tests with an in-memory sqlite
 // database holding the tables the recharge path touches.
 func setupNowPaymentsWebhookDB(t *testing.T) *gorm.DB {
@@ -38,7 +199,7 @@ func setupNowPaymentsWebhookDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func insertNowPaymentsOrder(t *testing.T, db *gorm.DB, userId int, tradeNo string, money float64) {
+func insertNowPaymentsOrderWithStatus(t *testing.T, db *gorm.DB, userId int, tradeNo string, money float64, status string) {
 	t.Helper()
 	user := &model.User{
 		Id:       userId,
@@ -55,9 +216,14 @@ func insertNowPaymentsOrder(t *testing.T, db *gorm.DB, userId int, tradeNo strin
 		PaymentMethod:   model.PaymentMethodNowPayments,
 		PaymentProvider: model.PaymentProviderNowPayments,
 		CreateTime:      time.Now().Unix(),
-		Status:          common.TopUpStatusPending,
+		Status:          status,
 	}
 	require.NoError(t, db.Create(topUp).Error)
+}
+
+func insertNowPaymentsOrder(t *testing.T, db *gorm.DB, userId int, tradeNo string, money float64) {
+	t.Helper()
+	insertNowPaymentsOrderWithStatus(t, db, userId, tradeNo, money, common.TopUpStatusPending)
 }
 
 func getNowPaymentsUserQuota(t *testing.T, db *gorm.DB, userId int) int {
@@ -67,8 +233,8 @@ func getNowPaymentsUserQuota(t *testing.T, db *gorm.DB, userId int) int {
 	return user.Quota
 }
 
-// postNowPaymentsWebhook sends a signed or unsigned IPN request through the
-// gin handler to assert endpoint-level behavior.
+// postNowPaymentsWebhook sends a signed or unsigned IPN request through the gin
+// handler to assert endpoint-level behavior.
 func postNowPaymentsWebhook(t *testing.T, body string, signature string) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -93,17 +259,29 @@ func TestNowPaymentsWebhookEndpoint(t *testing.T) {
 		setting.NowPaymentsIpnSecret = originalIpnSecret
 	})
 	setting.NowPaymentsApiKey = "test-api-key"
-	setting.NowPaymentsIpnSecret = "test-ipn-secret"
-
+	setting.NowPaymentsIpnSecret = nowPaymentsSDKSecret
 	secret := setting.NowPaymentsIpnSecret
-	sign := func(payload string) string {
-		return computeExpectedNowPaymentsSig(t, secret, nowPaymentsSortedValuesString(mustParseJson(t, payload)))
-	}
+	sign := func(payload string) string { return signCanonicalPayload(t, secret, payload) }
+
+	t.Run("canonical fixtures stay canonical", func(t *testing.T) {
+		// The endpoint fixtures are signed over their raw bytes, which is only
+		// valid while each one is already the sorted, compact form.
+		for _, payload := range []string{
+			`{"actually_paid":0.5,"order_id":"np_order_finished","pay_amount":0.5,"payment_id":1,"payment_status":"finished"}`,
+			`{"actually_paid":0.25,"order_id":"np_order_partial","pay_amount":0.5,"payment_id":3,"payment_status":"partially_paid"}`,
+			`{"actually_paid":1,"order_id":"np_order_expired","pay_amount":1,"payment_id":8,"payment_status":"finished"}`,
+			`{"actually_paid":1.002,"order_id":"np_order_null","pay_amount":1.0010351,"payin_extra_id":null,"payment_id":10,"payment_status":"finished"}`,
+		} {
+			canonical, err := nowPaymentsSignaturePreimage([]byte(payload))
+			require.NoError(t, err)
+			require.Equal(t, payload, string(canonical), "fixture is not in canonical form: %s", payload)
+		}
+	})
 
 	t.Run("finished callback credits quota atomically", func(t *testing.T) {
 		db := setupNowPaymentsWebhookDB(t)
 		insertNowPaymentsOrder(t, db, 7, "np_order_finished", 20)
-		payload := `{"payment_id":1,"payment_status":"finished","order_id":"np_order_finished","pay_amount":0.5,"actually_paid":0.5}`
+		payload := `{"actually_paid":0.5,"order_id":"np_order_finished","pay_amount":0.5,"payment_id":1,"payment_status":"finished"}`
 		rec := postNowPaymentsWebhook(t, payload, sign(payload))
 		require.Equal(t, http.StatusOK, rec.Code)
 
@@ -113,13 +291,55 @@ func TestNowPaymentsWebhookEndpoint(t *testing.T) {
 		assert.Equal(t, 20*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 7))
 	})
 
+	t.Run("real SDK payload credits the order", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 20, "np_7a414039d01623bf1947d416a05cb40858c8137c", 1)
+		rec := postNowPaymentsWebhook(t, nowPaymentsSDKFixturePayload, nowPaymentsSDKFixtureSignature)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		topUp := model.GetTopUpByTradeNo("np_7a414039d01623bf1947d416a05cb40858c8137c")
+		require.NotNil(t, topUp)
+		assert.Equal(t, common.TopUpStatusSuccess, topUp.Status)
+		assert.Equal(t, int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 20))
+	})
+
+	t.Run("full real-shaped body settles the order", func(t *testing.T) {
+		// Everything GET /v1/payment/{id} returns, as the IPN body mirrors it:
+		// numeric invoice_id and purchase_id, a null payin_extra_id, and decimal
+		// amounts. This shape used to fail unmarshalling with a 400.
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 27, "np_order_realbody", 1)
+		payload := `{"actually_paid":1.002,"invoice_id":5829872928,"order_description":"TUC1","order_id":"np_order_realbody","outcome_amount":0.94672379,"outcome_currency":"usdtbsc","pay_address":"0xDc1b5AeE1908d46F18a85F80d7f422D4941A21fa","pay_amount":1.0010351,"pay_currency":"usdtbsc","payin_extra_id":null,"payment_id":13,"payment_status":"finished","price_amount":1,"price_currency":"usd","purchase_id":4982370482}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 27))
+		assert.Equal(t, common.TopUpStatusSuccess, model.GetTopUpByTradeNo("np_order_realbody").Status)
+	})
+
+	t.Run("quoted payment_id settles the order", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 28, "np_order_quoted_id", 1)
+		payload := `{"actually_paid":1,"order_id":"np_order_quoted_id","pay_amount":1,"payment_id":"5898863378","payment_status":"finished"}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 28))
+	})
+
+	t.Run("payload with a null field settles normally", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 21, "np_order_null", 1)
+		payload := `{"actually_paid":1.002,"order_id":"np_order_null","pay_amount":1.0010351,"payin_extra_id":null,"payment_id":10,"payment_status":"finished"}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 21))
+	})
+
 	t.Run("duplicate finished callback is idempotent", func(t *testing.T) {
 		db := setupNowPaymentsWebhookDB(t)
 		insertNowPaymentsOrder(t, db, 8, "np_order_dup", 20)
-		payload := `{"payment_id":2,"payment_status":"finished","order_id":"np_order_dup","pay_amount":0.5,"actually_paid":0.5}`
+		payload := `{"actually_paid":0.5,"order_id":"np_order_dup","pay_amount":0.5,"payment_id":2,"payment_status":"finished"}`
 		for range 2 {
-			rec := postNowPaymentsWebhook(t, payload, sign(payload))
-			require.Equal(t, http.StatusOK, rec.Code)
+			require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
 		}
 		assert.Equal(t, 20*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 8))
 	})
@@ -127,41 +347,92 @@ func TestNowPaymentsWebhookEndpoint(t *testing.T) {
 	t.Run("partially paid credits proportional quota", func(t *testing.T) {
 		db := setupNowPaymentsWebhookDB(t)
 		insertNowPaymentsOrder(t, db, 9, "np_order_partial", 20)
-		payload := `{"payment_id":3,"payment_status":"partially_paid","order_id":"np_order_partial","pay_amount":0.5,"actually_paid":0.25}`
-		rec := postNowPaymentsWebhook(t, payload, sign(payload))
-		require.Equal(t, http.StatusOK, rec.Code)
+		payload := `{"actually_paid":0.25,"order_id":"np_order_partial","pay_amount":0.5,"payment_id":3,"payment_status":"partially_paid"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
 		assert.Equal(t, 10*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 9))
 	})
 
 	t.Run("partially paid keeps the exact decimal ratio", func(t *testing.T) {
 		db := setupNowPaymentsWebhookDB(t)
 		insertNowPaymentsOrder(t, db, 10, "np_order_partial_thirds", 30)
-		payload := `{"payment_id":4,"payment_status":"partially_paid","order_id":"np_order_partial_thirds","pay_amount":3,"actually_paid":1}`
-		rec := postNowPaymentsWebhook(t, payload, sign(payload))
-		require.Equal(t, http.StatusOK, rec.Code)
+		payload := `{"actually_paid":1,"order_id":"np_order_partial_thirds","pay_amount":3,"payment_id":4,"payment_status":"partially_paid"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
 
-		// 30 * QuotaPerUnit * 1/3 must settle to the full third (10 * QuotaPerUnit):
-		// the ratio is carried as a decimal end to end instead of being flattened
-		// to a float64 before the quota product.
+		// 30 * QuotaPerUnit * 1/3 must settle to the full third: the ratio is
+		// carried as a decimal instead of being flattened to a float64.
 		assert.Equal(t, 10*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 10))
+	})
+
+	t.Run("underpayment is credited proportionally without crashing", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 22, "np_order_underpaid", 1)
+		payload := `{"actually_paid":0.999,"order_id":"np_order_underpaid","pay_amount":1,"payment_id":11,"payment_status":"partially_paid"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
+
+		quota := getNowPaymentsUserQuota(t, db, 22)
+		assert.Greater(t, quota, 0, "a 0.999/1 underpayment must still credit something")
+		assert.Less(t, quota, int(common.QuotaPerUnit), "an underpayment must not credit the full order")
 	})
 
 	t.Run("partially paid without a usable amount credits nothing", func(t *testing.T) {
 		db := setupNowPaymentsWebhookDB(t)
 		insertNowPaymentsOrder(t, db, 11, "np_order_partial_zero", 20)
-		payload := `{"payment_id":5,"payment_status":"partially_paid","order_id":"np_order_partial_zero","pay_amount":0.5,"actually_paid":0}`
-		rec := postNowPaymentsWebhook(t, payload, sign(payload))
-		require.Equal(t, http.StatusOK, rec.Code)
+		payload := `{"actually_paid":0,"order_id":"np_order_partial_zero","pay_amount":0.5,"payment_id":5,"payment_status":"partially_paid"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
 		assert.Equal(t, 0, getNowPaymentsUserQuota(t, db, 11))
 		topUp := model.GetTopUpByTradeNo("np_order_partial_zero")
 		require.NotNil(t, topUp)
 		assert.Equal(t, common.TopUpStatusPending, topUp.Status)
 	})
 
+	t.Run("expired order is resurrected by a finished callback", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrderWithStatus(t, db, 23, "np_order_expired", 5, common.TopUpStatusExpired)
+		payload := `{"actually_paid":1,"order_id":"np_order_expired","pay_amount":1,"payment_id":8,"payment_status":"finished"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
+
+		topUp := model.GetTopUpByTradeNo("np_order_expired")
+		require.NotNil(t, topUp)
+		assert.Equal(t, common.TopUpStatusSuccess, topUp.Status, "a paid order must not stay expired")
+		assert.Equal(t, 5*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 23))
+	})
+
+	t.Run("refund after settlement credits nothing further", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 24, "np_order_refunded", 5)
+		finished := `{"actually_paid":1,"order_id":"np_order_refunded","pay_amount":1,"payment_id":12,"payment_status":"finished"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, finished, sign(finished)).Code)
+		refund := `{"actually_paid":1,"order_id":"np_order_refunded","pay_amount":1,"payment_id":12,"payment_status":"refunded"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, refund, sign(refund)).Code)
+		assert.Equal(t, 5*int(common.QuotaPerUnit), getNowPaymentsUserQuota(t, db, 24))
+	})
+
+	t.Run("payout ipn is acknowledged without wallet logic", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 25, "np_order_payout", 5)
+		payload := `{"batch_withdrawal_id":"batch_1","payout_status":"finished","status":"finished"}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusOK, rec.Code, "unknown ipn kinds must be cleared from the gateway queue")
+		assert.Equal(t, 0, getNowPaymentsUserQuota(t, db, 25))
+		topUp := model.GetTopUpByTradeNo("np_order_payout")
+		require.NotNil(t, topUp)
+		assert.Equal(t, common.TopUpStatusPending, topUp.Status)
+	})
+
+	t.Run("payment callback without order_id is rejected, not a panic", func(t *testing.T) {
+		db := setupNowPaymentsWebhookDB(t)
+		insertNowPaymentsOrder(t, db, 26, "np_order_no_order_id", 5)
+		payload := `{"actually_paid":0.5,"pay_amount":0.5,"payment_id":6,"payment_status":"finished"}`
+		rec := postNowPaymentsWebhook(t, payload, sign(payload))
+		require.Equal(t, http.StatusBadRequest, rec.Code, "a callback we cannot reconcile must be surfaced, not swallowed")
+		assert.Equal(t, 0, getNowPaymentsUserQuota(t, db, 26))
+		assert.Equal(t, common.TopUpStatusPending, model.GetTopUpByTradeNo("np_order_no_order_id").Status)
+	})
+
 	t.Run("callback without payment_id rejected with 400", func(t *testing.T) {
 		db := setupNowPaymentsWebhookDB(t)
 		insertNowPaymentsOrder(t, db, 12, "np_order_no_payment_id", 20)
-		payload := `{"payment_status":"finished","order_id":"np_order_no_payment_id","pay_amount":0.5,"actually_paid":0.5}`
+		payload := `{"actually_paid":0.5,"order_id":"np_order_no_payment_id","pay_amount":0.5,"payment_status":"finished"}`
 		rec := postNowPaymentsWebhook(t, payload, sign(payload))
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 
@@ -172,43 +443,29 @@ func TestNowPaymentsWebhookEndpoint(t *testing.T) {
 	})
 
 	t.Run("invalid signature rejected with 401", func(t *testing.T) {
-		payload := `{"payment_id":1,"payment_status":"finished","order_id":"np_x"}`
-		rec := postNowPaymentsWebhook(t, payload, "deadbeef")
-		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		payload := `{"order_id":"np_x","payment_id":1,"payment_status":"finished"}`
+		require.Equal(t, http.StatusUnauthorized, postNowPaymentsWebhook(t, payload, "deadbeef").Code)
 	})
 
 	t.Run("missing signature rejected with 401", func(t *testing.T) {
-		payload := `{"payment_id":1,"payment_status":"finished","order_id":"np_x"}`
-		rec := postNowPaymentsWebhook(t, payload, "")
-		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		payload := `{"order_id":"np_x","payment_id":1,"payment_status":"finished"}`
+		require.Equal(t, http.StatusUnauthorized, postNowPaymentsWebhook(t, payload, "").Code)
 	})
 
 	t.Run("malformed payload rejected", func(t *testing.T) {
-		// Signature verification runs over the values of valid JSON only, so
-		// an invalid body must fail verification before parsing is trusted.
-		rec := postNowPaymentsWebhook(t, `{broken`, "deadbeef")
-		require.Equal(t, http.StatusUnauthorized, rec.Code)
+		require.Equal(t, http.StatusUnauthorized, postNowPaymentsWebhook(t, `{broken`, "deadbeef").Code)
 	})
 
 	t.Run("ignored statuses still return 200", func(t *testing.T) {
-		payload := `{"payment_id":1,"payment_status":"waiting","order_id":"np_x"}`
-		rec := postNowPaymentsWebhook(t, payload, sign(payload))
-		require.Equal(t, http.StatusOK, rec.Code)
+		payload := `{"order_id":"np_x","payment_id":1,"payment_status":"waiting"}`
+		require.Equal(t, http.StatusOK, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
 	})
 
 	t.Run("webhook disabled returns 403", func(t *testing.T) {
 		setting.NowPaymentsApiKey = ""
-		payload := `{"payment_id":1,"payment_status":"finished","order_id":"np_x"}`
-		rec := postNowPaymentsWebhook(t, payload, sign(payload))
-		require.Equal(t, http.StatusForbidden, rec.Code)
+		payload := `{"order_id":"np_x","payment_id":1,"payment_status":"finished"}`
+		require.Equal(t, http.StatusForbidden, postNowPaymentsWebhook(t, payload, sign(payload)).Code)
 	})
-}
-
-func mustParseJson(t *testing.T, payload string) map[string]any {
-	t.Helper()
-	var body map[string]any
-	require.NoError(t, common.Unmarshal([]byte(payload), &body))
-	return body
 }
 
 func TestNowPaymentsWebhookEnabled(t *testing.T) {
@@ -220,8 +477,8 @@ func TestNowPaymentsWebhookEnabled(t *testing.T) {
 		setting.NowPaymentsIpnSecret = originalIpnSecret
 	})
 
-	setting.NowPaymentsApiKey = "key"
-	setting.NowPaymentsIpnSecret = "secret"
+	setting.NowPaymentsApiKey = "test-api-key"
+	setting.NowPaymentsIpnSecret = "test-ipn-secret"
 	assert.True(t, isNowPaymentsTopUpEnabled())
 	assert.True(t, isNowPaymentsWebhookEnabled())
 
@@ -229,82 +486,81 @@ func TestNowPaymentsWebhookEnabled(t *testing.T) {
 	assert.False(t, isNowPaymentsTopUpEnabled())
 }
 
-// computeExpectedNowPaymentsSig builds the expected signature by hand,
-// following the documented NOWPayments convention independently of the
-// implementation under test: sort top-level keys alphabetically, concatenate
-// their values in sorted order, HMAC-SHA512 with the IPN secret.
-func computeExpectedNowPaymentsSig(t *testing.T, secret string, payload string) string {
-	t.Helper()
-	mac := hmac.New(sha512.New, []byte(secret))
-	mac.Write([]byte(payload))
-	return hex.EncodeToString(mac.Sum(nil))
-}
+// TestNowPaymentsSignatureHeaderVariants pins the header handling: Go
+// canonicalises header names, so any casing works, but a proxy that rewrites the
+// dashes as underscores must not turn a valid callback into a 401.
+func TestNowPaymentsSignatureHeaderVariants(t *testing.T) {
+	originalApiKey := setting.NowPaymentsApiKey
+	originalIpnSecret := setting.NowPaymentsIpnSecret
+	confirmPaymentComplianceForTest(t)
+	t.Cleanup(func() {
+		setting.NowPaymentsApiKey = originalApiKey
+		setting.NowPaymentsIpnSecret = originalIpnSecret
+	})
+	setting.NowPaymentsApiKey = "test-api-key"
+	setting.NowPaymentsIpnSecret = nowPaymentsSDKSecret
+	// A verified callback proceeds to reconciliation, which needs the database.
+	// No order is inserted, so it ends in the logged "order not found" path.
+	setupNowPaymentsWebhookDB(t)
 
-func TestVerifyNowPaymentsSignature(t *testing.T) {
-	secret := "test-ipn-secret"
-	// Values in unsorted key order in the payload; the signature is computed
-	// over the values sorted alphabetically by key: actually_paid,
-	// payment_id, payment_status.
-	payload := []byte(`{"payment_id":123,"payment_status":"finished","actually_paid":10.5}`)
+	payload := `{"actually_paid":1,"order_id":"np_hdr","pay_amount":1,"payment_id":1,"payment_status":"finished"}`
+	signature := signCanonicalPayload(t, nowPaymentsSDKSecret, payload)
 
-	validSig := computeExpectedNowPaymentsSig(t, secret, "10.5123finished")
+	post := func(t *testing.T, headerName string) *httptest.ResponseRecorder {
+		t.Helper()
+		gin.SetMode(gin.TestMode)
+		router := gin.New()
+		router.POST("/api/webhooks/nowpayments", NowPaymentsWebhook)
+		req := httptest.NewRequest(http.MethodPost, "/api/webhooks/nowpayments", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		if headerName != "" {
+			req.Header[headerName] = []string{signature}
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
 
-	t.Run("valid signature accepted", func(t *testing.T) {
-		assert.True(t, VerifyNowPaymentsSignature(payload, validSig, secret))
+	for _, headerName := range []string{
+		"x-nowpayments-sig",
+		"X-NOWPAYMENTS-SIG",
+		"X-NowPayments-Sig",
+		"x_nowpayments_sig",
+		"X_NOWPAYMENTS_SIG",
+	} {
+		t.Run("accepted with header "+headerName, func(t *testing.T) {
+			// The order does not exist, so the handler proceeds past verification
+			// and answers 200 with an "order not found" trace; a 401 would mean
+			// the header was not read.
+			rec := post(t, headerName)
+			require.Equal(t, http.StatusOK, rec.Code, "header %q was not resolved", headerName)
+		})
+	}
+
+	t.Run("missing signature is rejected and the headers are logged", func(t *testing.T) {
+		rec := post(t, "")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
 
-	t.Run("whitespace around header accepted case-insensitively", func(t *testing.T) {
-		assert.True(t, VerifyNowPaymentsSignature(payload, "  "+validSig+" ", secret))
+	t.Run("resolver reports the header it matched", func(t *testing.T) {
+		gin.SetMode(gin.TestMode)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/webhooks/nowpayments", nil)
+		c.Request.Header["X_NOWPAYMENTS_SIG"] = []string{"abc123"}
+		value, name := nowPaymentsSignatureFromRequest(c)
+		assert.Equal(t, "abc123", value)
+		assert.Equal(t, "X_NOWPAYMENTS_SIG", name)
 	})
 
-	t.Run("tampered payload rejected", func(t *testing.T) {
-		tampered := []byte(`{"payment_id":124,"payment_status":"finished","actually_paid":10.5}`)
-		assert.False(t, VerifyNowPaymentsSignature(tampered, validSig, secret))
-	})
-
-	t.Run("wrong secret rejected", func(t *testing.T) {
-		assert.False(t, VerifyNowPaymentsSignature(payload, validSig, "other-secret"))
-	})
-
-	t.Run("missing or empty inputs rejected", func(t *testing.T) {
-		assert.False(t, VerifyNowPaymentsSignature(payload, "", secret))
-		assert.False(t, VerifyNowPaymentsSignature(payload, validSig, ""))
-		assert.False(t, VerifyNowPaymentsSignature(payload, "", ""))
-	})
-
-	t.Run("invalid json rejected", func(t *testing.T) {
-		assert.False(t, VerifyNowPaymentsSignature([]byte(`{not json`), validSig, secret))
-	})
-
-	t.Run("unsorted key order in payload does not change signature", func(t *testing.T) {
-		resorted := []byte(`{"actually_paid":10.5,"payment_status":"finished","payment_id":123}`)
-		expectedSig := computeExpectedNowPaymentsSig(t, secret, "10.5123finished")
-		assert.True(t, VerifyNowPaymentsSignature(resorted, expectedSig, secret))
-	})
-
-	t.Run("nested object values sorted recursively", func(t *testing.T) {
-		nested := []byte(`{"payment_id":1,"metadata":{"zeta":"z","alpha":"a"}}`)
-		// Sorted: metadata(alpha,z) then payment_id → "az" + "1"
-		expectedSig := computeExpectedNowPaymentsSig(t, secret, "az1")
-		assert.True(t, VerifyNowPaymentsSignature(nested, expectedSig, secret))
-	})
-
-	t.Run("boolean and string values concatenated as-is", func(t *testing.T) {
-		mixed := []byte(`{"payment_status":"finished","refund":false,"order_id":"np_abc"}`)
-		expectedSig := computeExpectedNowPaymentsSig(t, secret, "np_abcfinishedfalse")
-		assert.True(t, VerifyNowPaymentsSignature(mixed, expectedSig, secret))
-	})
-
-	t.Run("string concatenation is unseparated", func(t *testing.T) {
-		// 12finished1 ≠ 1finished12: the concatenation order matters, values
-		// are joined with no separators.
-		payloadA := []byte(`{"payment_id":12,"payment_status":"finished","invoice_id":1}`)
-		payloadB := []byte(`{"payment_id":1,"payment_status":"finished","invoice_id":12}`)
-		// Sorted keys: invoice_id, payment_id, payment_status.
-		sigA := computeExpectedNowPaymentsSig(t, secret, "112finished")
-		sigB := computeExpectedNowPaymentsSig(t, secret, "121finished")
-		require.NotEqual(t, sigA, sigB)
-		assert.True(t, VerifyNowPaymentsSignature(payloadA, sigA, secret))
-		assert.True(t, VerifyNowPaymentsSignature(payloadB, sigB, secret))
+	t.Run("header dump redacts credentials", func(t *testing.T) {
+		gin.SetMode(gin.TestMode)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/webhooks/nowpayments", nil)
+		c.Request.Header.Set("Cookie", "session=supersecret")
+		c.Request.Header.Set("Authorization", "Bearer supersecret")
+		c.Request.Header.Set("X-Nowpayments-Sig", "deadbeef")
+		dump := nowPaymentsWebhookHeaderDump(c)
+		assert.NotContains(t, dump, "supersecret")
+		assert.Contains(t, dump, "deadbeef")
 	})
 }

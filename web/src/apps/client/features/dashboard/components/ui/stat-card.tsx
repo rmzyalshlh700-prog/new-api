@@ -19,7 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 import type { LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 
-import { IconBadge, type IconBadgeTone } from '@/shared/components/ui/icon-badge'
+import {
+  IconBadge,
+  type IconBadgeTone,
+} from '@/shared/components/ui/icon-badge'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { cn } from '@/shared/lib/utils'
 
@@ -333,8 +336,17 @@ export function StatCard(props: StatCardProps) {
       {valueContent}
 
       {/* Inner bottom padding keeps the sparkline clear of the card's
-          rounded corners instead of being clipped flush against them. */}
-      <div className='hidden pb-3 sm:block'>{visualization}</div>
+          rounded corners instead of being clipped flush against them. A
+          sparkline is decoration and stays off phones to keep the tiles short;
+          detail cells carry figures, so they are shown at every width. */}
+      <div
+        className={cn(
+          'pb-3',
+          props.details?.length ? 'block' : 'hidden sm:block'
+        )}
+      >
+        {visualization}
+      </div>
     </div>
   )
 }

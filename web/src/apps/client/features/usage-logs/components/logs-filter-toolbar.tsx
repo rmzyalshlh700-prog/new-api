@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next'
 import {
   DataTableMobileFilterPanel,
   DataTableViewOptions,
+  useDataTableSurface,
 } from '@/shared/components/data-table'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
@@ -92,6 +93,7 @@ export function LogsFilterInput(props: ComponentProps<typeof Input>) {
 
 export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
   const { t } = useTranslation()
+  const surface = useDataTableSurface()
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 640px)')
@@ -245,7 +247,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
   return (
     <div
       className={cn(
-        'bg-card/50 rounded-lg border p-2.5 sm:p-3',
+        surface === 'plain' && 'bg-card/50 rounded-lg border p-2.5 sm:p-3',
         props.className
       )}
     >

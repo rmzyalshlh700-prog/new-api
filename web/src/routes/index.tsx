@@ -16,10 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
+
+import { LandingPage } from '@/shared/features/landing'
+import { useSystemConfig } from '@/shared/hooks/use-system-config'
+
+function LandingRoute() {
+  const { systemName, logo } = useSystemConfig()
+
+  return <LandingPage systemName={systemName} logoUrl={logo} />
+}
 
 export const Route = createFileRoute('/')({
-  beforeLoad: () => {
-    throw redirect({ to: '/login', replace: true })
-  },
+  component: LandingRoute,
 })

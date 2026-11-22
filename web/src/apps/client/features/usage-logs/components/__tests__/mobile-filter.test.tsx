@@ -37,8 +37,7 @@ import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import zhTW from '@/shared/i18n/locales/zh-TW.json'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 
 import { CommonLogsFilterBar } from '../common-logs-filter-bar'
@@ -284,8 +283,7 @@ it('collapses only date and statistics while keeping the right-hand quick action
 })
 
 it.each([
-  { language: 'zh', resources: zh.translation },
-  { language: 'zh-TW', resources: zhTW.translation },
+  { language: 'ru', resources: ru.translation },
 ])(
   'labels the calendar-month preset as 本月 in $language and selects the complete month',
   async ({ language, resources }) => {

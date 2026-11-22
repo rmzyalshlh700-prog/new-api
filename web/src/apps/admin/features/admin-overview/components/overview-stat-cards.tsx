@@ -30,8 +30,8 @@ import { useTranslation } from 'react-i18next'
 import { StatCard } from '@/apps/client/features/dashboard/components/ui/stat-card'
 import {
   formatCompactNumber,
+  formatDashboardQuota,
   formatInteger,
-  formatLogQuota,
   formatPercent,
 } from '@/shared/lib/format'
 
@@ -58,23 +58,19 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
       : undefined
 
   return (
-    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4'>
+    <div className='grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-4'>
       <StatCardTile>
         <StatCard
           title={t('Revenue today')}
-          value={formatLogQuota(props.revenueToday)}
+          value={formatDashboardQuota(props.revenueToday)}
           description={
-            <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-              <span className='text-muted-foreground/60'>
-                {t('This month')}: {formatLogQuota(props.revenueMonth)}
-              </span>
-              {todayVsYesterdayPct !== undefined && (
-                <YesterdayTrend percent={todayVsYesterdayPct} />
-              )}
-            </div>
+            todayVsYesterdayPct !== undefined ? (
+              <YesterdayTrend percent={todayVsYesterdayPct} />
+            ) : undefined
           }
           icon={Wallet}
           tone='accent-1'
+          compactMobile
           sparkline={props.revenueSparkline}
           sparklineVariant='line'
           loading={props.loading}
@@ -84,19 +80,10 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
       <StatCardTile>
         <StatCard
           title={t('Revenue this month')}
-          value={formatLogQuota(props.revenueMonth)}
-          description={
-            <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-              <span className='text-muted-foreground/60'>
-                {t('Today')}: {formatLogQuota(props.revenueToday)}
-              </span>
-              {todayVsYesterdayPct !== undefined && (
-                <YesterdayTrend percent={todayVsYesterdayPct} />
-              )}
-            </div>
-          }
+          value={formatDashboardQuota(props.revenueMonth)}
           icon={Coins}
           tone='accent-2'
+          compactMobile
           sparkline={props.monthSparkline}
           sparklineVariant='line'
           loading={props.loading}
@@ -107,9 +94,9 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
         <StatCard
           title={t('Requests')}
           value={formatInteger(props.requestsToday)}
-          description={t('Today')}
           icon={Activity}
           tone='accent-1'
+          compactMobile
           sparkline={props.requestsSparkline}
           sparklineVariant='line'
           loading={props.loading}
@@ -120,9 +107,9 @@ export function OverviewStatCards(props: OverviewStatCardsProps) {
         <StatCard
           title={t('Tokens today')}
           value={formatCompactNumber(props.tokensToday)}
-          description={`${t('Requests')}: ${formatInteger(props.requestsToday)}`}
           icon={Cpu}
           tone='accent-3'
+          compactMobile
           sparkline={props.tokensSparkline}
           loading={props.loading}
         />
@@ -151,7 +138,7 @@ function YesterdayTrend(props: { percent: number }) {
 
 function StatCardTile(props: { children: ReactNode }) {
   return (
-    <div className='bg-card rounded-2xl border p-3 shadow-xs transition-shadow duration-200 hover:shadow-md sm:p-4'>
+    <div className='bg-card border-border/60 rounded-xl border p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:rounded-2xl sm:p-4'>
       {props.children}
     </div>
   )

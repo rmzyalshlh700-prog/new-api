@@ -24,6 +24,11 @@ import { accountPasswordSchema } from '@/shared/lib/password-policy'
 // Form Schemas
 // ============================================================================
 
+/** Usernames are ASCII letters and digits only; mirrors model.UserNamePattern. */
+export const USERNAME_REGEX = /^[a-zA-Z0-9]+$/
+
+// Sign-in accepts an email address and usernames created before the alphanumeric
+// policy, so it intentionally does not apply USERNAME_REGEX.
 export const loginFormSchema = z.object({
   username: z.string().min(1, 'Please enter your username or email'),
   password: z.string().min(1, 'Please enter your password'),
@@ -31,7 +36,13 @@ export const loginFormSchema = z.object({
 
 export const registerFormSchema = z
   .object({
-    username: z.string().min(1, 'Please enter your username'),
+    username: z
+      .string()
+      .min(1, 'Please enter your username')
+      .regex(
+        USERNAME_REGEX,
+        'Username can only contain English letters and numbers.'
+      ),
     email: z.string().optional(),
     password: accountPasswordSchema,
     confirmPassword: z.string().min(1, 'Please confirm your password'),

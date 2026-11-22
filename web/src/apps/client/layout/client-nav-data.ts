@@ -17,58 +17,83 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
+  BookOpen,
   FileText,
   FlaskConical,
-  Image,
   Key,
   LayoutDashboard,
   LifeBuoy,
   ListTodo,
   MessageSquare,
+  Newspaper,
+  Plug,
   ShieldCheck,
   User,
   Wallet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import type { SidebarData } from '@/shared/components/layout/types'
+import type {
+  NavGroup,
+  NavItem,
+  SidebarData,
+} from '@/shared/components/layout/types'
+import { usePublicPageVisibility } from '@/shared/features/public-content/visibility'
 
 /**
- * Navigation for the client portal.
+ * Navigation for the client portal, ordered as:
+ * Dashboard → API Keys → Usage Logs → Wallet → Profile →
+ * Security & Access → Playground → Chat.
  *
  * Deliberately contains no administrative entries: the admin console is a
  * separate portal with its own layout, routes and bundle.
  */
 export function useClientSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const visibility = usePublicPageVisibility()
+
+  // Public pages an administrator switched off disappear from this group too.
+  const exploreItems: NavItem[] = []
+  if (visibility.docs) {
+    exploreItems.push({
+      title: t('Documentation'),
+      url: '/docs',
+      icon: BookOpen,
+    })
+  }
+  if (visibility.integrations) {
+    exploreItems.push({
+      title: t('Integrations'),
+      url: '/integrations',
+      icon: Plug,
+    })
+  }
+  if (visibility.blog) {
+    exploreItems.push({ title: t('Blog'), url: '/blog', icon: Newspaper })
+  }
+
+  const exploreGroup: NavGroup[] =
+    exploreItems.length > 0
+      ? [
+          {
+            id: 'explore',
+            title: t('Explore'),
+            items: exploreItems,
+          },
+        ]
+      : []
 
   return {
     navGroups: [
       {
-        id: 'workspace',
-        title: t('Workspace'),
+        id: 'console',
+        title: t('Console'),
         items: [
           {
-            title: t('Workspace'),
+            title: t('Dashboard'),
             url: '/app/workspace/overview',
             icon: LayoutDashboard,
           },
-          {
-            title: t('Playground'),
-            url: '/app/playground',
-            icon: FlaskConical,
-          },
-          {
-            title: t('Chat'),
-            icon: MessageSquare,
-            type: 'chat-presets',
-          },
-        ],
-      },
-      {
-        id: 'api-usage',
-        title: t('API & Usage'),
-        items: [
           {
             title: t('API Keys'),
             url: '/app/keys',
@@ -87,7 +112,7 @@ export function useClientSidebarData(): SidebarData {
           {
             title: t('Drawing Logs'),
             url: '/app/usage-logs/drawing',
-            icon: Image,
+            icon: FileText,
           },
         ],
       },
@@ -117,6 +142,23 @@ export function useClientSidebarData(): SidebarData {
           },
         ],
       },
+      {
+        id: 'ai-studio',
+        title: t('Chat'),
+        items: [
+          {
+            title: t('Chat'),
+            url: '/app/playground',
+            icon: FlaskConical,
+          },
+          {
+            title: t('Chat'),
+            icon: MessageSquare,
+            type: 'chat-presets',
+          },
+        ],
+      },
+      ...exploreGroup,
     ],
   }
 }

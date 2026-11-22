@@ -134,6 +134,7 @@ export function BackupManagement() {
           </Badge>
         </span>
       </SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Snapshots and restore points.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
         <div className='space-y-4'>
           <Card className='gap-0 overflow-hidden py-0'>

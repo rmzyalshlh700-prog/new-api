@@ -42,7 +42,7 @@ func TestChannelHasSensitiveChanges(t *testing.T) {
 		updated := PatchChannel{Channel: *origin}
 		updated.Key = "new-key"
 
-		assert.True(t, channelHasSensitiveChanges(&updated, origin, map[string]any{"key": updated.Key}))
+		assert.True(t, channelHasSensitiveChanges(&updated, origin, map[string]any{"key": updated.Key.String()}))
 	})
 
 	t.Run("base url change", func(t *testing.T) {

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { usePublicPageVisibility } from '@/shared/features/public-content/visibility'
 import { useStatus } from '@/shared/hooks/use-status'
 import { parseHeaderNavModulesFromStatus } from '@/shared/lib/nav-modules'
 import { useAuthStore } from '@/shared/stores/auth-store'
@@ -46,6 +47,7 @@ export type TopNavLink = {
 export function useTopNavLinks(): TopNavLink[] {
   const { t } = useTranslation()
   const { status } = useStatus()
+  const visibility = usePublicPageVisibility()
   const isAuthed = useAuthStore((state) => !!state.auth.user)
 
   // Parse HeaderNavModules
@@ -87,13 +89,17 @@ export function useTopNavLinks(): TopNavLink[] {
     links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
   }
 
-  // Docs (only when the administrator configured a destination)
+  // Docs (only when the administrator configured a destination). An internal
+  // /docs destination also follows the public page visibility switch.
   if (modules?.docs !== false && docsLink) {
-    links.push({ title: t('Docs'), href: docsLink, external: true })
+    const internalDocs = docsLink.split('?')[0] === '/docs'
+    if (!internalDocs || visibility.docs) {
+      links.push({ title: t('Docs'), href: docsLink, external: true })
+    }
   }
 
   // About
-  if (modules?.about !== false) {
+  if (modules?.about !== false && visibility.about) {
     links.push({ title: t('About'), href: '/about' })
   }
 

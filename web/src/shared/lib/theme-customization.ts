@@ -30,6 +30,15 @@ export const THEME_PRESETS = [
     swatches: ['oklch(0.72 0.18 250)', 'oklch(0.7 0.12 280)'],
   },
   {
+    // Obsidian: a near-black, cool-neutral canvas with a single volcanic
+    // violet accent and a tight radius. The dark block is the intended face;
+    // the light block is a smoked-paper counterpart, so the preset still reads
+    // as one system when the console is in light mode.
+    value: 'obsidian',
+    name: 'Obsidian',
+    swatches: ['oklch(0.145 0.006 265)', 'oklch(0.72 0.14 300)'],
+  },
+  {
     // Inspired by Anthropic's official brand language: warm cream canvas
     // (#faf9f5) paired with clay/coral (#d97757) as the single accent.
     // Swatches preview the canvas → accent gradient that defines the system.

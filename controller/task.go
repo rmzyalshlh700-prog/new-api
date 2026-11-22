@@ -226,7 +226,7 @@ func initTaskArtifactAdaptor(task *model.Task) (relaychannel.TaskAdaptor, error)
 	}
 	pluginKey := task.PrivateData.Key
 	if pluginKey == "" {
-		pluginKey = channelModel.Key
+		pluginKey = channelModel.Key.String()
 	}
 	baseURL := channelModel.GetBaseURL()
 	if baseURL == "" {

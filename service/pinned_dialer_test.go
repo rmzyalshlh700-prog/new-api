@@ -178,3 +178,74 @@ func TestRelayTransportDialsTheProxyWithoutTheTargetCheck(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, []string{"proxy.internal:3128"}, dialed)
 }
+
+// A literal internal address must be refused at the dial time, exactly like an
+// internal address resolved from a name. Before this guard the dialer only
+// warned and connected, so the last enforcement point depended on every caller
+// having run the pre-flight validation first.
+func TestPinnedDialerBlocksLiteralInternalAddress(t *testing.T) {
+	var dialed []string
+	dialer := &pinnedDialer{
+		dialer:   &net.Dialer{},
+		resolver: staticSSRFResolver{},
+		dialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			dialed = append(dialed, address)
+			return testConn(t), nil
+		},
+	}
+
+	for _, address := range []string{
+		"127.0.0.1:8080",
+		"10.1.2.3:5432",
+		"172.16.0.9:2375",
+		"192.168.1.1:80",
+		"[::1]:9000",
+	} {
+		conn, err := dialer.DialContext(context.Background(), "tcp", address)
+
+		require.Error(t, err, address)
+		require.Nil(t, conn, address)
+		assert.Contains(t, err.Error(), "blocked internal network address", address)
+	}
+	assert.Empty(t, dialed, "no internal literal address may be dialed")
+}
+
+// Root-configured channels that are explicitly allowed to reach the internal
+// network must keep working with a literal address, or internal upstreams break.
+func TestPinnedDialerAllowsLiteralInternalAddressWhenAuthorized(t *testing.T) {
+	var dialed []string
+	dialer := &pinnedDialer{
+		dialer:              &net.Dialer{},
+		resolver:            staticSSRFResolver{},
+		allowPrivateNetwork: true,
+		dialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			dialed = append(dialed, address)
+			return testConn(t), nil
+		},
+	}
+
+	conn, err := dialer.DialContext(context.Background(), "tcp", "10.0.0.5:11434")
+
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	assert.Equal(t, []string{"10.0.0.5:11434"}, dialed)
+}
+
+// A public literal address is not affected by the guard.
+func TestPinnedDialerAllowsPublicLiteralAddress(t *testing.T) {
+	var dialed []string
+	dialer := &pinnedDialer{
+		dialer:   &net.Dialer{},
+		resolver: staticSSRFResolver{},
+		dialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			dialed = append(dialed, address)
+			return testConn(t), nil
+		},
+	}
+
+	conn, err := dialer.DialContext(context.Background(), "tcp", "8.8.8.8:443")
+
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	assert.Equal(t, []string{"8.8.8.8:443"}, dialed)
+}

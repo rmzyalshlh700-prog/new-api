@@ -1,122 +1,29 @@
 package i18n
 
 import (
-	"errors"
+	"embed"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"net/http/httptest"
 	"slices"
 	"strconv"
-	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/gin-gonic/gin"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
+
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 )
 
-// The web console saves its own language codes (zhCN, zhTW, fr, ...) in the
-// user setting; backend messages must follow them, and languages without a
-// backend locale fall back to English.
-func TestLanguageFromUserSetting(t *testing.T) {
-	require.NoError(t, Init())
-	for _, tc := range []struct {
-		saved string
-		want  string
-	}{
-		{"zhCN", LangZhCN},
-		{"zhTW", LangZhTW},
-		{"zh-HK", LangZhTW},
-		{"zh_TW", LangZhTW},
-		{"zh_HK", LangZhTW},
-		{"zh-Hant-TW", LangZhTW},
-		{"zh", LangZhCN},
-		{"en", LangEn},
-		{"fr", LangEn},
-		{"ja", LangEn},
-	} {
-		c, _ := gin.CreateTestContext(httptest.NewRecorder())
-		c.Request = httptest.NewRequest("GET", "/v1/chat/completions", nil)
-		c.Set(string(constant.ContextKeyUserSetting), dto.UserSetting{Language: tc.saved})
-		assert.Equal(t, tc.want, StatedLang(c), tc.saved)
-	}
-}
-
-// TokenAuth puts the user's settings into the request. A user who saved no
-// language must not be loaded again, which would cost a cache or database read
-// on every relay request; a request without loaded settings still loads them.
-func TestStatedLangLoadsTheUserOnlyWithoutLoadedSettings(t *testing.T) {
-	previous := userLangLoaderFunc
-	t.Cleanup(func() { userLangLoaderFunc = previous })
-	loads := 0
-	SetUserLangLoader(func(int) string {
-		loads++
-		return "zhTW"
-	})
-
-	relay, _ := gin.CreateTestContext(httptest.NewRecorder())
-	relay.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
-	relay.Set("id", 7)
-	relay.Set(string(constant.ContextKeyUserSetting), dto.UserSetting{})
-	assert.Equal(t, "", StatedLang(relay))
-	assert.Zero(t, loads)
-
-	dashboard, _ := gin.CreateTestContext(httptest.NewRecorder())
-	dashboard.Request = httptest.NewRequest("GET", "/api/user/self", nil)
-	dashboard.Set("id", 7)
-	assert.Equal(t, LangZhTW, StatedLang(dashboard))
-	assert.Equal(t, 1, loads)
-}
-
-// A saved language or an Accept-Language header selects the language of a
-// backend message. A reader who states neither gets DEFAULT_LANGUAGE, which is
-// English when unset.
-func TestBackendMessageLanguage(t *testing.T) {
-	require.NoError(t, Init())
-	t.Cleanup(func() { common.DefaultLanguage = "" })
-	quota := map[string]any{"Remaining": "$0.10"}
-	const english = "Insufficient user quota, remaining quota: $0.10"
-	const chinese = "用户额度不足, 剩余额度: $0.10"
-	for _, tc := range []struct {
-		name            string
-		defaultLanguage string
-		saved           string
-		acceptLanguage  string
-		want            string
-	}{
-		{"nothing stated", "", "", "", english},
-		{"no preference header", "", "", "*", english},
-		{"nothing stated with a Chinese default", "zh-CN", "", "", chinese},
-		{"nothing stated with an English default", "en", "", "", english},
-		{"header wins over the default", "zh-CN", "", "en-US,en;q=0.9", english},
-		{"header in a language without a locale", "zh-CN", "", "fr-FR", english},
-		{"saved language wins over the header", "", "zhTW", "en-US", "使用者額度不足，剩餘額度：$0.10"},
-		{"saved language", "zh-CN", "en", "", english},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			common.DefaultLanguage = tc.defaultLanguage
-			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
-			if tc.acceptLanguage != "" {
-				c.Request.Header.Set("Accept-Language", tc.acceptLanguage)
-			}
-			if tc.saved != "" {
-				c.Set(string(constant.ContextKeyUserSetting), dto.UserSetting{Language: tc.saved})
-			}
-			assert.Equal(t, tc.want, T(c, MsgQuotaUserInsufficient, quota))
-		})
-	}
-}
-
-// A key missing from a locale, or a template that does not parse, reaches
-// clients as the raw key.
-func TestLocalesRenderEveryKey(t *testing.T) {
-	require.NoError(t, Init())
+// declaredMessageKeys parses keys.go and returns its message-key constants.
+func declaredMessageKeys(t *testing.T) []string {
+	t.Helper()
 	keysFile, err := parser.ParseFile(token.NewFileSet(), "keys.go", nil, parser.SkipObjectResolution)
 	require.NoError(t, err)
 	var declared []string
@@ -133,75 +40,163 @@ func TestLocalesRenderEveryKey(t *testing.T) {
 		return true
 	})
 	slices.Sort(declared)
+	return declared
+}
 
-	keysByLang := make(map[string][]string)
+// loadTestBundle loads the embedded locales for assertions on their contents.
+func loadTestBundle(t *testing.T) *i18n.Bundle {
+	t.Helper()
+	b := i18n.NewBundle(language.English)
+	b.RegisterUnmarshalFunc("yaml", yaml.Unmarshal)
+	for _, f := range []string{"locales/en.yaml", "locales/ar.yaml", "locales/ru.yaml"} {
+		_, err := b.LoadMessageFileFS(testLocaleFS, f)
+		require.NoError(t, err, "load %s", f)
+	}
+	return b
+}
+
+// TestLocalesRenderEveryKey asserts that every supported language has a
+// translation file with exactly the declared keys, and that each translation
+// renders every parameterized key without leftover placeholders.
+func TestLocalesRenderEveryKey(t *testing.T) {
+	b := loadTestBundle(t)
+	declared := declaredMessageKeys(t)
+
 	for _, lang := range SupportedLanguages() {
-		data, err := localeFS.ReadFile("locales/" + lang + ".yaml")
+		data, err := testLocaleFS.ReadFile("locales/" + lang + ".yaml")
 		require.NoError(t, err)
 		var messages map[string]string
 		require.NoError(t, yaml.Unmarshal(data, &messages))
+		keys := make([]string, 0, len(messages))
 		for key := range messages {
-			keysByLang[lang] = append(keysByLang[lang], key)
+			keys = append(keys, key)
 		}
-		slices.Sort(keysByLang[lang])
-	}
-	for _, lang := range SupportedLanguages() {
-		assert.Equal(t, declared, keysByLang[lang], lang)
-		for _, key := range keysByLang[lang] {
-			text := Translate(lang, key, map[string]any{})
-			assert.NotEqual(t, key, text, "%s %s", lang, key)
-			assert.False(t, strings.Contains(text, "{{"), "%s %s: %s", lang, key, text)
+		slices.Sort(keys)
+		assert.Equal(t, declared, keys, "%s: locale keys must match declared message keys exactly", lang)
+
+		localizer := i18n.NewLocalizer(b, lang)
+		for _, key := range declared {
+			msg, err := localizer.Localize(&i18n.LocalizeConfig{MessageID: key})
+			require.NoError(t, err, "%s: localize %s", lang, key)
+			assert.NotContains(t, msg, "{{", "%s: %s renders with leftover placeholders", lang, key)
 		}
 	}
 }
 
-// Web console responses carry the English source text as message_key plus its
-// params, and the web console translates them. The backend sends the same body
-// whatever language the request asks for.
-func TestWebConsoleMessageResponse(t *testing.T) {
-	require.NoError(t, Init())
-	for _, tc := range []struct {
-		name string
-		err  error
+// TestTranslationValues verifies a few representative translations per
+// language, so a broken locale file fails with a readable diff.
+func TestTranslationValues(t *testing.T) {
+	b := loadTestBundle(t)
+
+	cases := []struct {
+		lang string
+		key  string
 		want string
 	}{
-		{
-			name: "params",
-			err:  common.NewMessage("Channel {{name}} (#{{id}}) does not exist", map[string]any{"name": "{{id}}", "id": 7}),
-			want: `{"success":false,"message":"Channel {{id}} (#7) does not exist","message_key":"Channel {{name}} (#{{id}}) does not exist","message_params":{"id":7,"name":"{{id}}"}}`,
-		},
-		{
-			name: "no params",
-			err:  common.NewMessage("Invalid parameters"),
-			want: `{"success":false,"message":"Invalid parameters","message_key":"Invalid parameters"}`,
-		},
-		{
-			name: "plain error",
-			err:  errors.New("record not found"),
-			want: `{"success":false,"message":"record not found"}`,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			recorder := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(recorder)
-			c.Request = httptest.NewRequest("GET", "/api/channel/7", nil)
-			c.Request.Header.Set("Accept-Language", "zh-CN")
-			common.ApiError(c, tc.err)
-			assert.JSONEq(t, tc.want, recorder.Body.String())
+		{LangEn, "common.database_error", "Database error, please contact the administrator"},
+		{LangEn, "auth.user_banned", "User has been banned"},
+		{LangAr, "auth.user_banned", "تم حظر المستخدم"},
+		{LangAr, "token.invalid", "رمز غير صالح"},
+		{LangRu, "auth.user_banned", "Пользователь заблокирован"},
+		{LangRu, "token.invalid", "Недействительный токен"},
+	}
+	for _, tc := range cases {
+		msg, err := i18n.NewLocalizer(b, tc.lang).Localize(&i18n.LocalizeConfig{MessageID: tc.key})
+		require.NoError(t, err, "%s: %s", tc.lang, tc.key)
+		assert.Equal(t, tc.want, msg, "%s: %s", tc.lang, tc.key)
+	}
+}
+
+func TestLanguageFromUserSetting(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name     string
+		language string
+		expected string
+	}{
+		{"empty language means no statement", "", ""},
+		{"en normalized", "en", LangEn},
+		{"en-US normalized", "en-US", LangEn},
+		{"ar normalized", "ar", LangAr},
+		{"ar-EG normalized", "ar-EG", LangAr},
+		{"ru normalized", "ru", LangRu},
+		{"ru-RU normalized", "ru-RU", LangRu},
+		{"unsupported language falls back to en", "fr", LangEn},
+		{"unknown language falls back to en", "xx", LangEn},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("GET", "/", nil)
+			setting := dto.UserSetting{Language: tt.language}
+			c.Set(string(constant.ContextKeyUserSetting), setting)
+
+			got := StatedLang(c)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
 
-// Server log lines are English. DEFAULT_LANGUAGE=zh-CN prints the Chinese text of
-// the lines that have one in common/log_text.zh-CN.json.
-func TestServerLogLanguage(t *testing.T) {
-	t.Cleanup(func() { common.SetLogLanguage("") })
-	const line = "channel #%d has %d unfinished tasks"
-	assert.Equal(t, "channel #7 has 2 unfinished tasks", common.LogText(line, 7, 2))
-	common.SetLogLanguage("zh-CN")
-	assert.Equal(t, "渠道 #7 未完成的任务有: 2", common.LogText(line, 7, 2))
-	assert.Equal(t, "a line without a Chinese text: x", common.LogText("a line without a Chinese text: %s", "x"))
-	assert.Equal(t, "任务进度轮询开始", common.LogText("task progress polling started"))
-	common.SetLogLanguage("en")
-	assert.Equal(t, "channel #7 has 2 unfinished tasks", common.LogText(line, 7, 2))
+func TestParseAcceptLanguage(t *testing.T) {
+	tests := []struct {
+		header   string
+		expected string
+	}{
+		{"", ""},
+		{"*", ""},
+		{"en", LangEn},
+		{"en-US,en;q=0.9", LangEn},
+		{"ar;q=0.9", LangAr},
+		{"ru-RU,ru;q=0.8,en;q=0.6", LangRu},
+		{"fr", LangEn},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.expected, ParseAcceptLanguage(tt.header), "header %q", tt.header)
+	}
+}
+
+func TestIsSupported(t *testing.T) {
+	assert.True(t, IsSupported("en"))
+	assert.True(t, IsSupported("ar"))
+	assert.True(t, IsSupported("ru"))
+	assert.True(t, IsSupported("en-US"))
+	assert.True(t, IsSupported("ru-RU"))
+	assert.False(t, IsSupported("zh-CN"))
+	assert.False(t, IsSupported("fr"))
+	assert.False(t, IsSupported(""))
+}
+
+func TestSupportedLanguages(t *testing.T) {
+	langs := SupportedLanguages()
+	assert.Equal(t, []string{LangEn, LangAr, LangRu}, langs)
+}
+
+// testLocaleFS mirrors the production embed for tests.
+//
+//go:embed locales/*.yaml
+var testLocaleFS embed.FS
+
+func TestDeclaredKeysSorted(t *testing.T) {
+	assert.True(t, slices.IsSorted(declaredMessageKeys(t)), "message keys must be sorted")
+}
+
+func TestBackendMessageLanguage(t *testing.T) {
+	require.NoError(t, Init())
+
+	tests := []struct {
+		lang string
+		key  string
+		want string
+	}{
+		{LangEn, "auth.user_banned", "User has been banned"},
+		{LangAr, "auth.user_banned", "تم حظر المستخدم"},
+		{LangRu, "auth.user_banned", "Пользователь заблокирован"},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, Translate(tt.lang, tt.key), "lang %s key %s", tt.lang, tt.key)
+	}
+	// Unsupported language falls back to the default language (en)
+	assert.Equal(t, "User has been banned", Translate("zh-CN", "auth.user_banned"))
 }

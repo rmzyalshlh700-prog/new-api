@@ -20,7 +20,10 @@ import type { Table as TanstackTable } from '@tanstack/react-table'
 import { Database } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { DISABLED_ROW_MOBILE } from '@/shared/components/data-table'
+import {
+  DISABLED_ROW_MOBILE,
+  useDataTableSurface,
+} from '@/shared/components/data-table'
 import { MaskedValueDisplay } from '@/shared/components/masked-value-display'
 import { StatusBadge } from '@/shared/components/status-badge'
 import {
@@ -48,8 +51,15 @@ const MOBILE_SKELETON_KEYS = [
 ]
 
 function RedemptionsMobileSkeleton() {
+  const surface = useDataTableSurface()
+
   return (
-    <div className='divide-border overflow-hidden rounded-lg border'>
+    <div
+      className={cn(
+        'divide-border',
+        surface === 'plain' && 'overflow-hidden rounded-lg border'
+      )}
+    >
       {MOBILE_SKELETON_KEYS.map((key) => (
         <div
           key={key}
@@ -77,13 +87,14 @@ interface RedemptionsMobileListProps {
 
 export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
   const { t } = useTranslation()
+  const surface = useDataTableSurface()
   const rows = props.table.getRowModel().rows
 
   if (props.isLoading) return <RedemptionsMobileSkeleton />
 
   if (!rows.length) {
     return (
-      <div className='rounded-lg border p-8'>
+      <div className={cn('p-8', surface === 'plain' && 'rounded-lg border')}>
         <Empty className='border-none p-0'>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
@@ -102,7 +113,12 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
   }
 
   return (
-    <div className='divide-border overflow-hidden rounded-lg border'>
+    <div
+      className={cn(
+        'divide-border',
+        surface === 'plain' && 'overflow-hidden rounded-lg border'
+      )}
+    >
       {rows.map((row) => {
         const redemption = row.original
         const expired = isRedemptionExpired(

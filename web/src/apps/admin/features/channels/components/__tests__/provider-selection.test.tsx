@@ -22,7 +22,7 @@ import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { expect, test, vi } from 'vitest'
 
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 
 import type { TaskPluginOption } from '../../api'
 import { ChannelProviderPicker } from '../drawers/channel-provider-picker'
@@ -130,7 +130,7 @@ test('Zhipu GLM uses the renamed Chinese label and remains searchable after chan
   await language.init({
     lng: 'en',
     fallbackLng: 'en',
-    resources: { en: { translation: {} }, zh },
+    resources: { en: { translation: {} }, ru },
   })
   const user = userEvent.setup()
   render(
@@ -151,8 +151,12 @@ test('Zhipu GLM uses the renamed Chinese label and remains searchable after chan
   expect(
     screen.getByRole('option', { name: 'Zhipu GLM Built-in #26' })
   ).toBeVisible()
-  await act(() => language.changeLanguage('zh'))
-  expect(screen.getByRole('option', { name: '智谱GLM 内置 #26' })).toBeVisible()
+  await act(() => language.changeLanguage('ru'))
+  expect(
+    screen.getByRole('option', {
+      name: `Zhipu GLM ${ru.translation['Built-in']} #26`,
+    })
+  ).toBeVisible()
 })
 
 test('plugin extensions keep built-in and independent plugin choices distinct in every category', async () => {
@@ -417,7 +421,7 @@ test('creation searches legacy names and translated names through the replacemen
     fallbackLng: 'en',
     resources: {
       en: { translation: {} },
-      zh: { translation: { Doubao: '豆包' } },
+      ru: { translation: { Doubao: 'Дубай видео' } },
     },
   })
   const select = vi.fn()
@@ -443,9 +447,9 @@ test('creation searches legacy names and translated names through the replacemen
   expect(
     screen.getByRole('option', { name: 'Ark Video Plugin doubao' })
   ).toBeVisible()
-  await act(() => language.changeLanguage('zh'))
+  await act(() => language.changeLanguage('ru'))
   await user.clear(search)
-  await user.type(search, '豆包')
+  await user.type(search, 'Дубай видео')
   await user.click(screen.getByRole('tab', { name: 'Plugins' }))
   expect(
     screen.getByRole('option', { name: 'Ark Video Plugin doubao' })
@@ -665,7 +669,7 @@ test('every built-in provider has a description and Anthropic includes compatibl
   await language.init({
     lng: 'en',
     fallbackLng: 'en',
-    resources: { en: { translation: {} }, zhCN: zh },
+    resources: { en: { translation: {} }, ru },
   })
   render(
     <I18nextProvider i18n={language}>
@@ -690,12 +694,14 @@ test('every built-in provider has a description and Anthropic includes compatibl
   expect(anthropic).toHaveAccessibleDescription(
     'Connect to the Anthropic API or compatible services'
   )
-  await act(() => language.changeLanguage('zhCN'))
+  await act(() => language.changeLanguage('ru'))
   expect(anthropic).toHaveAccessibleDescription(
-    '接入 Anthropic API 或兼容其接口的服务'
+    ru.translation['Connect to the Anthropic API or compatible services']
   )
   expect(
-    within(anthropic).getByText('接入 Anthropic API 或兼容其接口的服务')
+    within(anthropic).getByText(
+      ru.translation['Connect to the Anthropic API or compatible services']
+    )
   ).toBeVisible()
 })
 
@@ -777,10 +783,11 @@ test('plugin descriptions follow the current language with an English fallback a
     screen.getByRole('option', { name: 'Video Provider Plugin another-video' })
   ).not.toHaveAccessibleDescription()
 
-  await act(() => language.changeLanguage('zhCN'))
-  expect(within(option).getByText('通过厂商接口生成视频')).toBeVisible()
-  expect(option).toHaveAccessibleDescription('通过厂商接口生成视频')
-  await act(() => language.changeLanguage('fr'))
+  await act(() => language.changeLanguage('ru'))
+  const ruDescription = (plugins[0].description as Record<string, string>).ru
+  expect(within(option).getByText(ruDescription)).toBeVisible()
+  expect(option).toHaveAccessibleDescription(ruDescription)
+  await act(() => language.changeLanguage('en'))
   await user.click(
     within(option).getByText('Video generation via the vendor API')
   )

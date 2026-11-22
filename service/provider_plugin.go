@@ -137,11 +137,15 @@ func sendPluginFetch(ctx context.Context, plugin *jsplugin.LoadedPlugin, client 
 	return jsplugin.FetchResponse{Status: resp.StatusCode, Headers: headers, Body: responseBody}, nil
 }
 
-// PluginCredentialHookContext is the context of a login, refresh or revoke
-// call on a channel: utils.fetch may POST, through the channel proxy, and
-// always verifies TLS whatever the channel's TLS setting is.
-func PluginCredentialHookContext(ctx context.Context, plugin *jsplugin.LoadedPlugin, baseURL, proxy string) context.Context {
-	return jsplugin.WithFetcher(ctx, PluginFetcher(plugin, baseURL, proxy, dto.ChannelSettings{}))
+// PluginCredentialHookContext is the context of a login, refresh, revoke or
+// scheduled call on a channel: utils.fetch may POST, through the channel proxy,
+// and always verifies TLS whatever the channel's TLS setting is. The channel's
+// internal network permission is carried over, because these hooks fetch the
+// same upstream as the relayed request: a channel the root account authorized
+// for an internal upstream must be able to log in and refresh there, and the
+// dial-time guard would otherwise refuse the hook with nothing to configure.
+func PluginCredentialHookContext(ctx context.Context, plugin *jsplugin.LoadedPlugin, baseURL, proxy string, allowPrivateNetwork bool) context.Context {
+	return jsplugin.WithFetcher(ctx, PluginFetcher(plugin, baseURL, proxy, dto.ChannelSettings{AllowPrivateNetwork: allowPrivateNetwork}))
 }
 
 // PluginCredentialRefresher refreshes plugin credentials with one plugin call
@@ -197,7 +201,7 @@ func refreshPluginCredentialLine(channelID, keyIndex int, used string) (string, 
 		if err != nil {
 			return err
 		}
-		channelName, multiKey, autoBan, storedKey = channel.Name, channel.ChannelInfo.IsMultiKey, channel.GetAutoBan(), channel.Key
+		channelName, multiKey, autoBan, storedKey = channel.Name, channel.ChannelInfo.IsMultiKey, channel.GetAutoBan(), channel.Key.String()
 		plugin, ok := PluginOfChannel(channel)
 		if !ok || plugin.Meta.Key != usedCredential.Plugin {
 			return fmt.Errorf("channel #%d is not bound to plugin %s", channelID, usedCredential.Plugin)
@@ -217,7 +221,7 @@ func refreshPluginCredentialLine(channelID, keyIndex int, used string) (string, 
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), pluginCredentialHookTimeout)
 		defer cancel()
-		ctx = PluginCredentialHookContext(ctx, plugin, channel.GetBaseURL(), channel.GetSetting().Proxy)
+		ctx = PluginCredentialHookContext(ctx, plugin, channel.GetBaseURL(), channel.GetSetting().Proxy, channel.GetSetting().AllowPrivateNetwork)
 		result, err := plugin.CallRefresh(ctx, jsplugin.CredentialContext{BaseURL: channel.GetBaseURL(), Credential: usedCredential.Data, Config: plugin.ChannelConfigFor(channel.GetOtherSettings().PluginConfig)})
 		if err != nil {
 			return err
@@ -249,13 +253,13 @@ func refreshPluginCredentialLine(channelID, keyIndex int, used string) (string, 
 			}
 			current, needsLogin = refreshed, result.Relogin
 			lines[index] = refreshed
-			channel.Key = strings.Join(lines, "\n")
+			channel.Key = common.SecretString(strings.Join(lines, "\n"))
 			return nil
 		})
 		if err != nil {
 			return err
 		}
-		storedKey = stored.Key
+		storedKey = stored.Key.String()
 		return nil
 	})
 	if err != nil {
@@ -322,7 +326,7 @@ func pluginTokenKey(plugin *jsplugin.LoadedPlugin, channelID int, line string, c
 // The exchange may POST through the channel proxy and always verifies TLS. A
 // returned {error} is a *jsplugin.UpstreamError; a throw or an invalid result
 // is ErrPluginKeyExchangeFailed, logged by category only.
-func PluginKeyToken(ctx context.Context, plugin *jsplugin.LoadedPlugin, channelID int, line string, config json.RawMessage, baseURL, proxy string) (json.RawMessage, error) {
+func PluginKeyToken(ctx context.Context, plugin *jsplugin.LoadedPlugin, channelID int, line string, config json.RawMessage, baseURL, proxy string, allowPrivateNetwork bool) (json.RawMessage, error) {
 	key := pluginTokenKey(plugin, channelID, line, config, baseURL)
 	pluginTokens.mutex.Lock()
 	cached, ok := pluginTokens.tokens[key]
@@ -334,7 +338,7 @@ func PluginKeyToken(ctx context.Context, plugin *jsplugin.LoadedPlugin, channelI
 		// The call is shared, so no single caller's cancellation ends it.
 		hookCtx, cancel := context.WithTimeout(context.Background(), pluginCredentialHookTimeout)
 		defer cancel()
-		hookCtx = PluginCredentialHookContext(hookCtx, plugin, baseURL, proxy)
+		hookCtx = PluginCredentialHookContext(hookCtx, plugin, baseURL, proxy, allowPrivateNetwork)
 		exchanged, upstreamErr, err := plugin.CallExchangeKey(hookCtx, jsplugin.CredentialContext{BaseURL: baseURL, APIKey: line, Config: config})
 		if err != nil {
 			common.SysLog(common.LogText("plugin key exchange failed: plugin=%s channel_id=%d category=%s", plugin.Meta.Key, channelID, pluginErrorCategory(err)))
@@ -424,13 +428,13 @@ func refreshedPluginCredential(stored jsplugin.Credential, result jsplugin.Crede
 // pluginCredentialKeyLines splits a channel key into its lines: the whole key
 // is the one line of a single-key channel. An empty key has none.
 func pluginCredentialKeyLines(channel *model.Channel) []string {
-	if strings.TrimSpace(channel.Key) == "" {
+	if strings.TrimSpace(channel.Key.String()) == "" {
 		return nil
 	}
 	if !channel.ChannelInfo.IsMultiKey {
-		return []string{channel.Key}
+		return []string{channel.Key.String()}
 	}
-	return strings.Split(strings.Trim(channel.Key, "\n"), "\n")
+	return strings.Split(strings.Trim(channel.Key.String(), "\n"), "\n")
 }
 
 // locatePluginCredentialLine finds the stored line of a used credential: at
@@ -537,19 +541,19 @@ func pluginErrorCategory(err error) string {
 // RevokePluginCredentials calls the plugin's revoke for each removed
 // credential line of the plugin, in the background. It never blocks the
 // removal and only logs its failures.
-func RevokePluginCredentials(pluginKey, baseURL, proxy string, channelID int, config json.RawMessage, lines []string) {
+func RevokePluginCredentials(pluginKey, baseURL, proxy string, channelID int, config json.RawMessage, lines []string, allowPrivateNetwork bool) {
 	var credentials []json.RawMessage
 	for _, line := range lines {
 		if credential, ok := jsplugin.ParseCredential(line); ok && credential.Plugin == pluginKey {
 			credentials = append(credentials, credential.Data)
 		}
 	}
-	revokePluginCredentialData(pluginKey, baseURL, proxy, channelID, config, credentials)
+	revokePluginCredentialData(pluginKey, baseURL, proxy, channelID, config, credentials, allowPrivateNetwork)
 }
 
 // revokePluginCredentialData calls the plugin's revoke for the data of each
 // credential, in the background, and only logs its failures.
-func revokePluginCredentialData(pluginKey, baseURL, proxy string, channelID int, storedConfig json.RawMessage, credentials []json.RawMessage) {
+func revokePluginCredentialData(pluginKey, baseURL, proxy string, channelID int, storedConfig json.RawMessage, credentials []json.RawMessage, allowPrivateNetwork bool) {
 	plugin, ok := jsplugin.DefaultRegistry.Get(pluginKey)
 	if !ok || !plugin.HasProviderHook("revoke") || len(credentials) == 0 {
 		return
@@ -558,7 +562,7 @@ func revokePluginCredentialData(pluginKey, baseURL, proxy string, channelID int,
 	gopool.Go(func() {
 		for _, credential := range credentials {
 			ctx, cancel := context.WithTimeout(context.Background(), pluginCredentialHookTimeout)
-			err := plugin.CallRevoke(PluginCredentialHookContext(ctx, plugin, baseURL, proxy), jsplugin.CredentialContext{BaseURL: baseURL, Credential: credential, Config: config})
+			err := plugin.CallRevoke(PluginCredentialHookContext(ctx, plugin, baseURL, proxy, allowPrivateNetwork), jsplugin.CredentialContext{BaseURL: baseURL, Credential: credential, Config: config})
 			cancel()
 			if err != nil {
 				common.SysLog(common.LogText("plugin credential revoke failed: plugin=%s channel_id=%d category=%s", pluginKey, channelID, pluginErrorCategory(err)))
@@ -651,18 +655,18 @@ func keyCredentialCandidates(key string) []string {
 	if key == "" {
 		return nil
 	}
-	return append([]string{key}, (&model.Channel{Key: key}).GetKeys()...)
+	return append([]string{key}, (&model.Channel{Key: common.SecretString(key)}).GetKeys()...)
 }
 
 // DropPluginCredentials removes the credential lines from the key of a
 // channel copy, since a credential belongs to the channel its login stored it
 // on. A task plugin copy left without a key waits for a login.
 func DropPluginCredentials(channel *model.Channel) {
-	if !strings.Contains(channel.Key, jsplugin.CredentialType) {
+	if !strings.Contains(channel.Key.String(), jsplugin.CredentialType) {
 		return
 	}
 	if !channel.ChannelInfo.IsMultiKey {
-		if _, ok := jsplugin.ParseCredential(channel.Key); ok {
+		if _, ok := jsplugin.ParseCredential(channel.Key.String()); ok {
 			channel.Key = ""
 		}
 	} else {
@@ -689,14 +693,14 @@ func DropPluginCredentials(channel *model.Channel) {
 		if len(kept) == len(keys) {
 			return
 		}
-		channel.Key = strings.Join(kept, "\n")
+		channel.Key = common.SecretString(strings.Join(kept, "\n"))
 		channel.Keys = nil
 		info.MultiKeySize = len(kept)
 		info.MultiKeyStatusList, info.MultiKeyDisabledReason, info.MultiKeyDisabledTime = statusList, reasons, times
 		info.MultiKeyPollingIndex = 0
 		channel.ChannelInfo = info
 	}
-	if strings.TrimSpace(channel.Key) == "" {
+	if strings.TrimSpace(channel.Key.String()) == "" {
 		PluginLoginNeededStatus(channel)
 	}
 }
@@ -708,7 +712,7 @@ func RevokeDeletedChannelCredentials(channels []*model.Channel) {
 		if channel == nil || channel.Type != constant.ChannelTypeTaskPlugin {
 			continue
 		}
-		RevokePluginCredentials(channel.GetSetting().TaskPluginKey, channel.GetBaseURL(), channel.GetSetting().Proxy, channel.Id, channel.GetOtherSettings().PluginConfig, pluginCredentialKeyLines(channel))
+		RevokePluginCredentials(channel.GetSetting().TaskPluginKey, channel.GetBaseURL(), channel.GetSetting().Proxy, channel.Id, channel.GetOtherSettings().PluginConfig, pluginCredentialKeyLines(channel), channel.GetSetting().AllowPrivateNetwork)
 	}
 }
 
@@ -719,7 +723,7 @@ func RevokeRemovedChannelCredentials(stored *model.Channel, before, after string
 	if stored.Type != constant.ChannelTypeTaskPlugin {
 		return
 	}
-	RevokePluginCredentials(stored.GetSetting().TaskPluginKey, stored.GetBaseURL(), stored.GetSetting().Proxy, stored.Id, stored.GetOtherSettings().PluginConfig, RemovedPluginCredentialLines(before, after))
+	RevokePluginCredentials(stored.GetSetting().TaskPluginKey, stored.GetBaseURL(), stored.GetSetting().Proxy, stored.Id, stored.GetOtherSettings().PluginConfig, RemovedPluginCredentialLines(before, after), stored.GetSetting().AllowPrivateNetwork)
 }
 
 // PluginCredentialPreview names a credential line for key lists without its

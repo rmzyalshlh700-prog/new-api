@@ -27,6 +27,9 @@ const PRESERVED_LOCAL_STORAGE_KEYS = new Set([
   'uid',
   'aff',
   'oauth:binding:result',
+  // Keep the user's interface-language choice (read by the pre-paint script in
+  // index.html and the LanguageDetector) across cache-version resets.
+  'i18nextLng',
 ])
 
 export function initializeFrontendCache(): void {

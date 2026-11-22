@@ -16,13 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { VChart } from '@visactor/react-vchart'
-import { useMemo } from 'react'
+import { Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useThemeCustomization } from '@/shared/context/theme-customization-provider'
 import { getSuccessRateColor } from '@/shared/features/performance-metrics/lib/format'
 import { formatLocaleDate } from '@/shared/lib/format'
+import { VChart } from '@/shared/lib/lazy-vchart'
 import { useThemeRadiusPx } from '@/shared/lib/theme-radius'
 import { useChartTheme } from '@/shared/lib/use-chart-theme'
 import { cn } from '@/shared/lib/utils'
@@ -174,15 +174,17 @@ export function LatencyTrendChart(props: {
   return (
     <div className={cn('h-64 sm:h-72', props.className)}>
       {themeReady && spec && (
-        <VChart
-          key={`latency-${resolvedTheme}`}
-          spec={{
-            ...spec,
-            theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-            background: 'transparent',
-          }}
-          option={VCHART_OPTION}
-        />
+        <Suspense fallback={null}>
+          <VChart
+            key={`latency-${resolvedTheme}`}
+            spec={{
+              ...spec,
+              theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+              background: 'transparent',
+            }}
+            option={VCHART_OPTION}
+          />
+        </Suspense>
       )}
     </div>
   )
@@ -302,15 +304,17 @@ export function UptimeTrendChart(props: {
   return (
     <div className={cn('h-56 sm:h-64', props.className)}>
       {themeReady && spec && (
-        <VChart
-          key={`uptime-trend-${resolvedTheme}`}
-          spec={{
-            ...spec,
-            theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-            background: 'transparent',
-          }}
-          option={VCHART_OPTION}
-        />
+        <Suspense fallback={null}>
+          <VChart
+            key={`uptime-trend-${resolvedTheme}`}
+            spec={{
+              ...spec,
+              theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+              background: 'transparent',
+            }}
+            option={VCHART_OPTION}
+          />
+        </Suspense>
       )}
     </div>
   )
@@ -395,15 +399,17 @@ export function ThroughputBarChart(props: {
   return (
     <div className={cn('h-48 sm:h-56', props.className)}>
       {themeReady && spec && (
-        <VChart
-          key={`tput-${resolvedTheme}`}
-          spec={{
-            ...spec,
-            theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-            background: 'transparent',
-          }}
-          option={VCHART_OPTION}
-        />
+        <Suspense fallback={null}>
+          <VChart
+            key={`tput-${resolvedTheme}`}
+            spec={{
+              ...spec,
+              theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+              background: 'transparent',
+            }}
+            option={VCHART_OPTION}
+          />
+        </Suspense>
       )}
     </div>
   )

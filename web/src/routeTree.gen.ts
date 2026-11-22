@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as AdminRouteRouteImport } from './routes/_admin/route'
 import { Route as AppRouteRouteImport } from './routes/app/route'
+import { Route as BlogRouteRouteImport } from './routes/blog/route'
+import { Route as DocsRouteRouteImport } from './routes/docs/route'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as UserAgreementRouteImport } from './routes/user-agreement'
@@ -34,6 +36,11 @@ import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppChat2linkRouteImport } from './routes/app/chat2link'
 import { Route as AppSupportRouteImport } from './routes/app/support'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
+import { Route as DocsSectionRouteImport } from './routes/docs/$section'
+import { Route as IntegrationsIndexRouteImport } from './routes/integrations/index'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
 import { Route as PricingIndexRouteImport } from './routes/pricing/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
@@ -42,6 +49,8 @@ import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AdminAdminIndexRouteImport } from './routes/_admin/admin/index'
 import { Route as AdminAdminArchiveRouteImport } from './routes/_admin/admin/archive'
 import { Route as AdminAdminBackupRouteImport } from './routes/_admin/admin/backup'
+import { Route as AdminAdminMonitorRouteImport } from './routes/_admin/admin/monitor'
+import { Route as AdminAdminNotificationsRouteImport } from './routes/_admin/admin/notifications'
 import { Route as AdminAdminOverviewRouteImport } from './routes/_admin/admin/overview'
 import { Route as AdminAdminPaymentsRouteImport } from './routes/_admin/admin/payments'
 import { Route as AdminAdminSupportTicketsRouteImport } from './routes/_admin/admin/support-tickets'
@@ -102,6 +111,16 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogRouteRoute = BlogRouteRouteImport.update({
+  id: '/blog',
+  path: '/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRouteRoute = DocsRouteRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaintenanceRoute = MaintenanceRouteImport.update({
@@ -209,6 +228,31 @@ const AppSupportRoute = AppSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BlogRouteRoute,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BlogRouteRoute,
+} as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DocsRouteRoute,
+} as any)
+const DocsSectionRoute = DocsSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => DocsRouteRoute,
+} as any)
+const IntegrationsIndexRoute = IntegrationsIndexRouteImport.update({
+  id: '/integrations/',
+  path: '/integrations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthProviderRoute = OauthProviderRouteImport.update({
   id: '/oauth/$provider',
   path: '/oauth/$provider',
@@ -247,6 +291,16 @@ const AdminAdminArchiveRoute = AdminAdminArchiveRouteImport.update({
 const AdminAdminBackupRoute = AdminAdminBackupRouteImport.update({
   id: '/admin/backup',
   path: '/admin/backup',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAdminMonitorRoute = AdminAdminMonitorRouteImport.update({
+  id: '/admin/monitor',
+  path: '/admin/monitor',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAdminNotificationsRoute = AdminAdminNotificationsRouteImport.update({
+  id: '/admin/notifications',
+  path: '/admin/notifications',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminAdminOverviewRoute = AdminAdminOverviewRouteImport.update({
@@ -494,6 +548,8 @@ const AuthenticatedOauthPluginKeyCallbackRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
+  '/blog': typeof BlogRouteRouteWithChildren
+  '/docs': typeof DocsRouteRouteWithChildren
   '/maintenance': typeof MaintenanceRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/user-agreement': typeof UserAgreementRoute
@@ -513,9 +569,14 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/app/chat2link': typeof AppChat2linkRoute
   '/app/support': typeof AppSupportRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/docs/$section': typeof DocsSectionRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/app/': typeof AppIndexRoute
+  '/blog/': typeof BlogIndexRoute
+  '/docs/': typeof DocsIndexRoute
+  '/integrations/': typeof IntegrationsIndexRoute
   '/pricing/': typeof PricingIndexRoute
   '/rankings/': typeof RankingsIndexRoute
   '/setup/': typeof SetupIndexRoute
@@ -523,6 +584,8 @@ export interface FileRoutesByFullPath {
   '/user/reset': typeof authUserResetRoute
   '/admin/archive': typeof AdminAdminArchiveRoute
   '/admin/backup': typeof AdminAdminBackupRoute
+  '/admin/monitor': typeof AdminAdminMonitorRoute
+  '/admin/notifications': typeof AdminAdminNotificationsRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
   '/admin/support-tickets': typeof AdminAdminSupportTicketsRoute
@@ -588,15 +651,22 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/app/chat2link': typeof AppChat2linkRoute
   '/app/support': typeof AppSupportRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/docs/$section': typeof DocsSectionRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about': typeof AboutIndexRoute
   '/app': typeof AppIndexRoute
+  '/blog': typeof BlogIndexRoute
+  '/docs': typeof DocsIndexRoute
+  '/integrations': typeof IntegrationsIndexRoute
   '/pricing': typeof PricingIndexRoute
   '/rankings': typeof RankingsIndexRoute
   '/setup': typeof SetupIndexRoute
   '/user/reset': typeof authUserResetRoute
   '/admin/archive': typeof AdminAdminArchiveRoute
   '/admin/backup': typeof AdminAdminBackupRoute
+  '/admin/monitor': typeof AdminAdminMonitorRoute
+  '/admin/notifications': typeof AdminAdminNotificationsRoute
   '/admin/overview': typeof AdminAdminOverviewRoute
   '/admin/payments': typeof AdminAdminPaymentsRoute
   '/admin/support-tickets': typeof AdminAdminSupportTicketsRoute
@@ -647,6 +717,8 @@ export interface FileRoutesById {
   '/(auth)': typeof authRouteRouteWithChildren
   '/_admin': typeof AdminRouteRouteWithChildren
   '/app': typeof AppRouteRouteWithChildren
+  '/blog': typeof BlogRouteRouteWithChildren
+  '/docs': typeof DocsRouteRouteWithChildren
   '/maintenance': typeof MaintenanceRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/user-agreement': typeof UserAgreementRoute
@@ -666,9 +738,14 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/app/chat2link': typeof AppChat2linkRoute
   '/app/support': typeof AppSupportRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/docs/$section': typeof DocsSectionRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/app/': typeof AppIndexRoute
+  '/blog/': typeof BlogIndexRoute
+  '/docs/': typeof DocsIndexRoute
+  '/integrations/': typeof IntegrationsIndexRoute
   '/pricing/': typeof PricingIndexRoute
   '/rankings/': typeof RankingsIndexRoute
   '/setup/': typeof SetupIndexRoute
@@ -676,6 +753,8 @@ export interface FileRoutesById {
   '/(auth)/user/reset': typeof authUserResetRoute
   '/_admin/admin/archive': typeof AdminAdminArchiveRoute
   '/_admin/admin/backup': typeof AdminAdminBackupRoute
+  '/_admin/admin/monitor': typeof AdminAdminMonitorRoute
+  '/_admin/admin/notifications': typeof AdminAdminNotificationsRoute
   '/_admin/admin/overview': typeof AdminAdminOverviewRoute
   '/_admin/admin/payments': typeof AdminAdminPaymentsRoute
   '/_admin/admin/support-tickets': typeof AdminAdminSupportTicketsRoute
@@ -725,6 +804,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/blog'
+    | '/docs'
     | '/maintenance'
     | '/privacy-policy'
     | '/user-agreement'
@@ -744,9 +825,14 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/app/chat2link'
     | '/app/support'
+    | '/blog/$slug'
+    | '/docs/$section'
     | '/oauth/$provider'
     | '/about/'
     | '/app/'
+    | '/blog/'
+    | '/docs/'
+    | '/integrations/'
     | '/pricing/'
     | '/rankings/'
     | '/setup/'
@@ -754,6 +840,8 @@ export interface FileRouteTypes {
     | '/user/reset'
     | '/admin/archive'
     | '/admin/backup'
+    | '/admin/monitor'
+    | '/admin/notifications'
     | '/admin/overview'
     | '/admin/payments'
     | '/admin/support-tickets'
@@ -819,15 +907,22 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/app/chat2link'
     | '/app/support'
+    | '/blog/$slug'
+    | '/docs/$section'
     | '/oauth/$provider'
     | '/about'
     | '/app'
+    | '/blog'
+    | '/docs'
+    | '/integrations'
     | '/pricing'
     | '/rankings'
     | '/setup'
     | '/user/reset'
     | '/admin/archive'
     | '/admin/backup'
+    | '/admin/monitor'
+    | '/admin/notifications'
     | '/admin/overview'
     | '/admin/payments'
     | '/admin/support-tickets'
@@ -877,6 +972,8 @@ export interface FileRouteTypes {
     | '/(auth)'
     | '/_admin'
     | '/app'
+    | '/blog'
+    | '/docs'
     | '/maintenance'
     | '/privacy-policy'
     | '/user-agreement'
@@ -896,9 +993,14 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/app/chat2link'
     | '/app/support'
+    | '/blog/$slug'
+    | '/docs/$section'
     | '/oauth/$provider'
     | '/about/'
     | '/app/'
+    | '/blog/'
+    | '/docs/'
+    | '/integrations/'
     | '/pricing/'
     | '/rankings/'
     | '/setup/'
@@ -906,6 +1008,8 @@ export interface FileRouteTypes {
     | '/(auth)/user/reset'
     | '/_admin/admin/archive'
     | '/_admin/admin/backup'
+    | '/_admin/admin/monitor'
+    | '/_admin/admin/notifications'
     | '/_admin/admin/overview'
     | '/_admin/admin/payments'
     | '/_admin/admin/support-tickets'
@@ -956,6 +1060,8 @@ export interface RootRouteChildren {
   authRouteRoute: typeof authRouteRouteWithChildren
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AppRouteRoute: typeof AppRouteRouteWithChildren
+  BlogRouteRoute: typeof BlogRouteRouteWithChildren
+  DocsRouteRoute: typeof DocsRouteRouteWithChildren
   MaintenanceRoute: typeof MaintenanceRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   UserAgreementRoute: typeof UserAgreementRoute
@@ -967,6 +1073,7 @@ export interface RootRouteChildren {
   AdminLoginRoute: typeof AdminLoginRoute
   OauthProviderRoute: typeof OauthProviderRoute
   AboutIndexRoute: typeof AboutIndexRoute
+  IntegrationsIndexRoute: typeof IntegrationsIndexRoute
   PricingIndexRoute: typeof PricingIndexRoute
   RankingsIndexRoute: typeof RankingsIndexRoute
   SetupIndexRoute: typeof SetupIndexRoute
@@ -1003,6 +1110,20 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/maintenance': {
@@ -1152,6 +1273,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSupportRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof BlogRouteRoute
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof BlogRouteRoute
+    }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRouteRoute
+    }
+    '/docs/$section': {
+      id: '/docs/$section'
+      path: '/$section'
+      fullPath: '/docs/$section'
+      preLoaderRoute: typeof DocsSectionRouteImport
+      parentRoute: typeof DocsRouteRoute
+    }
+    '/integrations/': {
+      id: '/integrations/'
+      path: '/integrations'
+      fullPath: '/integrations/'
+      preLoaderRoute: typeof IntegrationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth/$provider': {
       id: '/oauth/$provider'
       path: '/oauth/$provider'
@@ -1206,6 +1362,20 @@ declare module '@tanstack/react-router' {
       path: '/admin/backup'
       fullPath: '/admin/backup'
       preLoaderRoute: typeof AdminAdminBackupRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_admin/admin/monitor': {
+      id: '/_admin/admin/monitor'
+      path: '/admin/monitor'
+      fullPath: '/admin/monitor'
+      preLoaderRoute: typeof AdminAdminMonitorRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/_admin/admin/notifications': {
+      id: '/_admin/admin/notifications'
+      path: '/admin/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminAdminNotificationsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_admin/admin/overview': {
@@ -1606,6 +1776,8 @@ interface AdminRouteRouteChildren {
   AdminAdminSystemSettingsRouteRoute: typeof AdminAdminSystemSettingsRouteRouteWithChildren
   AdminAdminArchiveRoute: typeof AdminAdminArchiveRoute
   AdminAdminBackupRoute: typeof AdminAdminBackupRoute
+  AdminAdminMonitorRoute: typeof AdminAdminMonitorRoute
+  AdminAdminNotificationsRoute: typeof AdminAdminNotificationsRoute
   AdminAdminOverviewRoute: typeof AdminAdminOverviewRoute
   AdminAdminPaymentsRoute: typeof AdminAdminPaymentsRoute
   AdminAdminSupportTicketsRoute: typeof AdminAdminSupportTicketsRoute
@@ -1626,6 +1798,8 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
     AdminAdminSystemSettingsRouteRouteWithChildren,
   AdminAdminArchiveRoute: AdminAdminArchiveRoute,
   AdminAdminBackupRoute: AdminAdminBackupRoute,
+  AdminAdminMonitorRoute: AdminAdminMonitorRoute,
+  AdminAdminNotificationsRoute: AdminAdminNotificationsRoute,
   AdminAdminOverviewRoute: AdminAdminOverviewRoute,
   AdminAdminPaymentsRoute: AdminAdminPaymentsRoute,
   AdminAdminSupportTicketsRoute: AdminAdminSupportTicketsRoute,
@@ -1681,11 +1855,41 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
   AppRouteRouteChildren,
 )
 
+interface BlogRouteRouteChildren {
+  BlogSlugRoute: typeof BlogSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+}
+
+const BlogRouteRouteChildren: BlogRouteRouteChildren = {
+  BlogSlugRoute: BlogSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
+}
+
+const BlogRouteRouteWithChildren = BlogRouteRoute._addFileChildren(
+  BlogRouteRouteChildren,
+)
+
+interface DocsRouteRouteChildren {
+  DocsSectionRoute: typeof DocsSectionRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+}
+
+const DocsRouteRouteChildren: DocsRouteRouteChildren = {
+  DocsSectionRoute: DocsSectionRoute,
+  DocsIndexRoute: DocsIndexRoute,
+}
+
+const DocsRouteRouteWithChildren = DocsRouteRoute._addFileChildren(
+  DocsRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   authRouteRoute: authRouteRouteWithChildren,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AppRouteRoute: AppRouteRouteWithChildren,
+  BlogRouteRoute: BlogRouteRouteWithChildren,
+  DocsRouteRoute: DocsRouteRouteWithChildren,
   MaintenanceRoute: MaintenanceRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   UserAgreementRoute: UserAgreementRoute,
@@ -1697,6 +1901,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminLoginRoute: AdminLoginRoute,
   OauthProviderRoute: OauthProviderRoute,
   AboutIndexRoute: AboutIndexRoute,
+  IntegrationsIndexRoute: IntegrationsIndexRoute,
   PricingIndexRoute: PricingIndexRoute,
   RankingsIndexRoute: RankingsIndexRoute,
   SetupIndexRoute: SetupIndexRoute,

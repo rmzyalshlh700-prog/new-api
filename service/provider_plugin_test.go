@@ -280,8 +280,8 @@ func registerProviderPlugin(t *testing.T, key, mode string) *jsplugin.LoadedPlug
 
 func createProviderChannel(t *testing.T, pluginKey, baseURL, key string, multiKey bool) *model.Channel {
 	t.Helper()
-	channel := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: key, Status: common.ChannelStatusEnabled, Name: "provider", Models: "provider-model", Group: "default", BaseURL: &baseURL}
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey})
+	channel := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: common.SecretString(key), Status: common.ChannelStatusEnabled, Name: "provider", Models: "provider-model", Group: "default", BaseURL: &baseURL}
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey, AllowPrivateNetwork: true})
 	if multiKey {
 		channel.ChannelInfo = model.ChannelInfo{IsMultiKey: true, MultiKeySize: len(strings.Split(key, "\n")), MultiKeyMode: constant.MultiKeyModePolling}
 	}
@@ -352,7 +352,7 @@ func TestRefreshConcurrentRequestsMakeOnePluginCall(t *testing.T) {
 	for _, result := range results {
 		assert.Equal(t, results[0], result)
 	}
-	assert.Equal(t, results[0], storedChannel(t, channel.Id).Key)
+	assert.Equal(t, results[0], storedChannel(t, channel.Id).Key.String())
 }
 
 // Two refreshers stand for two nodes: their single-flight groups do not see
@@ -381,7 +381,7 @@ func TestRefreshTwoNodesMakeOnePluginCall(t *testing.T) {
 
 	assert.EqualValues(t, 1, server.refreshCalls.Load(), "a refresh token used twice can revoke the whole grant")
 	assert.Zero(t, server.reuses.Load())
-	stored := storedChannel(t, channel.Id).Key
+	stored := storedChannel(t, channel.Id).Key.String()
 	for _, result := range results {
 		assert.Equal(t, stored, result)
 	}
@@ -412,7 +412,7 @@ func TestRefreshPluginCallHoldsNoChannelLock(t *testing.T) {
 	replaced := expiringLine(t, "refresh-unlocked", "refresh-login", "acct-1", time.Now().Add(time.Hour).Unix())
 	started := time.Now()
 	_, err := model.UpdateChannelLocked(channel.Id, func(stored *model.Channel) error {
-		stored.Key = replaced
+		stored.Key = common.SecretString(replaced)
 		return nil
 	})
 	require.NoError(t, err)
@@ -426,7 +426,7 @@ func TestRefreshPluginCallHoldsNoChannelLock(t *testing.T) {
 	<-done
 	require.NoError(t, refreshErr)
 	assert.Equal(t, replaced, refreshed)
-	assert.Equal(t, replaced, storedChannel(t, channel.Id).Key)
+	assert.Equal(t, replaced, storedChannel(t, channel.Id).Key.String())
 	assert.EqualValues(t, 1, server.refreshCalls.Load())
 }
 
@@ -455,7 +455,7 @@ func TestRefreshRotatedTokenIsNeverSentAgain(t *testing.T) {
 	assert.EqualValues(t, 1, server.refreshCalls.Load())
 	cached, err := model.CacheGetChannel(channel.Id)
 	require.NoError(t, err)
-	assert.Equal(t, first, cached.Key)
+	assert.Equal(t, first, cached.Key.String())
 
 	second, err := RefreshPluginCredential(context.Background(), channel.Id, 0, first)
 	require.NoError(t, err)
@@ -499,7 +499,7 @@ func TestRefreshFailuresKeepTheCredential(t *testing.T) {
 	_, err := RefreshPluginCredential(context.Background(), channel.Id, 0, line)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "token endpoint answered 502")
-	assert.Equal(t, line, storedChannel(t, channel.Id).Key)
+	assert.Equal(t, line, storedChannel(t, channel.Id).Key.String())
 	assert.Equal(t, common.ChannelStatusEnabled, storedChannel(t, channel.Id).Status)
 
 	// The vendor rotated to another account: nothing is stored, and the
@@ -507,7 +507,7 @@ func TestRefreshFailuresKeepTheCredential(t *testing.T) {
 	server.account.Store("acct-2")
 	_, err = RefreshPluginCredential(context.Background(), channel.Id, 0, line)
 	require.ErrorContains(t, err, "returned another account")
-	assert.Equal(t, line, storedChannel(t, channel.Id).Key)
+	assert.Equal(t, line, storedChannel(t, channel.Id).Key.String())
 }
 
 func TestRefreshRemovedCredential(t *testing.T) {
@@ -644,7 +644,7 @@ func TestBackgroundScanRefreshesOnlyWhatExpiresSoon(t *testing.T) {
 	assert.Contains(t, storedChannel(t, later.Id).Key, `"refresh":"later"`)
 	assert.Contains(t, storedChannel(t, never.Id).Key, `"refresh":"never"`)
 	assert.Contains(t, storedChannel(t, waiting.Id).Key, `"refresh":"login"`)
-	assert.Equal(t, "sk-static", storedChannel(t, static.Id).Key)
+	assert.Equal(t, "sk-static", storedChannel(t, static.Id).Key.String())
 }
 
 func TestRevokeRunsInTheBackgroundForRemovedLines(t *testing.T) {
@@ -672,7 +672,7 @@ export function revoke() { throw new Error("vendor said no"); }`, jsplugin.Optio
 	t.Cleanup(func() { require.NoError(t, jsplugin.DefaultRegistry.Unregister(plugin.Meta.Key)) })
 
 	assert.NotPanics(t, func() {
-		RevokePluginCredentials(plugin.Meta.Key, "https://api.example", "", 1, nil, []string{expiringLine(t, plugin.Meta.Key, "a", "a", 0)})
+		RevokePluginCredentials(plugin.Meta.Key, "https://api.example", "", 1, nil, []string{expiringLine(t, plugin.Meta.Key, "a", "a", 0)}, true)
 	})
 }
 
@@ -695,7 +695,7 @@ export function refresh(ctx) { utils.fetch({url: ctx.baseUrl + "/token", method:
 	t.Cleanup(func() { require.NoError(t, jsplugin.DefaultRegistry.Unregister("tls-verify")) })
 	line := expiringLine(t, "tls-verify", "r", "a", 1)
 	channel := createProviderChannel(t, "tls-verify", server.URL, line, false)
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "tls-verify", TLSInsecureSkipVerify: true})
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "tls-verify", TLSInsecureSkipVerify: true, AllowPrivateNetwork: true})
 	require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", channel.Id).Update("setting", channel.Setting).Error)
 
 	_, err = StartPluginLogin(context.Background(), PluginLoginIdentity{UserID: 1, SessionID: "session"}, channel.Id, nil, false)
@@ -767,18 +767,18 @@ func TestCheckSubmittedPluginCredentials(t *testing.T) {
 func TestDropPluginCredentials(t *testing.T) {
 	line := expiringLine(t, "vendor", "r", "a", 0)
 
-	single := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: line, Status: common.ChannelStatusEnabled}
+	single := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: common.SecretString(line), Status: common.ChannelStatusEnabled}
 	DropPluginCredentials(single)
-	assert.Empty(t, single.Key)
+	assert.Empty(t, single.Key.String())
 	assert.Equal(t, common.ChannelStatusAutoDisabled, single.Status)
 	assert.Equal(t, model.ChannelStatusReasonPluginLoginRequired, single.GetOtherInfo()["status_reason"])
 
-	multi := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: "sk-1\n" + line + "\nsk-2", Status: common.ChannelStatusEnabled, ChannelInfo: model.ChannelInfo{
+	multi := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: common.SecretString("sk-1\n" + line + "\nsk-2"), Status: common.ChannelStatusEnabled, ChannelInfo: model.ChannelInfo{
 		IsMultiKey: true, MultiKeySize: 3, MultiKeyPollingIndex: 2, MultiKeyStatusList: map[int]int{2: common.ChannelStatusAutoDisabled},
 		MultiKeyDisabledReason: map[int]string{2: "quota"}, MultiKeyDisabledTime: map[int]int64{2: 7},
 	}}
 	DropPluginCredentials(multi)
-	assert.Equal(t, "sk-1\nsk-2", multi.Key)
+	assert.Equal(t, "sk-1\nsk-2", multi.Key.String())
 	assert.Equal(t, common.ChannelStatusEnabled, multi.Status)
 	assert.Equal(t, 2, multi.ChannelInfo.MultiKeySize)
 	assert.Equal(t, map[int]int{1: common.ChannelStatusAutoDisabled}, multi.ChannelInfo.MultiKeyStatusList)
@@ -787,7 +787,7 @@ func TestDropPluginCredentials(t *testing.T) {
 
 	static := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: "sk-1", Status: common.ChannelStatusEnabled}
 	DropPluginCredentials(static)
-	assert.Equal(t, "sk-1", static.Key)
+	assert.Equal(t, "sk-1", static.Key.String())
 	assert.Equal(t, common.ChannelStatusEnabled, static.Status)
 }
 
@@ -813,7 +813,7 @@ func TestScheduledCredentialBalanceAndNodeSync(t *testing.T) {
 	require.True(t, model.UpdateChannelStatus(channel.Id, line, common.ChannelStatusAutoDisabled, "quota"))
 	var replicated string
 	RegisterSyncTopic(model.SyncTopicChannels, func(context.Context) error {
-		replicated = storedChannel(t, channel.Id).Key
+		replicated = storedChannel(t, channel.Id).Key.String()
 		return nil
 	})
 	syncNodeTopics(context.Background())
@@ -832,7 +832,7 @@ func TestScheduledCredentialBalanceAndNodeSync(t *testing.T) {
 	assert.Equal(t, 12.0, stored.Balance)
 	assert.NotZero(t, stored.BalanceUpdatedTime)
 	syncNodeTopics(context.Background())
-	assert.Equal(t, stored.Key, replicated, "the other node reloads the changed channel topic")
+	assert.Equal(t, stored.Key.String(), replicated, "the other node reloads the changed channel topic")
 }
 
 func TestScheduledRunsOncePerKey(t *testing.T) {
@@ -853,14 +853,14 @@ func TestScheduledRunsOncePerKey(t *testing.T) {
  utils.fetch({url: ctx.baseUrl}); return {keyStatus: "enabled"};
 }`)
 	channel := createProviderChannel(t, plugin.Meta.Key, server.URL, "own-key", false)
-	require.True(t, model.UpdateChannelStatus(channel.Id, channel.Key, common.ChannelStatusAutoDisabled, "quota"))
+	require.True(t, model.UpdateChannelStatus(channel.Id, channel.Key.String(), common.ChannelStatusAutoDisabled, "quota"))
 	channel = storedChannel(t, channel.Id)
 	s := &pluginScheduler{}
 	now := time.Now()
 	s.scan([]*model.Channel{channel}, now)
 	s.scan([]*model.Channel{channel}, now.Add(10*time.Minute))
 	<-entered
-	s.disabled(channel, channel.Key, now)
+	s.disabled(channel, channel.Key.String(), now)
 	s.scan([]*model.Channel{channel}, now.Add(time.Hour))
 	releaseHook()
 	s.workers.Wait()
@@ -878,7 +878,7 @@ func TestScheduledStaleRemovedAndManualKeys(t *testing.T) {
 			_, err := model.UpdateScheduledChannelLocked(context.Background(), channel.Id, func(current *model.Channel) error {
 				switch mode {
 				case "refreshed":
-					current.Key = expiringLine(t, plugin.Meta.Key, "after", "account", 0)
+					current.Key = common.SecretString(expiringLine(t, plugin.Meta.Key, "after", "account", 0))
 				case "removed":
 					current.Key = "replacement"
 				case "manual channel":
@@ -888,7 +888,7 @@ func TestScheduledStaleRemovedAndManualKeys(t *testing.T) {
 				case "needs login":
 					credential, _ := jsplugin.ParseCredential(line)
 					credential.NeedsLogin = true
-					current.Key = credentialLine(t, *credential)
+					current.Key = common.SecretString(credentialLine(t, *credential))
 				}
 				return nil
 			})
@@ -902,7 +902,7 @@ func TestScheduledStaleRemovedAndManualKeys(t *testing.T) {
 				assert.Zero(t, delay)
 			}
 			after := storedChannel(t, channel.Id)
-			assert.Equal(t, before.Key, after.Key)
+			assert.Equal(t, before.Key.String(), after.Key.String())
 			assert.Equal(t, before.Status, after.Status)
 			assert.Equal(t, before.ChannelInfo, after.ChannelInfo)
 		})
@@ -926,7 +926,7 @@ func TestScheduledInvalidResultsWriteNothing(t *testing.T) {
 			_, _, _, err := runScheduledPlugin(context.Background(), channel, plugin, 0, line, "timer")
 			require.Error(t, err)
 			after := storedChannel(t, channel.Id)
-			assert.Equal(t, before.Key, after.Key)
+			assert.Equal(t, before.Key.String(), after.Key.String())
 			assert.Equal(t, before.Status, after.Status)
 			assert.Equal(t, before.OtherInfo, after.OtherInfo)
 		})
@@ -1016,7 +1016,7 @@ func TestScheduledNextFailureAndIdleCost(t *testing.T) {
 	idle, err := jsplugin.DefaultRegistry.Register(`export const meta = {apiVersion:1,key:"scheduled-idle",name:"Idle",version:"1.0.0",author:{name:"Test"},relay:[{incoming_path:"/v1/models",upstream_path:"/models"}]}; export function prepareRequest() { throw new Error("JS must not run"); }`, jsplugin.Options{})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, jsplugin.DefaultRegistry.Unregister(idle.Meta.Key)) })
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: idle.Meta.Key})
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: idle.Meta.Key, AllowPrivateNetwork: true})
 	inactive := &pluginScheduler{}
 	inactive.scan([]*model.Channel{channel}, now)
 	inactive.disabled(channel, "own-key", now)
@@ -1048,7 +1048,7 @@ func TestScheduledPoolBoundsAndRunningKey(t *testing.T) {
 	}
 	assert.Len(t, s.slots, 4)
 	s.scan(channels, now.Add(10*time.Minute))
-	s.disabled(channels[0], channels[0].Key, now)
+	s.disabled(channels[0], channels[0].Key.String(), now)
 	assert.Len(t, s.slots, 4, "scans and disabled events skip an already running key")
 	s.scan(nil, now)
 	assert.Len(t, s.entries, 4, "an old snapshot must keep the running keys and their eventual next times")
@@ -1073,7 +1073,7 @@ func TestScheduledDisableHonorsChannelSwitchAndDoesNotRecurse(t *testing.T) {
 		}
 		channel.AutoBan = &flag
 		require.NoError(t, model.DB.Model(channel).Update("auto_ban", flag).Error)
-		_, _, _, err := runScheduledPlugin(context.Background(), channel, plugin, 0, channel.Key, "timer")
+		_, _, _, err := runScheduledPlugin(context.Background(), channel, plugin, 0, channel.Key.String(), "timer")
 		require.NoError(t, err)
 		stored := storedChannel(t, channel.Id)
 		if autoBan {
@@ -1101,7 +1101,7 @@ func TestScheduledCancellationAndTLSKeepStoredState(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	finished := make(chan error, 1)
 	go func() {
-		_, _, _, err := runScheduledPlugin(ctx, channel, plugin, 0, channel.Key, "timer")
+		_, _, _, err := runScheduledPlugin(ctx, channel, plugin, 0, channel.Key.String(), "timer")
 		finished <- err
 	}()
 	<-entered
@@ -1115,9 +1115,9 @@ func TestScheduledCancellationAndTLSKeepStoredState(t *testing.T) {
 	tlsServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { requests.Add(1) }))
 	defer tlsServer.Close()
 	tlsChannel := createProviderChannel(t, plugin.Meta.Key, tlsServer.URL, "own-key", false)
-	tlsChannel.SetSetting(dto.ChannelSettings{TaskPluginKey: plugin.Meta.Key, TLSInsecureSkipVerify: true})
+	tlsChannel.SetSetting(dto.ChannelSettings{TaskPluginKey: plugin.Meta.Key, TLSInsecureSkipVerify: true, AllowPrivateNetwork: true})
 	require.NoError(t, model.DB.Model(tlsChannel).Update("setting", tlsChannel.Setting).Error)
-	_, _, _, err = runScheduledPlugin(context.Background(), tlsChannel, plugin, 0, tlsChannel.Key, "timer")
+	_, _, _, err = runScheduledPlugin(context.Background(), tlsChannel, plugin, 0, tlsChannel.Key.String(), "timer")
 	require.Error(t, err)
 	assert.Zero(t, requests.Load(), "the certificate check must reject the request before sending the key")
 	assert.Equal(t, common.ChannelStatusEnabled, storedChannel(t, tlsChannel.Id).Status)
@@ -1137,10 +1137,10 @@ func TestScheduledReplacementKeysGetAnInitialRun(t *testing.T) {
 	assert.False(t, s.entries[key].next.Before(now))
 	assert.True(t, s.entries[key].next.Before(now.Add(10*time.Minute)))
 
-	channel.Key = expiringLine(t, plugin.Meta.Key, "before", "account", 0)
+	channel.Key = common.SecretString(expiringLine(t, plugin.Meta.Key, "before", "account", 0))
 	s.scan([]*model.Channel{channel}, now)
 	s.entries[key].next = now.Add(24 * time.Hour)
-	channel.Key = expiringLine(t, plugin.Meta.Key, "refreshed", "account", 0)
+	channel.Key = common.SecretString(expiringLine(t, plugin.Meta.Key, "refreshed", "account", 0))
 	s.scan([]*model.Channel{channel}, now)
 	assert.Equal(t, now.Add(24*time.Hour), s.entries[key].next, "a refresh preserves the account's schedule")
 }
@@ -1263,11 +1263,11 @@ func TestScheduledScanDetectsDisabledTransitionOnce(t *testing.T) {
 			if source == "follower" {
 				// Another node's automatic disable bumps the channels topic.
 				common.IsMasterNode = false
-				disabledByFollower := model.UpdateChannelStatus(channel.Id, channel.Key, common.ChannelStatusAutoDisabled, "other node")
+				disabledByFollower := model.UpdateChannelStatus(channel.Id, channel.Key.String(), common.ChannelStatusAutoDisabled, "other node")
 				common.IsMasterNode = true
 				require.True(t, disabledByFollower)
 			} else {
-				DisableChannel(*types.NewChannelError(channel.Id, channel.Type, channel.Name, false, channel.Key, true), "quota")
+				DisableChannel(*types.NewChannelError(channel.Id, channel.Type, channel.Name, false, channel.Key.String(), true), "quota")
 				// The master queued the call itself; another write's bump
 				// scans the same transition.
 				model.BumpSyncTopic(model.SyncTopicChannels)
@@ -1430,13 +1430,13 @@ func TestScheduledSyncBeforeMasterDisableDoesNotDuplicate(t *testing.T) {
 	require.True(t, syncNodeTopics(context.Background()))
 	// DisableChannel has committed its write but has not called disabled yet,
 	// and another write's bump runs a scan meanwhile.
-	require.True(t, model.UpdateChannelStatus(channel.Id, channel.Key, common.ChannelStatusAutoDisabled, "quota"))
+	require.True(t, model.UpdateChannelStatus(channel.Id, channel.Key.String(), common.ChannelStatusAutoDisabled, "quota"))
 	model.BumpSyncTopic(model.SyncTopicChannels)
 	require.True(t, syncNodeTopics(context.Background()))
 	scheduledPlugins.workers.Wait()
 	require.EqualValues(t, 1, calls.Load())
 	// Resume the same DisableChannel call after the node-sync run completed.
-	scheduledPlugins.disabled(storedChannel(t, channel.Id), channel.Key, time.Now())
+	scheduledPlugins.disabled(storedChannel(t, channel.Id), channel.Key.String(), time.Now())
 	scheduledPlugins.workers.Wait()
 	require.EqualValues(t, 1, calls.Load())
 	RefreshExpiringPluginCredentials(time.Now().Add(2 * time.Minute))
@@ -1452,12 +1452,12 @@ func TestScheduledFollowerSkipsEveryTrigger(t *testing.T) {
 	scheduledPlugins = &pluginScheduler{}
 	t.Cleanup(func() { scheduledPlugins.workers.Wait(); scheduledPlugins = previous })
 	common.IsMasterNode = false
-	DisableChannel(*types.NewChannelError(channel.Id, channel.Type, channel.Name, false, channel.Key, true), "quota")
+	DisableChannel(*types.NewChannelError(channel.Id, channel.Type, channel.Name, false, channel.Key.String(), true), "quota")
 	channel = storedChannel(t, channel.Id)
 	assert.Equal(t, common.ChannelStatusAutoDisabled, channel.Status)
 	scheduledPlugins.scan([]*model.Channel{channel}, time.Now().Add(time.Hour))
-	scheduledPlugins.disabled(channel, channel.Key, time.Now())
-	delay, status, _, err := runScheduledPlugin(context.Background(), channel, plugin, 0, channel.Key, "disabled")
+	scheduledPlugins.disabled(channel, channel.Key.String(), time.Now())
+	delay, status, _, err := runScheduledPlugin(context.Background(), channel, plugin, 0, channel.Key.String(), "disabled")
 	require.NoError(t, err)
 	assert.Zero(t, delay)
 	assert.Zero(t, status)
@@ -1498,7 +1498,7 @@ func TestScheduledChangedKeyDiscardsAllResults(t *testing.T) {
 	}()
 	<-entered
 	_, err := model.UpdateChannelLocked(channel.Id, func(current *model.Channel) error {
-		current.Key = replacement
+		current.Key = common.SecretString(replacement)
 		return nil
 	})
 	require.NoError(t, err)
@@ -1508,7 +1508,7 @@ func TestScheduledChangedKeyDiscardsAllResults(t *testing.T) {
 	require.NoError(t, result.err)
 	assert.Equal(t, time.Minute, result.delay)
 	after := storedChannel(t, channel.Id)
-	assert.Equal(t, before.Key, after.Key)
+	assert.Equal(t, before.Key.String(), after.Key.String())
 	assert.Equal(t, before.Status, after.Status)
 	assert.Equal(t, before.ChannelInfo, after.ChannelInfo)
 	assert.Equal(t, before.OtherInfo, after.OtherInfo)
@@ -1544,7 +1544,7 @@ func TestScheduledDisableDuringTimerRunsOnNextScan(t *testing.T) {
 	s.scan([]*model.Channel{channel}, now)
 	s.scan([]*model.Channel{channel}, now.Add(10*time.Minute))
 	<-entered
-	DisableChannel(*types.NewChannelError(channel.Id, channel.Type, channel.Name, false, channel.Key, true), "quota")
+	DisableChannel(*types.NewChannelError(channel.Id, channel.Type, channel.Name, false, channel.Key.String(), true), "quota")
 	releaseHook()
 	s.workers.Wait()
 	s.scan([]*model.Channel{storedChannel(t, channel.Id)}, now)

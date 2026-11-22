@@ -150,6 +150,11 @@ export function AppHeader({
               notice={notifications.notice}
               announcements={notifications.announcements}
               loading={notifications.loading}
+              inboxEnabled={notifications.signedIn}
+              inbox={notifications.inbox}
+              inboxLoading={notifications.inboxLoading}
+              onDismissInboxItem={notifications.dismissInboxItem}
+              onMarkInboxRead={notifications.markInboxRead}
             />
           )}
           <HeaderContactLinks />

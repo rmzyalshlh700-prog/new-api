@@ -32,8 +32,7 @@ import { I18nextProvider } from 'react-i18next'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import zhTW from '@/shared/i18n/locales/zh-TW.json'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 
 import { SettingsPageProvider } from '@/shared/components/settings/settings-page-context'
@@ -107,7 +106,7 @@ beforeEach(async () => {
   await testI18n.init({
     lng: 'en',
     fallbackLng: 'en',
-    resources: { en: { translation: {} }, zh, 'zh-TW': zhTW },
+    resources: { en: { translation: {} }, ru },
     interpolation: { escapeValue: false },
   })
   vi.spyOn(api, 'put').mockResolvedValue({ data: { success: true } })

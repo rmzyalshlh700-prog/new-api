@@ -137,7 +137,7 @@ func TestChannelPriorityDatabaseMatrix(t *testing.T) {
 			}
 			var saved Channel
 			require.NoError(t, db.First(&saved, channels[0].Id).Error)
-			assert.Equal(t, "preserved", saved.Key)
+			assert.Equal(t, "preserved", saved.Key.String())
 			assert.Equal(t, channels[0].Weight, saved.Weight)
 			_, err = ReorderChannelPriority(move)
 			assert.ErrorIs(t, err, ErrChannelPriorityConflict)

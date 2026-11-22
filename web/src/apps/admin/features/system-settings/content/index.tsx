@@ -25,6 +25,11 @@ import {
 } from './section-registry.tsx'
 
 const defaultContentSettings: ContentSettings = {
+  'public_pages.docs_enabled': true,
+  'public_pages.integrations_enabled': true,
+  'public_pages.about_enabled': true,
+  'public_pages.blog_enabled': true,
+  'public_pages.blog_posts': '[]',
   'console_setting.api_info': '[]',
   'console_setting.announcements': '[]',
   'console_setting.faq': '[]',

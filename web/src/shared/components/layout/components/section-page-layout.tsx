@@ -24,6 +24,8 @@ import {
   type ReactNode,
 } from 'react'
 
+import { ConsolePageHeader } from '@/shared/components/console'
+
 import { Main } from './main'
 import { PageFooterProvider } from './page-footer'
 
@@ -33,6 +35,11 @@ function SectionPageLayoutTitle(_props: SlotProps) {
   return null
 }
 SectionPageLayoutTitle.displayName = 'SectionPageLayout.Title'
+
+function SectionPageLayoutHint(_props: SlotProps) {
+  return null
+}
+SectionPageLayoutHint.displayName = 'SectionPageLayout.Hint'
 
 function SectionPageLayoutActions(_props: SlotProps) {
   return null
@@ -55,12 +62,22 @@ export type SectionPageLayoutProps = {
   stackActionsOnMobile?: boolean
 }
 
+/**
+ * Standard screen frame for every console page: one compact header block
+ * (title, optional hint, end-aligned actions), one scrolling canvas and one
+ * pinned footer slot for page-level pagination or form actions.
+ *
+ * Pages only fill the slots; the chrome itself is never re-implemented per
+ * module, which is what keeps titles, spacing and action placement identical
+ * across the whole console.
+ */
 export function SectionPageLayout(props: SectionPageLayoutProps) {
   const [footerContainer, setFooterContainer] = useState<HTMLDivElement | null>(
     null
   )
 
   let title: ReactNode = null
+  let hint: ReactNode = null
   let actions: ReactNode = null
   let content: ReactNode = null
   let breadcrumb: ReactNode = null
@@ -69,6 +86,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
     if (!isValidElement(node)) return
     const child = node as ReactElement<SlotProps>
     if (child.type === SectionPageLayoutTitle) title = child.props.children
+    else if (child.type === SectionPageLayoutHint) hint = child.props.children
     else if (child.type === SectionPageLayoutActions) {
       actions = child.props.children
     } else if (child.type === SectionPageLayoutContent) {
@@ -81,35 +99,16 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
   return (
     <PageFooterProvider container={footerContainer}>
       <Main>
-        <div className='shrink-0 px-3 pt-3 pb-2.5 sm:px-4 sm:pt-5 sm:pb-3'>
-          {breadcrumb != null && (
-            <div className='mb-2 sm:mb-3'>{breadcrumb}</div>
-          )}
-          <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4'>
-            <div
-              className={
-                props.stackActionsOnMobile
-                  ? 'min-w-0 flex-1 max-sm:basis-full'
-                  : 'min-w-0 flex-1'
-              }
-            >
-              <h2 className='truncate text-base font-bold tracking-tight sm:text-lg'>
-                {title}
-              </h2>
-            </div>
-            {actions != null && (
-              <div className='flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-x-4'>
-                {actions}
-              </div>
-            )}
-          </div>
+        <div className='shrink-0 px-3 pt-2.5 pb-2 sm:px-4 sm:pt-3 sm:pb-2.5'>
+          {breadcrumb != null && <div className='mb-2'>{breadcrumb}</div>}
+          <ConsolePageHeader title={title} hint={hint} actions={actions} />
         </div>
 
         <div
           className={
             props.fixedContent
-              ? 'min-h-0 flex-1 overflow-hidden px-3 pt-1 pb-3 sm:px-4 sm:pt-1.5 sm:pb-4'
-              : 'min-h-0 flex-1 overflow-auto px-3 pt-1 pb-3 sm:px-4 sm:pt-1.5 sm:pb-4'
+              ? '[[data-portal=admin]_&]:bg-console-panel min-h-0 flex-1 overflow-hidden px-3 pt-2 pb-3 sm:px-4 sm:pt-2.5 sm:pb-4'
+              : '[[data-portal=admin]_&]:bg-console-panel min-h-0 flex-1 overflow-auto px-3 pt-2 pb-3 sm:px-4 sm:pt-2.5 sm:pb-4'
           }
         >
           {content}
@@ -117,7 +116,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
 
         <div
           ref={setFooterContainer}
-          className='bg-background shrink-0 border-t px-3 py-2.5 pb-[calc(var(--admin-overlay-bottom-size,0px)+0.625rem)] empty:hidden sm:px-4 sm:py-3 sm:pb-[calc(var(--admin-overlay-bottom-size,0px)+0.75rem)]'
+          className='bg-background shrink-0 border-t px-3 py-2 pb-[calc(var(--admin-overlay-bottom-size,0px)+0.5rem)] empty:hidden sm:px-4 sm:py-2.5 sm:pb-[calc(var(--admin-overlay-bottom-size,0px)+0.625rem)]'
         />
       </Main>
     </PageFooterProvider>
@@ -125,6 +124,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
 }
 
 SectionPageLayout.Title = SectionPageLayoutTitle
+SectionPageLayout.Hint = SectionPageLayoutHint
 SectionPageLayout.Actions = SectionPageLayoutActions
 SectionPageLayout.Content = SectionPageLayoutContent
 SectionPageLayout.Breadcrumb = SectionPageLayoutBreadcrumb

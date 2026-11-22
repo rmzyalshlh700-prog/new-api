@@ -2,7 +2,7 @@ import '@copilotkit/react-ui/styles.css'
 import { CopilotKit } from '@copilotkit/react-core'
 import { CopilotPopup } from '@copilotkit/react-ui'
 import { useRouterState } from '@tanstack/react-router'
-import { ChevronsUpDown, MessagesSquare, Send, Sparkles, X } from 'lucide-react'
+import { MessagesSquare, Send, X } from 'lucide-react'
 import {
   Component,
   useCallback,
@@ -17,12 +17,15 @@ import {
   getFreshAuthHeaders,
 } from '@/shared/lib/auth-session'
 
+import { AdminCopilotAssistantMessage } from './admin-copilot-answer'
+import { AdminCopilotFab, AdminCopilotWindow } from './admin-copilot-chrome'
 import {
   ADMIN_COPILOT_DEFAULT_PATH,
   ALL_ADMIN_COPILOT_TOOLS,
   useAdminCopilotRuntimeSettings,
   type AdminCopilotToolName,
 } from './admin-copilot-config'
+import { AdminCopilotHeader } from './admin-copilot-header'
 import { useAdminCopilot } from './use-admin-copilot'
 
 interface AdminCopilotProviderProps {
@@ -159,15 +162,26 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
   return (
     <CopilotKit runtimeUrl='/api/admin/copilot/chat' headers={headers}>
       <CopilotNullErrorBoundary>
-        {!hideCopilot && <AdminCopilotTools enabledTools={enabledTools} />}
+        {/* The tools stay mounted even when the popup is hidden by the
+            dashboard-only visibility rule: registration is what makes the
+            assistant useful, and unmounting it on navigation left the panel
+            answering "I have no tools" for the rest of the session. */}
+        <AdminCopilotTools enabledTools={enabledTools} />
       </CopilotNullErrorBoundary>
       {children}
       {!hideCopilot && (
         <CopilotNullErrorBoundary>
           <CopilotPopup
+            // Scopes the z-index layer; the portal renders its own FAB and
+            // window, which anchor themselves against the viewport.
+            className='admin-copilot-shell'
             defaultOpen={false}
             clickOutsideToClose
             hitEscapeToClose
+            AssistantMessage={AdminCopilotAssistantMessage}
+            Button={AdminCopilotFab}
+            Window={AdminCopilotWindow}
+            Header={AdminCopilotHeader}
             labels={{
               title: t('Admin Copilot'),
               placeholder: t('Ask Admin Copilot...'),
@@ -184,9 +198,7 @@ export function AdminCopilotProvider({ children }: AdminCopilotProviderProps) {
               thumbsDown: t('Thumbs down'),
             }}
             icons={{
-              openIcon: <Sparkles className='size-5' />,
-              closeIcon: <X className='size-5' />,
-              headerCloseIcon: <ChevronsUpDown className='size-5' />,
+              headerCloseIcon: <X className='size-5' />,
               sendIcon: <Send className='size-4' />,
               activityIcon: <MessagesSquare className='size-5' />,
             }}

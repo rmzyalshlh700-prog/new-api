@@ -60,6 +60,11 @@ export interface PublicHeaderProps {
   showNavigation?: boolean
   showAuthButtons?: boolean
   showNotifications?: boolean
+  /**
+   * Public surfaces keep the header a brand bar: no navigation links, so the
+   * footer and the docs sidebar remain the only places that list pages.
+   */
+  hideNavLinks?: boolean
   className?: string
 }
 
@@ -78,18 +83,13 @@ export function PublicHeader(props: PublicHeaderProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileOpenState, setMobileOpen] = useState(false)
   const [authPromptTarget, setAuthPromptTarget] =
     useState<AuthPromptTarget | null>(null)
   const [authPromptSecondsLeft, setAuthPromptSecondsLeft] =
     useState(AUTH_PROMPT_SECONDS)
   const user = useAuthStore((state) => state.auth.user)
-  const {
-    systemName,
-    logo: systemLogo,
-    loading,
-    logoLoaded,
-  } = useSystemConfig()
+  const { systemName, logo: systemLogo, loading } = useSystemConfig()
   const dynamicLinks = useTopNavLinks()
   const notifications = useNotifications()
   const routerState = useRouterState()
@@ -99,16 +99,19 @@ export function PublicHeader(props: PublicHeaderProps) {
   )
   // Only the public home page is affected; the console sidebar keeps its trigger.
   const showMenuToggle = !(pathname === '/' && hideHomeSidebarToggle)
+  // Derive visibility so removing the trigger also closes the overlay, without
+  // an effect that would start a second render.
+  const mobileOpen = mobileOpenState && showMenuToggle
 
   const isAuthenticated = !!user
   const displaySiteName = customSiteName || systemName
-  const links = dynamicLinks.length > 0 ? dynamicLinks : navLinks
+  let links = navLinks
+  if (dynamicLinks.length > 0) links = dynamicLinks
+  if (props.hideNavLinks) links = []
 
   let logoContent: ReactNode = (
     <HeaderLogo
       src={systemLogo}
-      loading={loading}
-      logoLoaded={logoLoaded}
       className='size-full rounded-lg object-contain'
     />
   )
@@ -140,10 +143,6 @@ export function PublicHeader(props: PublicHeaderProps) {
       document.body.style.overflow = ''
     }
   }, [mobileOpen])
-
-  useEffect(() => {
-    if (!showMenuToggle) setMobileOpen(false)
-  }, [showMenuToggle])
 
   useEffect(() => {
     if (!authPromptTarget) return
@@ -308,6 +307,11 @@ export function PublicHeader(props: PublicHeaderProps) {
                   notice={notifications.notice}
                   announcements={notifications.announcements}
                   loading={notifications.loading}
+                  inboxEnabled={notifications.signedIn}
+                  inbox={notifications.inbox}
+                  inboxLoading={notifications.inboxLoading}
+                  onDismissInboxItem={notifications.dismissInboxItem}
+                  onMarkInboxRead={notifications.markInboxRead}
                 />
               )}
 
@@ -322,6 +326,7 @@ export function PublicHeader(props: PublicHeaderProps) {
             {/* Mobile: compact actions + hamburger */}
             <div className='flex shrink-0 items-center gap-2 lg:hidden'>
               {showThemeSwitch && <ThemeSwitch />}
+              {showLanguageSwitcher && <LanguageSwitcher />}
               {showAuthButtons && !loading && isAuthenticated && (
                 <ProfileDropdown />
               )}

@@ -185,7 +185,7 @@ func GetResponseBody(method, url string, channel *model.Channel, headers http.He
 
 func updateChannelCloseAIBalance(channel *model.Channel) (float64, error) {
 	url := fmt.Sprintf("%s/dashboard/billing/credit_grants", channel.GetBaseURL())
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 
 	if err != nil {
 		return 0, err
@@ -201,7 +201,7 @@ func updateChannelCloseAIBalance(channel *model.Channel) (float64, error) {
 
 func updateChannelOpenAISBBalance(channel *model.Channel) (float64, error) {
 	url := fmt.Sprintf("https://api.openai-sb.com/sb-api/user/status?api_key=%s", channel.Key)
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -224,7 +224,7 @@ func updateChannelOpenAISBBalance(channel *model.Channel) (float64, error) {
 func updateChannelAIProxyBalance(channel *model.Channel) (float64, error) {
 	url := "https://aiproxy.io/api/report/getUserOverview"
 	headers := http.Header{}
-	headers.Add("Api-Key", channel.Key)
+	headers.Add("Api-Key", channel.Key.String())
 	body, err := GetResponseBody("GET", url, channel, headers)
 	if err != nil {
 		return 0, err
@@ -243,7 +243,7 @@ func updateChannelAIProxyBalance(channel *model.Channel) (float64, error) {
 
 func updateChannelAPI2GPTBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.api2gpt.com/dashboard/billing/credit_grants"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 
 	if err != nil {
 		return 0, err
@@ -259,7 +259,7 @@ func updateChannelAPI2GPTBalance(channel *model.Channel) (float64, error) {
 
 func updateChannelSiliconFlowBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.siliconflow.cn/v1/user/info"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -349,7 +349,7 @@ func getDeepSeekBalanceUSD(response DeepSeekUsageResponse, usdExchangeRate float
 
 func updateChannelDeepSeekBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.deepseek.com/user/balance"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -368,7 +368,7 @@ func updateChannelDeepSeekBalance(channel *model.Channel) (float64, error) {
 
 func updateChannelAIGC2DBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.aigc2d.com/dashboard/billing/credit_grants"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -383,7 +383,7 @@ func updateChannelAIGC2DBalance(channel *model.Channel) (float64, error) {
 
 func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
 	url := "https://openrouter.ai/api/v1/credits"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -399,7 +399,7 @@ func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
 
 func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.moonshot.cn/v1/users/me/balance"
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -437,7 +437,7 @@ func updateChannelSub2APIBalance(channel *model.Channel) (float64, error) {
 		return 0, errors.New("Sub2API channel is missing base_url")
 	}
 	url := fmt.Sprintf("%s/v1/usage", strings.TrimRight(baseURL, "/"))
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -486,7 +486,7 @@ func updateChannelNewAPIBalance(channel *model.Channel) (float64, error) {
 	if baseURL == "" {
 		return 0, errors.New("New API channel is missing base_url")
 	}
-	body, err := GetResponseBody("GET", baseURL+"/api/usage/token/", channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", baseURL+"/api/usage/token/", channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -539,7 +539,7 @@ func updateChannelNewAPIBalance(channel *model.Channel) (float64, error) {
 }
 
 func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, error) {
-	key := strings.TrimSpace(channel.Key)
+	key := strings.TrimSpace(channel.Key.String())
 	info := &relaycommon.RelayInfo{
 		RelayFormat:    types.RelayFormatOpenAI,
 		RelayMode:      relayconstant.RelayModeUnknown,
@@ -679,7 +679,7 @@ func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 	}
 	url := fmt.Sprintf("%s/v1/dashboard/billing/subscription", baseURL)
 
-	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}
@@ -695,7 +695,7 @@ func updateStandardChannelBalance(channel *model.Channel) (float64, error) {
 		startDate = now.AddDate(0, 0, -100).Format("2006-01-02")
 	}
 	url = fmt.Sprintf("%s/v1/dashboard/billing/usage?start_date=%s&end_date=%s", baseURL, startDate, endDate)
-	body, err = GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	body, err = GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key.String()))
 	if err != nil {
 		return 0, err
 	}

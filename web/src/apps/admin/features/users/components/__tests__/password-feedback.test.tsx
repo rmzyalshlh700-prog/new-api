@@ -72,7 +72,7 @@ afterEach(() => {
   useAuthStore.getState().auth.reset()
 })
 
-it('editing a user shows password strength only after a new password is typed', async () => {
+it('editing a user does not render a strength meter or requirement text', async () => {
   const user = userEvent.setup()
   renderDrawer(target)
   const password = await screen.findByLabelText('Password')
@@ -86,18 +86,16 @@ it('editing a user shows password strength only after a new password is typed', 
   await user.type(password, 'new password')
 
   expect(
-    screen.getByRole('meter', { name: 'Password strength' })
-  ).toBeInTheDocument()
-  expect(password.getAttribute('aria-describedby')).toContain(
-    'user-password-strength'
-  )
+    screen.queryByRole('meter', { name: 'Password strength' })
+  ).not.toBeInTheDocument()
 })
 
-it('creating a user shows the password requirement before anything is typed', async () => {
+it('creating a user accepts any non-empty password with a plain placeholder', async () => {
   renderDrawer()
   const password = await screen.findByLabelText('Password')
 
-  expect(password).toHaveAccessibleDescription(
-    expect.stringContaining('8–128 characters')
-  )
+  expect(password).toHaveAttribute('placeholder', 'Enter password')
+
+  await userEvent.setup().type(password, '123')
+  expect(password).toHaveValue('123')
 })

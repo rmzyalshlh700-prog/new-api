@@ -36,7 +36,7 @@ import {
 } from 'vitest'
 
 import en from '@/shared/i18n/locales/en.json'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import {
   DEFAULT_CURRENCY_CONFIG,
   useSystemConfigStore,
@@ -153,7 +153,7 @@ describe('quota adjustment log localization', () => {
       await i18n.init({
         lng: 'en',
         fallbackLng: 'en',
-        resources: { en, zh },
+        resources: { en, ru },
         interpolation: { escapeValue: false },
       })
       const log: UsageLog = {
@@ -194,7 +194,7 @@ describe('quota adjustment log localization', () => {
       expect(
         within(screen.getByRole('dialog')).getByText(scenario.english)
       ).toBeInTheDocument()
-      await act(() => i18n.changeLanguage('zh'))
+      await act(() => i18n.changeLanguage('ru'))
       expect(screen.getAllByText(scenario.chinese)).toHaveLength(2)
       expect(
         within(screen.getByRole('dialog')).getByText(scenario.chinese)

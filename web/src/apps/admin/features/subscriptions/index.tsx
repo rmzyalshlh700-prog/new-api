@@ -40,6 +40,7 @@ function SubscriptionsContent() {
         <SectionPageLayout.Title>
           {t('Subscription Management')}
         </SectionPageLayout.Title>
+        <SectionPageLayout.Hint>{t('Plans, recurring billing and renewal state.')}</SectionPageLayout.Hint>
         <SectionPageLayout.Actions>
           <div className='flex items-center gap-2'>
             <Alert variant='default' className='hidden px-3 py-2 sm:flex'>

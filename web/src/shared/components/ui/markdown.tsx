@@ -17,11 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import DOMPurify from 'dompurify'
-import * as katex from 'katex'
+import type * as KatexNamespace from 'katex'
 
 import 'katex/dist/katex.min.css'
 import { Marked, Renderer, type MarkedExtension, type Tokens } from 'marked'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { cn } from '@/shared/lib/utils'
 
@@ -182,8 +182,39 @@ function normalizeMathSource(source: string): string {
     .replace(/\\\]$/, '')
 }
 
+type KatexModule = typeof KatexNamespace
+
+let katexModule: KatexModule | null = null
+let katexLoader: Promise<KatexModule> | null = null
+
+/**
+ * KaTeX is ~280 kB of JS plus its fonts, and most markdown has no math at all,
+ * so it is fetched the first time a message actually contains some.
+ */
+function loadKatex(): Promise<KatexModule> {
+  katexLoader ??= import('katex').then((module) => {
+    // The dynamic import is either the namespace itself or a wrapper with a
+    // default export, depending on the bundle; both are valid module shapes
+    // here, so the default is read through an optional property.
+    const wrapper = module as unknown as { default?: KatexModule }
+    const resolved = wrapper.default ?? (module as unknown as KatexModule)
+    katexModule = resolved
+    return resolved
+  })
+  return katexLoader
+}
+
 function renderMath(source: string, displayMode: boolean): string {
-  return katex.renderToString(normalizeMathSource(source), {
+  const normalized = normalizeMathSource(source)
+
+  if (!katexModule) {
+    void loadKatex()
+    // Emitted as raw source; <Markdown> re-renders once KaTeX arrives, so this
+    // only ever shows for the frame or two before the chunk lands.
+    return `<span class="markdown-math-pending">${escapeHtml(normalized)}</span>`
+  }
+
+  return katexModule.renderToString(normalized, {
     displayMode,
     output: 'htmlAndMathml',
     throwOnError: false,
@@ -762,10 +793,28 @@ function renderMarkdown(
   return addExternalLinkAttributes(html, baseUrl)
 }
 
+const MATH_HINT = /\$\$?|\\\(|\\\[|```(?:math|katex|latex)/
+
 export function Markdown(props: MarkdownProps) {
+  const [katexReady, setKatexReady] = useState(() => katexModule !== null)
+
+  useEffect(() => {
+    if (katexReady || !MATH_HINT.test(props.children ?? '')) return
+
+    let cancelled = false
+    void loadKatex().then(() => {
+      if (!cancelled) setKatexReady(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [katexReady, props.children])
+
   const html = useMemo(
     () => renderMarkdown(props.children, props.breaks, props.baseUrl),
-    [props.breaks, props.children, props.baseUrl]
+    // `katexReady` re-renders math emitted as raw source before the chunk landed.
+    [props.breaks, props.children, props.baseUrl, katexReady]
   )
 
   return (

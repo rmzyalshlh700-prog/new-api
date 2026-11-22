@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useEffect } from 'react'
+
 import { AuthenticatedLayout } from '@/shared/components/layout/components/authenticated-layout'
 
 import { AdminCopilotProvider } from './admin-copilot-provider'
@@ -37,10 +39,30 @@ function AdminShell() {
   )
 }
 
+/**
+ * Marks the document as the admin console for as long as the shell is mounted.
+ *
+ * The design-system tokens in `theme.css` are scoped to this attribute so the
+ * console palette reaches portalled dialogs and drawers (which mount under
+ * <body>, not under this component), while the client portal keeps its own
+ * values the moment the attribute is cleared.
+ */
+function AdminPortalScope() {
+  useEffect(() => {
+    const root = document.documentElement
+    root.dataset.portal = 'admin'
+    return () => {
+      delete root.dataset.portal
+    }
+  }, [])
+  return null
+}
+
 /** Admin portal shell: shared authenticated chrome with admin navigation only. */
 export function AdminLayout() {
   return (
     <AdminErrorBoundary>
+      <AdminPortalScope />
       <AdminShell />
     </AdminErrorBoundary>
   )

@@ -126,6 +126,10 @@ func GetStatus(c *gin.Context) {
 		"announcements_enabled": cs.AnnouncementsEnabled,
 		"faq_enabled":           cs.FAQEnabled,
 
+		// 社交链接展示方式
+		"contact_links_position":  cs.SocialLinksPositionOrDefault(),
+		"contact_links_icon_size": cs.SocialIconSizeOrDefault(),
+
 		// 模块管理配置
 		"HeaderNavModules":    common.OptionMap["HeaderNavModules"],
 		"SidebarModulesAdmin": common.OptionMap["SidebarModulesAdmin"],
@@ -150,6 +154,9 @@ func GetStatus(c *gin.Context) {
 		"log_max_range_days":          operation_setting.GetLogSetting().MaxRangeDays,
 		"quota_remind_enabled":        common.QuotaRemindEnabled,
 		"quota_remind_threshold":      common.QuotaRemindThreshold,
+
+		// Public content suite visibility, managed in Content settings.
+		"public_pages": publicPagesStatus(),
 	}
 
 	// 根据启用状态注入可选内容

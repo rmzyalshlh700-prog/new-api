@@ -18,32 +18,30 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, test } from 'vitest'
 
-import { convertDetectedLanguage } from './languages'
+import { matchInterfaceLanguage, normalizeInterfaceLanguage } from './languages'
 
-describe('convertDetectedLanguage', () => {
-  test('maps browser BCP-47 Chinese tags onto interface codes', () => {
-    expect(convertDetectedLanguage('zh-TW')).toBe('zhTW')
-    expect(convertDetectedLanguage('zh-HK')).toBe('zhTW')
-    expect(convertDetectedLanguage('zh-MO')).toBe('zhTW')
-    expect(convertDetectedLanguage('zh-Hant-TW')).toBe('zhTW')
-    expect(convertDetectedLanguage('zh')).toBe('zhCN')
-    expect(convertDetectedLanguage('zh-CN')).toBe('zhCN')
-    expect(convertDetectedLanguage('zh-Hans')).toBe('zhCN')
+describe('matchInterfaceLanguage', () => {
+  test('accepts supported codes and their regional variants', () => {
+    expect(matchInterfaceLanguage('en')).toBe('en')
+    expect(matchInterfaceLanguage('ru')).toBe('ru')
+    expect(matchInterfaceLanguage('ar')).toBe('ar')
+    expect(matchInterfaceLanguage('ar-EG')).toBe('ar')
+    expect(matchInterfaceLanguage('ru_RU')).toBe('ru')
+    expect(matchInterfaceLanguage('en-US')).toBe('en')
   })
 
-  test('keeps already-normalized interface codes stable (localStorage round-trip)', () => {
-    // i18next caches `zhTW`/`zhCN` (the supportedLngs codes) to localStorage,
-    // and the detector runs this converter on the cached value at every page
-    // load — if `zhTW` does not survive the round-trip, a user who picked
-    // Traditional Chinese is flipped to Simplified on the next load and the
-    // cache is overwritten, making the flip permanent.
-    expect(convertDetectedLanguage('zhTW')).toBe('zhTW')
-    expect(convertDetectedLanguage('zhCN')).toBe('zhCN')
+  test('rejects locales this project does not ship', () => {
+    expect(matchInterfaceLanguage('fr-FR')).toBeNull()
+    expect(matchInterfaceLanguage('zh-CN')).toBeNull()
+    expect(matchInterfaceLanguage('')).toBeNull()
+    expect(matchInterfaceLanguage(undefined)).toBeNull()
   })
+})
 
-  test('passes non-Chinese values through unchanged', () => {
-    expect(convertDetectedLanguage('en')).toBe('en')
-    expect(convertDetectedLanguage('fr-FR')).toBe('fr-FR')
-    expect(convertDetectedLanguage('ja')).toBe('ja')
+describe('normalizeInterfaceLanguage', () => {
+  test('falls back to English for unsupported values', () => {
+    expect(normalizeInterfaceLanguage('ar-EG')).toBe('ar')
+    expect(normalizeInterfaceLanguage('fr-FR')).toBe('en')
+    expect(normalizeInterfaceLanguage(undefined)).toBe('en')
   })
 })

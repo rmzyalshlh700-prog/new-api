@@ -24,16 +24,25 @@ import { PaymentLogsTable } from './components/payment-logs-table'
 
 export function PaymentLogs() {
   const { t } = useTranslation()
-
   return (
     <SectionPageLayout fixedContent>
       <SectionPageLayout.Title>{t('Payment Logs')}</SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Payment orders, refunds and settlement state.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
-        <div className='space-y-3'>
-          <p className='text-muted-foreground text-sm'>
+        {/*
+          The table is a `flex h-full min-h-0 flex-col` page whose list is the
+          scroll container. That only works if this wrapper has a definite
+          height: as a plain block with auto height, `h-full` resolved to auto,
+          the list grew to its content height and the layout's overflow-hidden
+          clipped it — nothing scrolled, on touch or otherwise.
+        */}
+        <div className='flex h-full min-h-0 flex-col gap-3'>
+          <p className='text-muted-foreground shrink-0 text-sm'>
             {t('Read-only ledger of all top-up and payment orders.')}
           </p>
-          <PaymentLogsTable />
+          <div className='min-h-0 flex-1'>
+            <PaymentLogsTable />
+          </div>
         </div>
       </SectionPageLayout.Content>
     </SectionPageLayout>

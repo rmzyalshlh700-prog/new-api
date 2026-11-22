@@ -28,7 +28,7 @@ import { I18nextProvider } from 'react-i18next'
 import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import en from '@/shared/i18n/locales/en.json'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import {
   DEFAULT_CURRENCY_CONFIG,
   useSystemConfigStore,
@@ -268,7 +268,7 @@ test.each([
 test.each([false, true])(
   'dynamic pricing without a saved tier uses a localized neutral fallback for task=%s',
   async (isTask) => {
-    i18n.addResourceBundle('zh', 'translation', zh.translation)
+    i18n.addResourceBundle('ru', 'translation', ru.translation)
     const preview = renderPreview({
       is_task: isTask,
       billing_mode: 'tiered_expr',
@@ -281,7 +281,7 @@ test.each([false, true])(
     expect(preview.textContent).toBe(
       'Dynamic Pricing · Special billing expression'
     )
-    await act(() => i18n.changeLanguage('zh'))
+    await act(() => i18n.changeLanguage('ru'))
     expect(
       screen.getByRole('button', { name: '动态计费 · 特殊计费表达式' })
     ).toBeVisible()
@@ -289,11 +289,11 @@ test.each([false, true])(
 )
 
 test('top-up content_parts render in the viewer language', async () => {
-  i18n.addResourceBundle('zh', 'translation', {
+  i18n.addResourceBundle('ru', 'translation', {
     'Online top-up succeeded, amount added: {{quota}}, payment amount: {{amount}}':
       '在线充值成功，充值额度：{{quota}}，支付金额：{{amount}}',
   })
-  await i18n.changeLanguage('zh')
+  await i18n.changeLanguage('ru')
   const preview = renderPreview(
     {
       content_parts: [
@@ -416,7 +416,7 @@ test('task log prices use localized unit labels from pricing metadata', async ()
           images: {
             type: 'number',
             unit: 'count',
-            unitLabel: { en: 'image', zh: '张' },
+            unitLabel: { en: 'image', ru: 'изображение' },
           },
         },
       },
@@ -430,7 +430,7 @@ test('task log prices use localized unit labels from pricing metadata', async ()
     matched_tier: 'images',
   })
   expect(preview).toHaveTextContent('images · images $0.25/image')
-  await act(() => i18n.changeLanguage('zh-CN'))
+  await act(() => i18n.changeLanguage('ru'))
   expect(
     screen.getByRole('button', { name: /images · images/ })
   ).toHaveTextContent('images · images $0.25/张')

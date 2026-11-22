@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Plus } from 'lucide-react'
+import { Info, Loader2, Plus, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -8,25 +8,65 @@ import { ErrorState } from '@/shared/components/error-state'
 import { PasswordInput } from '@/shared/components/password-input'
 import { SettingsPageFormActions } from '@/shared/components/settings/settings-page-context'
 import { SettingsSection } from '@/shared/components/settings/settings-section'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/shared/components/ui/accordion'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/components/ui/alert-dialog'
+import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/shared/components/ui/card'
 import { Combobox } from '@/shared/components/ui/combobox'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/shared/components/ui/radio-group'
 import { Skeleton } from '@/shared/components/ui/skeleton'
 import { Switch } from '@/shared/components/ui/switch'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/shared/components/ui/tooltip'
 import { handleServerError } from '@/shared/lib/handle-server-error'
 import { getServerErrorMessage } from '@/shared/lib/server-error-message'
 
 import {
   ADMIN_COPILOT_RUNTIME_QUERY_KEY,
   ADMIN_COPILOT_SETTINGS_QUERY_KEY,
+  ADMIN_COPILOT_TOOL_GROUPS,
   ADMIN_COPILOT_TOOLS,
+  ALL_ADMIN_COPILOT_TOOLS,
+  ADMIN_COPILOT_READ_ONLY_TOOLS,
+  adminCopilotToolsInGroup,
   fetchAdminCopilotModels,
+  adminCopilotGrantedTools,
+  ADMIN_COPILOT_PERMISSIONS_QUERY_KEY,
+  isAdminCopilotMasterControlOn,
+  updateAdminCopilotPermissions,
   updateAdminCopilotSettings,
+  useAdminCopilotPermissions,
   useAdminCopilotSettings,
   type AdminCopilotSettings,
   type AdminCopilotToolName,
+  type AdminCopilotToolRisk,
   type AdminCopilotVisibility,
 } from '../../layout/admin-copilot-config'
 
@@ -34,7 +74,7 @@ interface CopilotFormState {
   base_url: string
   api_key: string
   model: string
-  enabled_tools: AdminCopilotToolName[]
+  stream: boolean
   visibility: AdminCopilotVisibility
 }
 
@@ -43,7 +83,7 @@ function toFormState(settings: AdminCopilotSettings): CopilotFormState {
     base_url: settings.base_url,
     api_key: '',
     model: settings.model,
-    enabled_tools: settings.enabled_tools,
+    stream: settings.stream,
     visibility: settings.visibility,
   }
 }
@@ -129,6 +169,23 @@ export function CopilotSettings() {
   } = useAdminCopilotSettings()
   const [form, setForm] = useState<CopilotFormState | null>(null)
   const [models, setModels] = useState<string[]>([])
+  const [toolSearch, setToolSearch] = useState('')
+  // A destructive permission is granted in two steps: the switch opens this
+  // dialog, and only its action turns the permission on.
+  const [pendingDestructive, setPendingDestructive] =
+    useState<AdminCopilotToolName | null>(null)
+
+  // The permission matrix has its own endpoint and its own save, because it is
+  // a security decision rather than a connection setting: the server validates
+  // every name and answers with what it stored, which is what the switches show.
+  const {
+    data: storedPermissions,
+    isLoading: permissionsLoading,
+    isError: permissionsFailed,
+  } = useAdminCopilotPermissions()
+  const [permissionDraft, setPermissionDraft] = useState<
+    AdminCopilotToolName[] | null
+  >(null)
 
   // Seed the form from the first successful load only. A refetch (window
   // focus, post-save invalidation) must never overwrite edits the admin has
@@ -137,6 +194,7 @@ export function CopilotSettings() {
     if (!settings) return
     setForm((current) => current ?? toFormState(settings))
   }, [settings])
+
 
   const saveMutation = useMutation({
     mutationFn: updateAdminCopilotSettings,
@@ -154,6 +212,27 @@ export function CopilotSettings() {
     },
     onError: (error: Error) => {
       handleServerError(error, t('Failed to save Copilot settings'))
+    },
+  })
+
+  const permissionsMutation = useMutation({
+    mutationFn: updateAdminCopilotPermissions,
+    onSuccess: async (saved) => {
+      // The server answers with what it stored, so the switches adopt that
+      // state instead of the one the browser hoped for.
+      setPermissionDraft(adminCopilotGrantedTools(saved.permissions))
+      toast.success(t('Copilot permissions saved'))
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ADMIN_COPILOT_PERMISSIONS_QUERY_KEY,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ADMIN_COPILOT_RUNTIME_QUERY_KEY,
+        }),
+      ])
+    },
+    onError: (error: Error) => {
+      handleServerError(error, t('Failed to save Copilot permissions'))
     },
   })
 
@@ -200,6 +279,19 @@ export function CopilotSettings() {
   }
 
   const canFetchModels = form.base_url.trim().length > 0
+  // The master switch is derived, never stored separately: a single permission
+  // switched off below turns it off, which is the rule the server reports back.
+  // The switches show the draft once the operator has touched them, and the
+  // server's answer until then. Deriving it here instead of seeding state in an
+  // effect means a refetch can never overwrite an unsaved flip.
+  const storedGrantedTools = adminCopilotGrantedTools(storedPermissions?.permissions)
+  const grantedTools = permissionDraft ?? storedGrantedTools
+  const masterOn = isAdminCopilotMasterControlOn(grantedTools)
+  const permissionsDirty =
+    storedPermissions !== undefined &&
+    (masterOn !== storedPermissions.master_control ||
+      grantedTools.length !== storedGrantedTools.length ||
+      grantedTools.some((tool) => !storedPermissions.permissions[tool]))
   const apiKeyConfigured = settings?.api_key_configured ?? false
 
   const handleSave = () => {
@@ -207,7 +299,7 @@ export function CopilotSettings() {
       base_url: form.base_url.trim(),
       api_key: form.api_key.trim() || undefined,
       model: form.model.trim(),
-      enabled_tools: form.enabled_tools,
+      stream: form.stream,
       visibility: form.visibility,
     })
   }
@@ -220,13 +312,79 @@ export function CopilotSettings() {
   }
 
   const toggleTool = (tool: AdminCopilotToolName, enabled: boolean) => {
-    setForm((current) => {
-      if (!current) return current
-      const next = enabled
-        ? [...new Set([...current.enabled_tools, tool])]
-        : current.enabled_tools.filter((item) => item !== tool)
-      return { ...current, enabled_tools: next }
+    setPermissionDraft((current) => {
+      const tools = current ?? []
+      return enabled
+        ? [...new Set([...tools, tool])]
+        : tools.filter((item) => item !== tool)
     })
+  }
+
+  // A whole area at once, for an operator who wants "channels and nothing
+  // else" without flipping every switch in it.
+  const setGroupEnabled = (
+    tools: readonly AdminCopilotToolName[],
+    enabled: boolean
+  ) => {
+    setPermissionDraft((current) => {
+      const selected = current ?? []
+      return enabled
+        ? [...new Set([...selected, ...tools])]
+        : selected.filter((tool) => !tools.includes(tool))
+    })
+  }
+
+  // Presets: the read-only baseline, everything, or nothing at all.
+  const setTools = (tools: readonly AdminCopilotToolName[]) => {
+    setPermissionDraft([...new Set(tools)])
+  }
+
+  const handleSavePermissions = () => {
+    permissionsMutation.mutate({
+      master_control: masterOn,
+      permissions: Object.fromEntries(
+        ADMIN_COPILOT_TOOLS.map((tool) => [
+          tool.name,
+          grantedTools.includes(tool.name),
+        ])
+      ),
+    })
+  }
+
+  // The tooltip explains what a switch can do to the platform, which is the
+  // difference between reading a number and removing it.
+  const riskTooltip = (risk: AdminCopilotToolRisk) => {
+    switch (risk) {
+      case 'read':
+        return t('Only reads platform data. Nothing is changed.')
+      case 'write':
+        return t(
+          'Changes platform state. The effect can be reversed by hand, and every call is recorded in the audit log.'
+        )
+      default:
+        return t(
+          'Removes data or credit. The effect cannot be undone from the console, so granting it asks for a confirmation first.'
+        )
+    }
+  }
+
+  const riskLabel = (risk: AdminCopilotToolRisk) => {
+    switch (risk) {
+      case 'read':
+        return t('Reads data')
+      case 'write':
+        return t('Changes data')
+      default:
+        return t('Deletes data')
+    }
+  }
+
+  const riskBadgeVariant = (
+    risk: AdminCopilotToolRisk
+  ): 'secondary' | 'warning' | 'destructive' => {
+    if (risk === 'write') return 'warning'
+    if (risk === 'destructive') return 'destructive'
+    return 'secondary'
   }
 
   return (
@@ -322,34 +480,289 @@ export function CopilotSettings() {
         </div>
       </SettingsSection>
 
+      <SettingsSection title={t('Streaming')}>
+        <div className='flex items-start justify-between gap-4'>
+          <div className='flex flex-col gap-1'>
+            <Label htmlFor='copilot-stream'>
+              {t('Stream responses from the provider')}
+            </Label>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'The console renders the reply as the provider generates it instead of showing it all at once.'
+              )}
+            </p>
+          </div>
+          <Switch
+            id='copilot-stream'
+            checked={form.stream}
+            onCheckedChange={(checked) => setForm({ ...form, stream: checked })}
+          />
+        </div>
+      </SettingsSection>
+
       <SettingsSection title={t('Tool Permissions')}>
         <p className='text-muted-foreground text-sm'>
           {t(
-            'Only enabled tools are sent to the model and can read admin data.'
+            'Choose exactly what the copilot may do. A tool you switch off is refused by the server, not only hidden from the model, and every change it makes is recorded in the audit log under your account.'
           )}
         </p>
-        <div className='flex flex-col divide-y rounded-lg border'>
-          {ADMIN_COPILOT_TOOLS.map((tool) => (
-            <div
-              key={tool.name}
-              className='flex items-start justify-between gap-4 p-4'
-            >
+
+        <Card className={masterOn ? 'border-primary/50' : undefined}>
+          <CardHeader>
+            <div className='flex items-start justify-between gap-4'>
               <div className='flex flex-col gap-1'>
-                <Label htmlFor={`copilot-tool-${tool.name}`}>
-                  {t(tool.labelKey)}
-                </Label>
-                <p className='text-muted-foreground text-xs'>
-                  {t(tool.descriptionKey)}
-                </p>
+                <CardTitle className='flex items-center gap-2 text-base'>
+                  <ShieldCheck className='size-4' aria-hidden='true' />
+                  {t('Master Control')}
+                </CardTitle>
+                <CardDescription>
+                  {t(
+                    'One switch for every capability. Turning it on grants all {{total}} permissions; switching any single permission off below turns it off again.',
+                    { total: ADMIN_COPILOT_TOOLS.length }
+                  )}
+                </CardDescription>
+                <Badge
+                  variant={masterOn ? 'default' : 'secondary'}
+                  className='w-fit'
+                >
+                  {t('{{enabled}} of {{total}} enabled', {
+                    enabled: grantedTools.length,
+                    total: ADMIN_COPILOT_TOOLS.length,
+                  })}
+                </Badge>
               </div>
-              <Switch
-                id={`copilot-tool-${tool.name}`}
-                checked={form.enabled_tools.includes(tool.name)}
-                onCheckedChange={(checked) => toggleTool(tool.name, checked)}
-              />
+              <div className='flex items-center gap-2'>
+                <TooltipProvider delay={200}>
+                  <Tooltip>
+                    <TooltipTrigger
+                      aria-label={t('About the master switch')}
+                      className='text-muted-foreground inline-flex'
+                    >
+                      <Info className='size-4' aria-hidden='true' />
+                    </TooltipTrigger>
+                    <TooltipContent className='max-w-64'>
+                      {t(
+                        'The master switch is on only while every permission is granted. Saving it writes the whole matrix to the server in one request.'
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <Switch
+                  id='copilot-master-control'
+                  aria-label={t('Master Control')}
+                  checked={masterOn}
+                  onCheckedChange={(checked) =>
+                    setTools(checked ? ALL_ADMIN_COPILOT_TOOLS : [])
+                  }
+                />
+              </div>
             </div>
-          ))}
+          </CardHeader>
+          <CardContent className='flex flex-wrap items-center gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setTools(ADMIN_COPILOT_READ_ONLY_TOOLS)}
+            >
+              {t('Read only')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setTools(ALL_ADMIN_COPILOT_TOOLS)}
+            >
+              {t('Enable all')}
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={() => setTools([])}
+            >
+              {t('Disable all')}
+            </Button>
+            <div className='ms-auto flex items-center gap-2'>
+              {permissionsDirty && (
+                <Badge variant='warning'>{t('Unsaved changes')}</Badge>
+              )}
+              <Button
+                type='button'
+                size='sm'
+                onClick={handleSavePermissions}
+                disabled={
+                  permissionsMutation.isPending ||
+                  permissionsLoading ||
+                  permissionsFailed ||
+                  !permissionsDirty
+                }
+              >
+                {permissionsMutation.isPending && (
+                  <Loader2 className='size-4 animate-spin' aria-hidden='true' />
+                )}
+                {t('Save permissions')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {permissionsFailed && (
+          <p className='text-destructive text-sm'>
+            {t(
+              'The permission matrix could not be loaded, so the switches are read-only until it is. Reload the page to try again.'
+            )}
+          </p>
+        )}
+
+        <div className='relative'>
+          <Search className='text-muted-foreground pointer-events-none absolute start-2.5 top-2.5 size-4' />
+          <Input
+            className='ps-8'
+            placeholder={t('Search tools...')}
+            value={toolSearch}
+            onChange={(event) => setToolSearch(event.target.value)}
+          />
         </div>
+
+        <Accordion
+          multiple
+          defaultValue={ADMIN_COPILOT_TOOL_GROUPS.map((group) => group.key)}
+          className='rounded-lg border'
+        >
+          {ADMIN_COPILOT_TOOL_GROUPS.map((group) => {
+            const groupTools = adminCopilotToolsInGroup(group.key).filter(
+              (tool) =>
+                `${t(tool.labelKey)} ${tool.name}`
+                  .toLowerCase()
+                  .includes(toolSearch.trim().toLowerCase())
+            )
+            if (groupTools.length === 0) return null
+            const enabledInGroup = groupTools.filter((tool) =>
+              grantedTools.includes(tool.name)
+            ).length
+            return (
+              <AccordionItem key={group.key} value={group.key}>
+                <AccordionTrigger>
+                  <span className='flex flex-1 flex-col items-start gap-0.5 text-start'>
+                    <span className='flex items-center gap-2'>
+                      {t(group.labelKey)}
+                      <Badge variant='outline'>
+                        {t('{{enabled}} of {{total}} enabled', {
+                          enabled: enabledInGroup,
+                          total: groupTools.length,
+                        })}
+                      </Badge>
+                    </span>
+                    <span className='text-muted-foreground text-xs font-normal'>
+                      {t(group.descriptionKey)}
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className='flex flex-col gap-4'>
+                  <div className='flex items-center justify-between gap-4'>
+                    <Label htmlFor={`copilot-group-${group.key}`}>
+                      {t('Toggle every permission in this area')}
+                    </Label>
+                    <Switch
+                      id={`copilot-group-${group.key}`}
+                      aria-label={t('Toggle every permission in this area')}
+                      checked={enabledInGroup === groupTools.length}
+                      onCheckedChange={(checked) =>
+                        setGroupEnabled(
+                          groupTools.map((tool) => tool.name),
+                          checked
+                        )
+                      }
+                    />
+                  </div>
+                  <div className='divide-y rounded-md border'>
+                    {groupTools.map((tool) => (
+                      <div
+                        key={tool.name}
+                        className='flex items-start justify-between gap-4 p-4'
+                      >
+                        <div className='flex flex-col gap-1'>
+                          <div className='flex flex-wrap items-center gap-2'>
+                            <Label htmlFor={`copilot-tool-${tool.name}`}>
+                              {t(tool.labelKey)}
+                            </Label>
+                            <Badge variant={riskBadgeVariant(tool.risk)}>
+                              {riskLabel(tool.risk)}
+                            </Badge>
+                            <TooltipProvider delay={200}>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  aria-label={t('About this permission')}
+                                  className='text-muted-foreground inline-flex'
+                                >
+                                  <Info
+                                    className='size-3.5'
+                                    aria-hidden='true'
+                                  />
+                                </TooltipTrigger>
+                                <TooltipContent className='max-w-64'>
+                                  {riskTooltip(tool.risk)}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          <p className='text-muted-foreground text-xs'>
+                            {t(tool.descriptionKey)}
+                          </p>
+                        </div>
+                        <Switch
+                          id={`copilot-tool-${tool.name}`}
+                          checked={grantedTools.includes(tool.name)}
+                          onCheckedChange={(checked) => {
+                            if (checked && tool.risk === 'destructive') {
+                              setPendingDestructive(tool.name)
+                              return
+                            }
+                            toggleTool(tool.name, checked)
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )
+          })}
+        </Accordion>
+
+        <AlertDialog
+          open={pendingDestructive !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingDestructive(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t('Allow a destructive action?')}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(
+                  'This permission lets the copilot delete data or take credit away, and the effect cannot be undone from the console. Grant it only if the operator is expected to ask for exactly that.'
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setPendingDestructive(null)}>
+                {t('Cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (pendingDestructive) toggleTool(pendingDestructive, true)
+                  setPendingDestructive(null)
+                }}
+              >
+                {t('Grant the permission')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SettingsSection>
 
       <SettingsSection title={t('Visibility')}>

@@ -95,7 +95,7 @@ func runCodexCredentialAutoRefreshOnce() {
 				continue
 			}
 
-			rawKey := strings.TrimSpace(ch.Key)
+			rawKey := strings.TrimSpace(ch.Key.String())
 			if rawKey == "" {
 				continue
 			}

@@ -6,6 +6,7 @@ import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/service/authz"
+	"github.com/QuantumNous/new-api/setting"
 
 	// Import oauth package to register providers via init()
 	_ "github.com/QuantumNous/new-api/oauth"
@@ -47,6 +48,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)
 		apiRouter.GET("/privacy-policy", controller.GetPrivacyPolicy)
 		apiRouter.GET("/about", controller.GetAbout)
+		apiRouter.GET("/blog", controller.GetPublicBlogPosts)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
@@ -150,6 +152,10 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/waffo-pancake/pay", middleware.CriticalRateLimit(), middleware.RequireVisibleSection("wallet"), controller.RequestWaffoPancakePay)
 				selfRoute.POST("/aff_transfer", middleware.UserCriticalRateLimit("aff-transfer"), middleware.RequireVisibleSection("wallet"), controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+				// Personal notifications: the signed-in user's own inbox.
+				selfRoute.GET("/notifications", controller.GetSelfNotifications)
+				selfRoute.POST("/notifications/read", controller.MarkSelfNotificationsRead)
+				selfRoute.POST("/notifications/dismiss", controller.DismissSelfNotification)
 
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
@@ -189,6 +195,11 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/:id", controller.GetUser)
 				adminRoute.POST("/", controller.CreateUser)
 				adminRoute.POST("/manage", controller.ManageUser)
+				// Targeted notifications: resolve one account and notify only it.
+				adminRoute.GET("/notifications/sent", controller.AdminListSentNotifications)
+				adminRoute.GET("/notifications/target", controller.AdminResolveNotificationTarget)
+				adminRoute.POST("/notifications/send", middleware.CriticalRateLimit(), controller.AdminSendNotification)
+				adminRoute.POST("/notifications/revoke", middleware.CriticalRateLimit(), controller.AdminRevokeNotification)
 				adminRoute.PUT("/", controller.UpdateUser)
 				adminRoute.DELETE("/:id", controller.DeleteUser)
 				adminRoute.DELETE("/:id/reset_passkey", controller.AdminResetPasskey)
@@ -455,13 +466,86 @@ func SetApiRouter(router *gin.Engine) {
 		// The chat proxy spends platform credits on a paid upstream, so it carries
 		// its own per-admin budget on top of the global API limiter.
 		copilotRoute.POST("/chat", middleware.UserCriticalRateLimit("copilot"), controller.AdminCopilotChat)
+		// CopilotKit's REST transport — the one its client picks when the /info
+		// probe answers (it does) — addresses a single agent under the runtime
+		// URL. Without these the first message of a chat dies on a 404 and the
+		// panel shows the question with no reply at all.
+		copilotRoute.POST("/chat/agent/:agentId/run", middleware.UserCriticalRateLimit("copilot"), controller.AdminCopilotChat)
+		copilotRoute.POST("/chat/agent/:agentId/connect", controller.AdminCopilotChatAgentConnect)
+		copilotRoute.POST("/chat/agent/:agentId/stop/:threadId", controller.AdminCopilotChatAgentStop)
+		// Saved conversations. The runtime stays stateless, so history is a
+		// separate resource the console reads after a reload and writes after
+		// every finished exchange; it belongs to the signed-in administrator.
+		copilotRoute.GET("/chats", controller.ListCopilotChats)
+		copilotRoute.POST("/chats", controller.CreateCopilotChat)
+		copilotRoute.GET("/chats/:id", controller.GetCopilotChat)
+		copilotRoute.PUT("/chats/:id/messages", controller.ReplaceCopilotChatMessages)
+		copilotRoute.DELETE("/chats/:id", controller.DeleteCopilotChat)
 		copilotRoute.POST("/fetch-models", middleware.RequireVisibleSection("system_settings"), controller.FetchCopilotModels)
 		// CopilotKit v1.87+ handshake probe before the first chat exchange.
 		copilotRoute.GET("/chat/info", controller.AdminCopilotChatInfo)
 		copilotRoute.GET("/settings", controller.GetCopilotRuntimeSettings)
-		copilotRoute.GET("/tools/financials", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotFinancials)
-		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), controller.GetCopilotUsers)
-		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), controller.GetCopilotHealth)
+		// The permission matrix the assistant is held to. Reading it only needs
+		// the admin session; writing it is a security decision, so it is bound
+		// to the system settings section like the settings page it mirrors.
+		copilotRoute.GET("/permissions", controller.GetCopilotPermissions)
+		copilotRoute.PUT("/permissions", middleware.RequireVisibleSection("system_settings"), controller.UpdateCopilotPermissions)
+		// Copilot tool endpoints. Each one is gated twice: by the admin section
+		// the tool reads, so a restricted administrator cannot reach data their
+		// console hides, and by the Copilot permission switch for that tool, so
+		// turning a capability off in the settings refuses it at the server.
+		copilotRoute.GET("/tools/financials", middleware.RequireVisibleSection("dashboard"), middleware.RequireCopilotTool(setting.CopilotToolGetFinancialSummary), controller.GetCopilotFinancials)
+		copilotRoute.GET("/tools/health", middleware.RequireVisibleSection("dashboard"), middleware.RequireCopilotTool(setting.CopilotToolGetSystemHealth), controller.GetCopilotHealth)
+
+		copilotRoute.GET("/tools/users", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolLookupUser), controller.GetCopilotUsers)
+		copilotRoute.GET("/tools/users/list", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolListUsers), controller.GetCopilotUserList)
+		copilotRoute.POST("/tools/users/quota", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolAdjustUserQuota), controller.AdjustCopilotUserQuota)
+		copilotRoute.POST("/tools/users/status", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolSetUserStatus), controller.SetCopilotUserStatus)
+
+		copilotRoute.GET("/tools/channels", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolListChannels), controller.GetCopilotChannelList)
+		copilotRoute.GET("/tools/channels/:id", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolGetChannel), controller.GetCopilotChannel)
+		copilotRoute.POST("/tools/channels", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolCreateChannel), controller.CreateCopilotChannel)
+		copilotRoute.PUT("/tools/channels/:id", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolUpdateChannel), controller.UpdateCopilotChannel)
+		copilotRoute.DELETE("/tools/channels/:id", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolDeleteChannel), controller.DeleteCopilotChannel)
+		copilotRoute.POST("/tools/channels/:id/status", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelStatus), controller.SetCopilotChannelStatus)
+		copilotRoute.POST("/tools/channels/:id/test", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolTestChannel), controller.TestCopilotChannel)
+		copilotRoute.PUT("/tools/channels/:id/models", middleware.RequireVisibleSection("models"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelModels), controller.SetCopilotChannelModels)
+
+		copilotRoute.GET("/tools/models", middleware.RequireVisibleSection("models"), middleware.RequireCopilotTool(setting.CopilotToolListModels), controller.GetCopilotModelList)
+
+		copilotRoute.GET("/tools/logs", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolSearchLogs), controller.GetCopilotLogs)
+
+		copilotRoute.GET("/tools/redemptions", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolListRedemptions), controller.GetCopilotRedemptions)
+		copilotRoute.POST("/tools/redemptions", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolCreateRedemption), controller.CreateCopilotRedemption)
+		copilotRoute.GET("/tools/logs/export", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolExportLogs), controller.ExportCopilotLogs)
+
+		// Platform operations: maintenance, monitoring and the payment and
+		// pricing settings behind them. Each handler re-checks the root role,
+		// because these change the platform for every user.
+		copilotRoute.GET("/tools/system/monitoring", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolReadMonitoring), controller.GetCopilotMonitoringSettings)
+		copilotRoute.POST("/tools/system/monitoring", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolConfigureMonitoring), controller.ConfigureCopilotMonitoring)
+		copilotRoute.POST("/tools/system/maintenance", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolToggleMaintenance), controller.ToggleCopilotMaintenanceMode)
+		copilotRoute.POST("/tools/users/create", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolCreateUser), controller.CreateCopilotUser)
+		copilotRoute.POST("/tools/users/deduct", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolDeductUserQuota), controller.DeductCopilotUserQuota)
+		copilotRoute.POST("/tools/users/delete", middleware.RequireVisibleSection("users"), middleware.RequireCopilotTool(setting.CopilotToolDeleteUser), controller.DeleteCopilotUser)
+		copilotRoute.GET("/tools/payments", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolReadPayments), controller.ReadCopilotPayments)
+		copilotRoute.POST("/tools/payments/gateway", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolUpdatePaymentGateway), controller.UpdateCopilotPaymentGateway)
+		// One call configures a whole provider and reports whether it is live.
+		copilotRoute.GET("/tools/payments/gateways", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolConfigurePaymentGateway), controller.GetCopilotPaymentGateways)
+		copilotRoute.POST("/tools/payments/configure", middleware.RequireVisibleSection("wallet"), middleware.RequireCopilotTool(setting.CopilotToolConfigurePaymentGateway), controller.ConfigureCopilotPaymentGateway)
+		copilotRoute.GET("/tools/analytics/sales", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolGetSalesReport), controller.GetCopilotSalesReport)
+		copilotRoute.POST("/tools/commercial/group-ratio", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateGroupRatio), controller.UpdateCopilotGroupRatio)
+		copilotRoute.POST("/tools/commercial/model-pricing", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateModelPricing), controller.UpdateCopilotModelPricing)
+		copilotRoute.PUT("/tools/channels/:id/key", middleware.RequireVisibleSection("channels"), middleware.RequireCopilotTool(setting.CopilotToolSetChannelKey), controller.SetCopilotChannelKey)
+		copilotRoute.GET("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolListAnnouncements), controller.ListCopilotAnnouncements)
+		copilotRoute.POST("/tools/announcements", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolPublishAnnouncement), controller.PublishCopilotAnnouncement)
+		copilotRoute.PUT("/tools/announcements/:index", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolUpdateAnnouncement), controller.UpdateCopilotAnnouncement)
+		copilotRoute.DELETE("/tools/announcements/:index", middleware.RequireVisibleSection("system_settings"), middleware.RequireCopilotTool(setting.CopilotToolDeleteAnnouncement), controller.DeleteCopilotAnnouncement)
+		copilotRoute.PUT("/tools/redemptions/:id", middleware.RequireVisibleSection("redemption"), middleware.RequireCopilotTool(setting.CopilotToolUpdateRedemption), controller.UpdateCopilotRedemption)
+		// Clearing the usage log destroys the record of what was billed, so it
+		// is its own destructive capability and is refused unless the run names
+		// the window it clears.
+		copilotRoute.POST("/tools/logs/purge", middleware.RequireVisibleSection("usage_logs"), middleware.RequireCopilotTool(setting.CopilotToolPurgeLogs), controller.PurgeCopilotLogs)
 		copilotSettingsRoute := apiRouter.Group("/admin/system-settings/copilot")
 		copilotSettingsRoute.Use(middleware.AdminAuth())
 		copilotSettingsRoute.Use(middleware.RequireVisibleSection("system_settings"))

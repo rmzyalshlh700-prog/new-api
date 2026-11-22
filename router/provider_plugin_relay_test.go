@@ -161,12 +161,19 @@ func newRelayHarness(t *testing.T) *relayHarness {
 
 func (h *relayHarness) newChannel(channelType int, key string) *model.Channel {
 	baseURL := h.upstream.URL
-	return &model.Channel{Type: channelType, Key: key, Status: common.ChannelStatusEnabled, Name: "relay", Models: relayTestModel, Group: "default", BaseURL: &baseURL}
+	channel := &model.Channel{Type: channelType, Key: common.SecretString(key), Status: common.ChannelStatusEnabled, Name: "relay", Models: relayTestModel, Group: "default", BaseURL: &baseURL}
+	// The fake upstream listens on the loopback interface, and the dial-time
+	// SSRF guard refuses an internal literal address unless the channel is
+	// authorized for internal targets, which is what the root account grants
+	// for an internal upstream. Every channel this harness builds is such a
+	// channel, so the permission belongs here rather than in each test.
+	channel.SetSetting(dto.ChannelSettings{AllowPrivateNetwork: true})
+	return channel
 }
 
 func (h *relayHarness) pluginChannel(pluginKey, key string) *model.Channel {
 	channel := h.newChannel(constant.ChannelTypeTaskPlugin, key)
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey})
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey, AllowPrivateNetwork: true})
 	return channel
 }
 
@@ -737,7 +744,7 @@ func TestPrepareRequestKeepsReformattedBillingFields(t *testing.T) {
 	registerRelayPlugin(t, `export const meta = {apiVersion: 1, key: "relay-format", name: "Format", version: "1.0.0", author: {name: "Test"}, relay: [{incoming_path: "/v1/chat/completions", upstream_path: "/chat"}]};
 	export function prepareRequest() { return {effects: [{type: "json.patch", ops: [{op: "add", path: "/store", value: false}]}]}; }`)
 	channel := harness.pluginChannel("relay-format", "sk-static")
-	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "relay-format", PassThroughBodyEnabled: true})
+	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: "relay-format", PassThroughBodyEnabled: true, AllowPrivateNetwork: true})
 	harness.install(t, channel)
 
 	// The client's text reaches prepareRequest; applying the effect re-encodes
@@ -1997,7 +2004,7 @@ export function outbound(ctx, req) {
 		{"id":"block","name":"Block","plugin":"rp-relay","enabled":true,"config":{"reject":"outbound"}}
 	]`)
 	channel := harness.newChannel(constant.ChannelTypeOpenAI, "sk-upstream")
-	channel.SetSetting(dto.ChannelSettings{RequestPlugins: []string{"bound"}})
+	channel.SetSetting(dto.ChannelSettings{RequestPlugins: []string{"bound"}, AllowPrivateNetwork: true})
 	harness.install(t, channel)
 
 	outcome := harness.post(t, "/v1/chat/completions", `{"model":"`+relayTestModel+`","messages":[{"role":"user","content":"mail a.b@example.com now"}]}`)
@@ -2033,7 +2040,7 @@ export function outbound(ctx, req) {
 	constant.ErrorLogEnabled = true
 	t.Cleanup(func() { constant.ErrorLogEnabled = previousErrorLog })
 	harness.upstream.reset()
-	channel.SetSetting(dto.ChannelSettings{RequestPlugins: []string{"block"}})
+	channel.SetSetting(dto.ChannelSettings{RequestPlugins: []string{"block"}, AllowPrivateNetwork: true})
 	harness.install(t, channel)
 	outcome = harness.post(t, "/v1/chat/completions", relayTestBody)
 	assert.Equal(t, http.StatusBadRequest, outcome.status)

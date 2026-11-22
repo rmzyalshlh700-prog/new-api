@@ -34,7 +34,7 @@ import { I18nextProvider } from 'react-i18next'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 
 import { SettingsPageProvider } from '@/shared/components/settings/settings-page-context'
@@ -120,7 +120,7 @@ beforeEach(async () => {
   await testI18n.init({
     lng: 'en',
     fallbackLng: 'en',
-    resources: { en: { translation: {} }, zh },
+    resources: { en: { translation: {} }, ru },
     interpolation: { escapeValue: false },
   })
   localStorage.clear()
@@ -420,7 +420,7 @@ describe('Passkey website guidance', () => {
   })
 
   it('uses everyday Chinese in the field and explanation dialog', async () => {
-    await testI18n.changeLanguage('zh')
+    await testI18n.changeLanguage('ru')
     const user = userEvent.setup()
     render(<Fixture />)
     await waitFor(() =>

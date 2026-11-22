@@ -724,3 +724,58 @@ func TestUpdateUserSettingKeepsWhatTheRequestLeavesOut(t *testing.T) {
 		})
 	}
 }
+
+func TestUserWritesRejectNonAlphanumericUsernames(t *testing.T) {
+	db := setupManageUserTestDB(t)
+	previousMaster, previousRegister := common.IsMasterNode, common.RegisterEnabled
+	common.IsMasterNode, common.RegisterEnabled = false, true
+	t.Cleanup(func() { common.IsMasterNode, common.RegisterEnabled = previousMaster, previousRegister })
+
+	operator := createQuotaTestOperator(t, db, common.RoleAdminUser)
+	identity := service.AuthIdentity{UserID: operator.Id}
+	const rejectedMessage = "Username can only contain English letters and numbers."
+	invalid := []string{"مستخدم", "user name", "user-name", "user_name", "user@example.com"}
+
+	for _, username := range invalid {
+		recorder := adminUserRequest(http.MethodPost, "/api/user/register",
+			fmt.Sprintf(`{"username":%q,"password":"member-password-1"}`, username),
+			"", identity, common.RoleCommonUser, nil, Register)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code, "register %q", username)
+		assert.Contains(t, recorder.Body.String(), rejectedMessage, "register %q", username)
+
+		recorder = adminUserRequest(http.MethodPost, "/api/user/",
+			fmt.Sprintf(`{"username":%q,"password":"member-password-1","role":%d}`, username, common.RoleCommonUser),
+			"", identity, common.RoleAdminUser, nil, CreateUser)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code, "create %q", username)
+		assert.Contains(t, recorder.Body.String(), rejectedMessage, "create %q", username)
+	}
+
+	var count int64
+	require.NoError(t, db.Model(&model.User{}).Where("username IN ?", invalid).Count(&count).Error)
+	assert.Zero(t, count)
+
+	// A name stored before the policy stays usable: echoing it back in the edit
+	// form must not be mistaken for a rename.
+	legacy := model.User{Username: "legacy-user", Password: "legacy-hash", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, AffCode: "legacy-aff", AuthVersion: 1}
+	require.NoError(t, db.Create(&legacy).Error)
+	recorder := adminUserRequest(http.MethodPut, "/api/user/",
+		fmt.Sprintf(`{"id":%d,"username":"legacy-user","display_name":"Renamed","role":%d,"group":"default"}`, legacy.Id, common.RoleCommonUser),
+		"", identity, common.RoleAdminUser, nil, UpdateUser)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), `"success":true`)
+
+	recorder = adminUserRequest(http.MethodPut, "/api/user/",
+		fmt.Sprintf(`{"id":%d,"username":"مستخدم","display_name":"Renamed","role":%d,"group":"default"}`, legacy.Id, common.RoleCommonUser),
+		"", identity, common.RoleAdminUser, nil, UpdateUser)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	stored := model.User{}
+	require.NoError(t, db.First(&stored, legacy.Id).Error)
+	assert.Equal(t, "legacy-user", stored.Username)
+
+	recorder = adminUserRequest(http.MethodPost, "/api/user/",
+		fmt.Sprintf(`{"username":"freshUser1","password":"member-password-1","role":%d}`, common.RoleCommonUser),
+		"", identity, common.RoleAdminUser, nil, CreateUser)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	require.NoError(t, db.Model(&model.User{}).Where("username = ?", "freshUser1").Count(&count).Error)
+	assert.EqualValues(t, 1, count)
+}

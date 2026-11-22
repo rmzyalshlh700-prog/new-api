@@ -34,17 +34,17 @@ func TestMigrateSensitiveWords(t *testing.T) {
 			options:   map[string]string{"CheckSensitiveEnabled": "true", "CheckSensitiveOnPromptEnabled": "true", "StopOnSensitiveEnabled": "false", "SensitiveWords": " Bad \n\nworse\r\n", "StreamCacheQueueLength": "3", request_plugin_setting.InstancesOption: "[" + keep + "]"},
 			instances: []string{keep},
 			enabled:   true,
-			name:      "敏感词",
+			name:      "Sensitive words",
 		},
 		"one switch on, no saved instances, English": {
 			options:  map[string]string{"CheckSensitiveEnabled": "true", "SensitiveWords": "Bad\nworse"},
 			language: "en",
 			name:     "Sensitive words",
 		},
-		"Chinese by region": {
+		"Unsupported language": {
 			options:  map[string]string{"CheckSensitiveOnPromptEnabled": "true", "SensitiveWords": "Bad\nworse"},
-			language: "zh-TW",
-			name:     "敏感词",
+			language: "xx-YY",
+			name:     "Sensitive words",
 		},
 	}
 	for name, tc := range tests {

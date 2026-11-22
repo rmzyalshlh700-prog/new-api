@@ -579,12 +579,12 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		ChannelType:     channelModel.Type,
 		ChannelId:       channelModel.Id,
 		ChannelBaseUrl:  baseURL,
-		ApiKey:          channelModel.Key,
+		ApiKey:          channelModel.Key.String(),
 		ChannelSetting:  channelModel.GetSetting(),
 		HeadersOverride: channelModel.GetHeaderOverride(),
 	}})
 
-	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, task, proxy)
+	resp, err := adaptor.FetchTask(baseURL, channelModel.Key.String(), task, proxy)
 	if err != nil || resp == nil {
 		return nil
 	}

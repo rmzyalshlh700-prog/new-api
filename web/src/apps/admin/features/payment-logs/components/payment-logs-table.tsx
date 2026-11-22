@@ -32,6 +32,7 @@ import { Button } from '@/shared/components/ui/button'
 import { createServerError } from '@/shared/lib/server-error-message'
 
 import { getPaymentLogs } from '../api'
+import { PaymentLogsMobileCard } from './payment-logs-mobile-card'
 import { buildPaymentLogQuery } from '../lib/query'
 import { usePaymentLogColumns } from './payment-logs-columns'
 import { PaymentLogsFilters } from './payment-logs-filters'
@@ -192,6 +193,7 @@ export function PaymentLogsTable() {
 
   return (
     <DataTablePage
+      surface='card'
       table={table}
       columns={columns}
       isLoading={isLoading}
@@ -214,6 +216,19 @@ export function PaymentLogsTable() {
       }
       skeletonKeyPrefix='payment-logs-skeleton'
       applyHeaderSize
+      // Below `sm` the table is replaced by a feature-owned card: the shared
+      // card grid spreads a row across two columns, which suits wide records
+      // but splits every label from its value on a payment order.
+      mobile={
+        <PaymentLogsMobileCard
+          entries={entries}
+          isLoading={isLoading}
+          emptyTitle={t('No payment records found')}
+          emptyDescription={t(
+            'No payment records match the current filters.'
+          )}
+        />
+      }
       toolbar={
         <PaymentLogsFilters
           keyword={keyword}

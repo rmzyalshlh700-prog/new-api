@@ -33,10 +33,11 @@ export function SystemInfo() {
         <span className='inline-flex min-w-0 items-center gap-2'>
           <span className='truncate'>{t('System Info')}</span>
           <Badge variant='outline' className='shrink-0'>
-            Root
+            {t('Root')}
           </Badge>
         </span>
       </SectionPageLayout.Title>
+      <SectionPageLayout.Hint>{t('Runtime, version and node status.')}</SectionPageLayout.Hint>
       <SectionPageLayout.Content>
         <div className='space-y-4'>
           <SystemInstancesPanel />

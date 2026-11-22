@@ -25,6 +25,7 @@ import { ContactLinksSection } from './contact-links-section'
 import { DashboardSection } from './dashboard-section'
 import { DrawingSettingsSection } from './drawing-settings-section'
 import { FAQSection } from './faq-section'
+import { PublicPagesSection } from './public-pages-section'
 import { UptimeKumaSection } from './uptime-kuma-section'
 
 /**
@@ -55,6 +56,19 @@ const CONTENT_SECTIONS = [
     ),
   },
   {
+    id: 'public-pages',
+    titleKey: 'Public Pages & Blog',
+    build: (settings: ContentSettings) => (
+      <PublicPagesSection
+        docsEnabled={settings['public_pages.docs_enabled']}
+        integrationsEnabled={settings['public_pages.integrations_enabled']}
+        aboutEnabled={settings['public_pages.about_enabled']}
+        blogEnabled={settings['public_pages.blog_enabled']}
+        posts={settings['public_pages.blog_posts']}
+      />
+    ),
+  },
+  {
     id: 'announcements',
     titleKey: 'Announcements',
     build: (settings: ContentSettings) => (
@@ -67,7 +81,12 @@ const CONTENT_SECTIONS = [
   {
     id: 'contact-links',
     titleKey: 'Contact & Social Links',
-    build: () => <ContactLinksSection />,
+    build: (settings: ContentSettings) => (
+      <ContactLinksSection
+        position={settings['console_setting.social_links_position']}
+        iconSize={settings['console_setting.social_icon_size']}
+      />
+    ),
   },
   {
     id: 'api-info',

@@ -77,9 +77,10 @@ export function PaymentOrdersWidget(props: PaymentOrdersWidgetProps) {
       title={t('Payment Orders')}
       description={t('Payment orders by status')}
       icon={<CreditCard className='size-4' aria-hidden='true' />}
+      headerClassName='p-3 sm:p-5'
     >
       <div
-        className='grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3'
+        className='grid grid-cols-3 gap-2 sm:gap-3'
         role='list'
         aria-label={t('Payment Orders')}
       >
@@ -91,18 +92,18 @@ export function PaymentOrdersWidget(props: PaymentOrdersWidgetProps) {
               key={config.key}
               role='listitem'
               aria-label={t(config.labelKey)}
-              className='flex items-center gap-3 rounded-xl border bg-white/50 p-3 shadow-sm dark:bg-white/5'
+              className='border-border/60 bg-muted/30 flex min-w-0 flex-col gap-1 rounded-lg border p-2.5 sm:flex-row sm:items-center sm:gap-3 sm:rounded-xl sm:bg-transparent sm:p-3'
             >
               <span
                 className={cn(
-                  'flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted',
+                  'bg-background flex size-7 shrink-0 items-center justify-center rounded-md sm:size-9 sm:rounded-lg sm:bg-muted',
                   config.iconClass
                 )}
               >
-                <Icon className='size-4.5' aria-hidden='true' />
+                <Icon className='size-3.5 sm:size-4.5' aria-hidden='true' />
               </span>
               <span className='min-w-0'>
-                <span className='text-muted-foreground block truncate text-xs'>
+                <span className='text-muted-foreground block truncate text-[10px] sm:text-xs'>
                   {t(config.labelKey)}
                 </span>
                 {props.loading ? (
@@ -110,7 +111,7 @@ export function PaymentOrdersWidget(props: PaymentOrdersWidgetProps) {
                 ) : (
                   <span
                     className={cn(
-                      'block text-lg font-semibold tabular-nums',
+                      'block font-mono text-base font-semibold tabular-nums sm:text-lg',
                       config.countTextClass
                     )}
                   >
@@ -120,8 +121,11 @@ export function PaymentOrdersWidget(props: PaymentOrdersWidgetProps) {
                 {props.loading ? (
                   <Skeleton className='mt-1 h-3.5 w-16' />
                 ) : (
-                  <span className='text-muted-foreground block truncate text-xs tabular-nums'>
-                    {formatCurrencyFromUSD(group?.amount ?? 0)}
+                  <span className='text-muted-foreground block truncate font-mono text-[10px] tabular-nums sm:text-xs'>
+                    {formatCurrencyFromUSD(group?.amount ?? 0, {
+                      digitsLarge: 2,
+                      digitsSmall: 4,
+                    })}
                   </span>
                 )}
               </span>

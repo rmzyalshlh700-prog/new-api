@@ -16,15 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+/**
+ * `shortLabel` is what the header shows beside the globe, so it stays native and
+ * compact: a reader recognises their own language without opening the menu.
+ */
 export const INTERFACE_LANGUAGE_OPTIONS = [
-  { code: 'zhCN', label: '简体中文' },
-  { code: 'en', label: 'English' },
-  { code: 'fr', label: 'Français' },
-  { code: 'ru', label: 'Русский' },
-  { code: 'ja', label: '日本語' },
-  { code: 'vi', label: 'Tiếng Việt' },
-  { code: 'zhTW', label: '繁體中文' },
-  { code: 'ar', label: 'العربية' },
+  { code: 'en', label: 'English', shortLabel: 'EN' },
+  { code: 'ru', label: 'Русский', shortLabel: 'RU' },
+  { code: 'ar', label: 'العربية', shortLabel: 'عربي' },
 ] as const
 
 export type InterfaceLanguageCode =
@@ -42,27 +41,29 @@ const RTL_LANGUAGE_CODES: ReadonlySet<string> = new Set<InterfaceLanguageCode>([
 ])
 
 export function normalizeInterfaceLanguage(value?: string | null): string {
-  if (!value) return 'en'
+  return matchInterfaceLanguage(value) ?? 'en'
+}
 
-  let normalized = value.trim().replaceAll('_', '-').toLowerCase()
-  if (
-    value === 'zh-TW' ||
-    value === 'zh-HK' ||
-    value === 'zh-MO' ||
-    value === 'zhTW'
-  ) {
-    normalized = 'zhTW'
-  }
-  if (value === 'zh-CN' || value === 'zh-Hans' || value === 'zhCN') {
-    normalized = 'zhCN'
-  }
+/**
+ * Match a stored or browser-reported locale against a shipped interface
+ * language, or `null` when this project does not ship it.
+ *
+ * Regional variants such as `ar-EG` or `en-US` resolve to their base language.
+ * Callers that must tell "English" apart from "not supported" (the startup
+ * language resolver) need this; `normalizeInterfaceLanguage` collapses both to
+ * `en`.
+ */
+export function matchInterfaceLanguage(
+  value?: string | null
+): InterfaceLanguageCode | null {
+  if (!value) return null
 
-  // Regional variants such as `ar-EG` or `fr-FR` resolve to their base language.
+  const normalized = value.trim().replaceAll('_', '-').toLowerCase()
   const [primary] = normalized.split('-')
   const match = INTERFACE_LANGUAGE_OPTIONS.find(
     (lang) => lang.code === normalized || lang.code === primary
   )
-  return match?.code ?? 'en'
+  return match?.code ?? null
 }
 
 /**
@@ -78,31 +79,6 @@ export function getInterfaceLanguageDirection(
 }
 
 /**
- * Map a browser-detected locale onto the interface language codes this project
- * uses with i18next (`zhCN` / `zhTW`).
- *
- * Browsers report standard BCP-47 tags (`zh-CN`, `zh-TW`, `zh-Hant`, `zh`, ...),
- * but `supportedLngs`/resources use the non-standard camelCase codes, so without
- * this mapping a Chinese browser would never match and fall back to English.
- * Non-Chinese codes are returned unchanged so i18next's own `supportedLngs`
- * matching still applies (e.g. `fr-FR` -> `fr`, `ja` -> `ja`).
- */
-export function convertDetectedLanguage(value: string): string {
-  const lower = value.trim().replaceAll('_', '-').toLowerCase()
-  if (!lower.startsWith('zh')) return value
-  if (
-    lower === 'zhtw' ||
-    lower === 'zh-tw' ||
-    lower === 'zh-hk' ||
-    lower === 'zh-mo' ||
-    lower.startsWith('zh-hant')
-  ) {
-    return 'zhTW'
-  }
-  return 'zhCN'
-}
-
-/**
  * Convert an interface language code (the values i18next uses, such as `zhCN` /
  * `zhTW`) into a valid BCP-47 locale tag that the `Intl.*` APIs accept.
  *
@@ -113,14 +89,6 @@ export function convertDetectedLanguage(value: string): string {
  */
 export function toIntlLocale(value?: string | null): string | undefined {
   if (!value) return undefined
-  switch (value) {
-    case 'zhCN':
-      return 'zh-CN'
-    case 'zhTW':
-      return 'zh-TW'
-    default:
-      break
-  }
   try {
     const [canonical] = Intl.getCanonicalLocales(value)
     if (!canonical) return undefined

@@ -30,7 +30,7 @@ func insertPreferredOwnerCandidate(
 	require.NoError(t, DB.Create(&Channel{
 		Id:     channelID,
 		Type:   channelType,
-		Key:    fmt.Sprintf("key-%d", channelID),
+		Key:    common.SecretString(fmt.Sprintf("key-%d", channelID)),
 		Status: channelStatus,
 		Name:   fmt.Sprintf("channel-%d", channelID),
 	}).Error)

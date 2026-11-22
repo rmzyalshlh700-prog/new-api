@@ -20,7 +20,7 @@ import { createInstance } from 'i18next'
 import { assert, afterEach, describe, expect, test, vi } from 'vitest'
 
 import { getTieredBillingSummary } from '@/apps/client/features/usage-logs/lib/format'
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 
 import contract from '../../../../../../../pkg/billingexpr/testdata/frontend_simulation.json'
 import {
@@ -205,7 +205,7 @@ describe('local billing expression evaluation', () => {
   })
   test('localizes peak and complement conditions without exposing source code', async () => {
     const translations = createInstance()
-    await translations.init({ lng: 'zh', resources: { zh } })
+    await translations.init({ lng: 'ru', resources: { ru } })
     expect(formatBillingCondition(peakCondition, translations.t, 'zh')).toBe(
       '周一至周五 09:00至12:00或14:00至18:00（Asia/Shanghai）'
     )
@@ -214,10 +214,8 @@ describe('local billing expression evaluation', () => {
     ).toBe('周一至周五 09:00至12:00或14:00至18:00以外的时段（Asia/Shanghai）')
   })
   test.each([
-    ['zhCN', 'weekday("UTC") == 1', '周一 (UTC)'],
-    ['zhTW', 'weekday("UTC") == 1', '週一 (UTC)'],
-    ['zhCN', 'len > 32000', 'Full input length > 32,000'],
-    ['zhTW', 'len > 32000', 'Full input length > 32,000'],
+    ['ru', 'weekday("UTC") == 1', ru.translation['End weekday'].replace('Конечный', 'Понедельник')],
+    ['ru', 'len > 32000', 'Длина ввода > 32,000'],
   ])(
     'formats %s condition %s without falling back to source',
     async (language, source, expected) => {

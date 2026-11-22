@@ -52,6 +52,7 @@ export function SubscriptionsTable() {
 
   return (
     <DataTablePage
+      surface='card'
       table={table}
       columns={columns}
       isLoading={isLoading}

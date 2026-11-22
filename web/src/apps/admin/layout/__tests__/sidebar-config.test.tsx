@@ -78,22 +78,26 @@ function sidebarFor(admin?: object, user?: object, canConfigure = true) {
   })
 }
 
-const allItems = (groups: ReturnType<typeof useAdminSidebarData>['navGroups']) =>
-  groups.flatMap((group) => group.items)
+const allItems = (
+  groups: ReturnType<typeof useAdminSidebarData>['navGroups']
+) => groups.flatMap((group) => group.items)
 
 describe('admin sidebar structure', () => {
   it('renders only the admin groups in a stable order', () => {
     const { result } = sidebarFor()
 
     expect(result.current.map((group) => group.id)).toEqual([
-      'admin-console',
-      'admin-api',
-      'admin-security',
-      'admin-system',
+      'dashboard',
+      'observability',
+      'access',
+      'providers',
+      'system',
     ])
     expect(
       allItems(result.current).every(
-        (item) => item.url?.startsWith('/admin') ?? true
+        (item) =>
+          (item.url?.startsWith('/admin') ?? true) ||
+          item.url === '/app/usage-logs/common'
       )
     ).toBe(true)
   })

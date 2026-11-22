@@ -294,7 +294,7 @@ func runScheduledPlugin(ctx context.Context, channel *model.Channel, plugin *jsp
 	} else {
 		hookCtx.APIKey = prepared
 		if plugin.HasProviderHook("exchangeKey") {
-			hookCtx.Token, err = PluginKeyToken(ctx, plugin, current.Id, prepared, hookCtx.Config, hookCtx.BaseURL, proxy)
+			hookCtx.Token, err = PluginKeyToken(ctx, plugin, current.Id, prepared, hookCtx.Config, hookCtx.BaseURL, proxy, current.GetSetting().AllowPrivateNetwork)
 			if err != nil {
 				return 0, 0, false, err
 			}
@@ -309,7 +309,7 @@ func runScheduledPlugin(ctx context.Context, channel *model.Channel, plugin *jsp
 			callCtx.DisabledReason, _ = current.GetOtherInfo()["status_reason"].(string)
 		}
 	}
-	result, err := plugin.CallScheduled(PluginCredentialHookContext(ctx, plugin, hookCtx.BaseURL, proxy), callCtx)
+	result, err := plugin.CallScheduled(PluginCredentialHookContext(ctx, plugin, hookCtx.BaseURL, proxy, current.GetSetting().AllowPrivateNetwork), callCtx)
 	if err != nil {
 		return 0, 0, false, err
 	}
@@ -349,7 +349,7 @@ func runScheduledPlugin(ctx context.Context, channel *model.Channel, plugin *jsp
 		}
 		if nextLine != prepared {
 			lines[keyIndex] = nextLine
-			current.Key = strings.Join(lines, "\n")
+			current.Key = common.SecretString(strings.Join(lines, "\n"))
 			current.Keys = nil
 		}
 		switch result.KeyStatus {

@@ -299,11 +299,14 @@ func TestRedisFailurePolicies(t *testing.T) {
 		c.Status(http.StatusNoContent)
 	})
 
+	// A Redis outage degrades to the bounded in-memory limiter instead of
+	// failing shut: login and registration must not become HTTP 500s while the
+	// cache is down. The first request through each limiter is therefore served.
 	ipResponse := performRateLimitRequest(router, "/ip", "192.0.2.60:12345")
-	assert.Equal(t, http.StatusInternalServerError, ipResponse.Code)
+	assert.Equal(t, http.StatusNoContent, ipResponse.Code)
 	assert.Empty(t, ipResponse.Body.String())
 	userResponse := performRateLimitRequest(router, "/user", "192.0.2.61:12345")
-	assert.Equal(t, http.StatusInternalServerError, userResponse.Code)
+	assert.Equal(t, http.StatusNoContent, userResponse.Code)
 	assert.Empty(t, userResponse.Body.String())
 	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/email", "192.0.2.62:12345").Code)
 }

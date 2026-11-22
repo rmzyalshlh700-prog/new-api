@@ -58,7 +58,13 @@ func (d *pinnedDialer) dial(ctx context.Context, network, address string) (net.C
 	if d.dialContext != nil {
 		return d.dialContext(ctx, network, address)
 	}
-	return d.dial(ctx, network, address)
+	// Fall back to the real dialer: the previous line called this function
+	// again, so a dialer built without dialContext recursed until the stack
+	// was exhausted.
+	if d.dialer == nil {
+		d.dialer = &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	}
+	return d.dialer.DialContext(ctx, network, address)
 }
 
 func (d *pinnedDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
@@ -72,10 +78,15 @@ func (d *pinnedDialer) DialContext(ctx context.Context, network, address string)
 		return d.dial(ctx, network, address)
 	}
 	if ip := net.ParseIP(host); ip != nil {
-		// A literal address involves no name resolution and therefore has no
-		// rebinding window. Internal literal addresses are governed by the
-		// configuration policy, which reserves them for the root account.
+		// A literal address involves no name resolution, so there is no
+		// rebinding window; the internal-address decision is therefore taken
+		// here and enforced exactly as it is for a resolved name. Warning and
+		// dialing anyway would make this last enforcement point depend on every
+		// call site having run the pre-flight check first.
 		if common.IsPrivateNetworkIP(ip) {
+			if !d.allowPrivateNetwork {
+				return nil, fmt.Errorf("blocked internal network address %s", ip.String())
+			}
 			warnPrivateNetworkTarget(ctx, address)
 		}
 		return d.dial(ctx, network, address)

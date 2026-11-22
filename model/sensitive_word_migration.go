@@ -89,10 +89,7 @@ func sensitiveWordLines(value string) string {
 }
 
 func sensitiveWordInstanceName() string {
-	if language := strings.ToLower(strings.TrimSpace(common.DefaultLanguage)); language != "" && !strings.HasPrefix(language, "zh") {
-		return "Sensitive words"
-	}
-	return "敏感词"
+	return "Sensitive words"
 }
 
 // addSensitiveWordInstance appends the instance to the saved instance list.

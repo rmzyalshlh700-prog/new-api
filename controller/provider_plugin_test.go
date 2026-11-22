@@ -73,7 +73,7 @@ func (s *revokeServer) tokens() []string {
 
 func setupProviderPluginControllerTest(t *testing.T, pluginKey string) {
 	t.Helper()
-	setupTaskPluginBindChannelTest(t)
+	setupChannelControllerTest(t)
 	require.NoError(t, model.DB.AutoMigrate(&model.AuthFlow{}))
 	service.InitHttpClient()
 	_, err := jsplugin.DefaultRegistry.Register(strings.ReplaceAll(loginPluginSource, "%KEY%", pluginKey), jsplugin.Options{})
@@ -120,7 +120,7 @@ func pluginCredentialLine(t *testing.T, pluginKey, token string) string {
 
 func insertPluginChannel(t *testing.T, pluginKey, baseURL, key string, multiKey bool) *model.Channel {
 	t.Helper()
-	channel := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: key, Status: common.ChannelStatusEnabled, Name: "login-channel", Models: "m", Group: "default", BaseURL: &baseURL}
+	channel := &model.Channel{Type: constant.ChannelTypeTaskPlugin, Key: common.SecretString(key), Status: common.ChannelStatusEnabled, Name: "login-channel", Models: "m", Group: "default", BaseURL: &baseURL}
 	channel.SetSetting(dto.ChannelSettings{TaskPluginKey: pluginKey})
 	if multiKey {
 		channel.ChannelInfo = model.ChannelInfo{IsMultiKey: true, MultiKeySize: len(strings.Split(key, "\n")), MultiKeyMode: constant.MultiKeyModePolling}
@@ -148,7 +148,7 @@ func TestAddChannelWithoutKeyForALoginPlugin(t *testing.T) {
 			require.Len(t, data.IDs, 1)
 			stored, err := model.GetChannelById(data.IDs[0], true)
 			require.NoError(t, err)
-			assert.Empty(t, stored.Key)
+			assert.Empty(t, stored.Key.String())
 			assert.Equal(t, common.ChannelStatusAutoDisabled, stored.Status, "it waits for a login")
 			assert.Equal(t, model.ChannelStatusReasonPluginLoginRequired, stored.GetOtherInfo()["status_reason"])
 			assert.Equal(t, mode == "multi_to_single", stored.ChannelInfo.IsMultiKey)
@@ -216,7 +216,7 @@ func TestSubmittedCredentialsAreRejected(t *testing.T) {
 	assert.True(t, response.Success, raw, "the stored credential may be sent back unchanged")
 	reloaded, err := model.GetChannelById(channel.Id, true)
 	require.NoError(t, err)
-	assert.Equal(t, stored, reloaded.Key)
+	assert.Equal(t, stored, reloaded.Key.String())
 	assert.Equal(t, "m,n", reloaded.Models)
 }
 
@@ -270,7 +270,7 @@ func TestCopyChannelDropsCredentials(t *testing.T) {
 	assert.Equal(t, common.ChannelStatusAutoDisabled, copied.Status, "the copy waits for its own login")
 
 	copied = copyOf(multi.Id)
-	assert.Equal(t, "sk-static", copied.Key)
+	assert.Equal(t, "sk-static", copied.Key.String())
 	assert.Equal(t, 1, copied.ChannelInfo.MultiKeySize)
 	assert.Equal(t, common.ChannelStatusEnabled, copied.Status)
 }
@@ -318,7 +318,7 @@ func TestRemovingCredentialsRevokesThem(t *testing.T) {
 		waitForRevokes("/revoke second")
 		stored, err := model.GetChannelById(channel.Id, true)
 		require.NoError(t, err)
-		assert.Equal(t, first, stored.Key)
+		assert.Equal(t, first, stored.Key.String())
 		assert.Equal(t, 1, stored.ChannelInfo.MultiKeySize)
 	})
 }
@@ -346,7 +346,7 @@ func TestPluginLoginAPI(t *testing.T) {
 
 	stored, err := model.GetChannelById(channel.Id, true)
 	require.NoError(t, err)
-	credential, ok := jsplugin.ParseCredential(stored.Key)
+	credential, ok := jsplugin.ParseCredential(stored.Key.String())
 	require.True(t, ok)
 	assert.JSONEq(t, `{"token":"tok-123"}`, string(credential.Data))
 
@@ -416,7 +416,7 @@ func TestPluginLoginAPI(t *testing.T) {
 }
 
 func TestFetchModelsOfAProviderChannel(t *testing.T) {
-	setupTaskPluginBindChannelTest(t)
+	setupChannelControllerTest(t)
 	service.InitHttpClient()
 	var converted atomic.Pointer[http.Request]
 	var vendorStatus atomic.Int32
@@ -609,7 +609,7 @@ func TestProviderChannelManagementDatabaseMatrix(t *testing.T) {
 			require.Len(t, keyless, 1)
 			stored, err := model.GetChannelById(keyless[0], true)
 			require.NoError(t, err)
-			assert.Empty(t, stored.Key)
+			assert.Empty(t, stored.Key.String())
 			assert.Equal(t, common.ChannelStatusAutoDisabled, stored.Status)
 
 			response, raw = callChannelAPI(t, AddChannel, http.MethodPost, "/api/channel", addBody("batch", `"sk-1\nsk-2\nsk-3"`))
@@ -619,7 +619,7 @@ func TestProviderChannelManagementDatabaseMatrix(t *testing.T) {
 			for index, id := range batch {
 				stored, err := model.GetChannelById(id, true)
 				require.NoError(t, err)
-				assert.Equal(t, fmt.Sprintf("sk-%d", index+1), stored.Key, "each returned id is the channel of its key")
+				assert.Equal(t, fmt.Sprintf("sk-%d", index+1), stored.Key.String(), "each returned id is the channel of its key")
 			}
 
 			conversion, err := model.PreviewModelPricingConversion("relay-model", model.PricingValues{})
@@ -659,7 +659,7 @@ func TestProviderChannelManagementDatabaseMatrix(t *testing.T) {
 			}{
 				{name: "an edit that sends the key back", write: func(t *testing.T, channel *model.Channel) {
 					// The key as the client read it, before the write.
-					response, raw := callChannelAPI(t, UpdateChannel, http.MethodPut, "/api/channel", fmt.Sprintf(`{"id":%d,"name":"renamed","key":%q}`, channel.Id, channel.Key))
+					response, raw := callChannelAPI(t, UpdateChannel, http.MethodPut, "/api/channel", fmt.Sprintf(`{"id":%d,"name":"renamed","key":%q}`, channel.Id, channel.Key.String()))
 					assert.True(t, response.Success, raw)
 				}, rest: []string{"sk-static"}, check: func(t *testing.T, stored *model.Channel) {
 					assert.Equal(t, "renamed", stored.Name)
@@ -779,9 +779,9 @@ func TestProviderChannelManagementDatabaseMatrix(t *testing.T) {
 
 						stored, err := model.GetChannelById(channel.Id, true)
 						require.NoError(t, err)
-						lines := strings.Split(stored.Key, "\n")
+						lines := strings.Split(stored.Key.String(), "\n")
 						credential, ok := jsplugin.ParseCredential(lines[0])
-						require.True(t, ok, stored.Key)
+						require.True(t, ok, stored.Key.String())
 						assert.JSONEq(t, `{"token":"rotated"}`, string(credential.Data), "the write kept the rotated credential")
 						assert.Equal(t, race.rest, lines[1:])
 						if race.check != nil {

@@ -43,6 +43,17 @@ export interface OverviewUserRow {
   token_used?: number
 }
 
+/**
+ * Response data of `GET /api/log/live_stat` (admin): exact totals for one
+ * window, read straight from the logs table.
+ */
+export interface AdminLiveStat {
+  quota: number
+  requests: number
+  tokens: number
+  users: number
+}
+
 /** Response data of `GET /api/log/stat` (admin). */
 export interface AdminLogStat {
   quota: number
@@ -122,6 +133,15 @@ export interface DashboardMetrics {
   total_liabilities_quota: number
   active_visitors_today: number
   failed_requests_today: number
+  /** Failed requests that reached a channel: the model provider refused them. */
+  provider_errors_today: number
+  /** Failed requests rejected before a channel was chosen: bad key, no quota,
+   * unknown model, malformed body. */
+  rejected_requests_today: number
+  /** API keys (tokens) users created since the server's local midnight. */
+  api_keys_created_today: number
+  /** Every API key that still exists, including the ones created today. */
+  api_keys_total: number
 }
 
 /** One reporting window of `GET /api/admin/profit_stats`, in quota units. */

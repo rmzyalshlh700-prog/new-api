@@ -17,18 +17,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
+  Activity,
+  Archive,
   BadgeDollarSign,
+  BellRing,
   Box,
   ClipboardList,
   DatabaseBackup,
   Gauge,
+  Layers,
   LifeBuoy,
   PlugZap,
   Radio,
   Receipt,
+  ScrollText,
   ServerCog,
+  Settings,
   Tags,
   Ticket,
+  TrendingUp,
   Users,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -45,8 +52,10 @@ import { ROLE } from '@/shared/lib/roles'
 /**
  * Navigation for the admin portal.
  *
- * Only administrative surfaces are listed here; end-user features live in the
- * client portal navigation.
+ * Five executive groups, matching the console's information architecture:
+ * dashboard, observability, accounts, providers/models, and security/system.
+ * Only administative surfaces are listed; end-user features live in the client
+ * portal navigation.
  */
 export function useAdminSidebarData(): SidebarData {
   const { t } = useTranslation()
@@ -59,24 +68,49 @@ export function useAdminSidebarData(): SidebarData {
   return {
     navGroups: [
       {
-        id: 'admin-console',
-        title: t('Control Panel'),
+        id: 'dashboard',
+        title: t('Dashboard'),
         items: [
           {
             title: t('Overview'),
             url: '/admin/overview',
             icon: Gauge,
           },
+        ],
+      },
+      {
+        id: 'observability',
+        title: t('Observability'),
+        items: [
+          {
+            title: t('Monitor Center'),
+            url: '/admin/monitor',
+            icon: Activity,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Request Logs'),
+            url: '/app/usage-logs/common',
+            icon: ScrollText,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Profits & Margin'),
+            url: '/admin/system-settings/billing/model-pricing',
+            icon: TrendingUp,
+            configUrls: ['/admin/system-settings'],
+            requiredRole: ROLE.SUPER_ADMIN,
+          },
+        ],
+      },
+      {
+        id: 'access',
+        title: t('Access & Accounts'),
+        items: [
           {
             title: t('Users'),
             url: '/admin/users',
             icon: Users,
-            requiredRole: ROLE.ADMIN,
-          },
-          {
-            title: t('Redemption Codes'),
-            url: '/admin/redemption-codes',
-            icon: Ticket,
             requiredRole: ROLE.ADMIN,
           },
           {
@@ -86,9 +120,21 @@ export function useAdminSidebarData(): SidebarData {
             requiredRole: ROLE.ADMIN,
           },
           {
+            title: t('Redemption Codes'),
+            url: '/admin/redemption-codes',
+            icon: Ticket,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
             title: t('Payment Logs'),
             url: '/admin/payments',
             icon: Receipt,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Notifications'),
+            url: '/admin/notifications',
+            icon: BellRing,
             requiredRole: ROLE.ADMIN,
           },
           {
@@ -101,8 +147,8 @@ export function useAdminSidebarData(): SidebarData {
         ],
       },
       {
-        id: 'admin-api',
-        title: t('API & Models'),
+        id: 'providers',
+        title: t('Providers & Models'),
         items: [
           {
             title: t('Channels'),
@@ -117,9 +163,16 @@ export function useAdminSidebarData(): SidebarData {
             requiredRole: ROLE.ADMIN,
           },
           {
+            title: t('Upstream Pricing'),
+            url: '/admin/system-settings/models/global',
+            icon: Tags,
+            configUrls: ['/admin/system-settings'],
+            requiredRole: ROLE.SUPER_ADMIN,
+          },
+          {
             title: t('Group Pricing'),
             url: '/admin/system-settings/billing/group-pricing',
-            icon: Tags,
+            icon: Layers,
             configUrls: ['/admin/system-settings'],
             requiredRole: ROLE.SUPER_ADMIN,
           },
@@ -133,29 +186,23 @@ export function useAdminSidebarData(): SidebarData {
         ],
       },
       {
-        id: 'admin-security',
-        title: t('Security & Limits'),
+        id: 'system',
+        title: t('Security & System'),
         items: [
-          {
-            title: t('Archive'),
-            url: '/admin/archive',
-            icon: Box,
-            requiredRole: ROLE.ADMIN,
-          },
+          settings.auth,
+          settings.security,
           {
             title: t('Audit Logs'),
             url: '/admin/audit-logs',
             icon: ClipboardList,
             requiredRole: ROLE.ADMIN,
           },
-          settings.auth,
-          settings.security,
-        ],
-      },
-      {
-        id: 'admin-system',
-        title: t('System Configuration'),
-        items: [
+          {
+            title: t('Archive'),
+            url: '/admin/archive',
+            icon: Archive,
+            requiredRole: ROLE.ADMIN,
+          },
           {
             title: t('System Info'),
             url: '/admin/system-info',
@@ -166,6 +213,12 @@ export function useAdminSidebarData(): SidebarData {
             title: t('Backup'),
             url: '/admin/backup',
             icon: DatabaseBackup,
+            requiredRole: ROLE.SUPER_ADMIN,
+          },
+          {
+            title: t('System Settings'),
+            url: '/admin/system-settings',
+            icon: Settings,
             requiredRole: ROLE.SUPER_ADMIN,
           },
           settings.site,

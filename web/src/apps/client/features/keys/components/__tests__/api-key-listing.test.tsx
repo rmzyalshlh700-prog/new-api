@@ -43,7 +43,7 @@ import { I18nextProvider } from 'react-i18next'
 import { Toaster, toast } from 'sonner'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import zh from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 import {
   DEFAULT_CURRENCY_CONFIG,
@@ -452,8 +452,8 @@ it('keeps full mobile information without group or quota section headings', asyn
     ...matchMedia(query),
     matches: query.includes('max-width'),
   }))
-  i18n.addResourceBundle('zh', 'translation', zh.translation)
-  await i18n.changeLanguage('zh')
+  i18n.addResourceBundle('ru', 'translation', ru.translation)
+  await i18n.changeLanguage('ru')
   try {
     await renderKeysPage()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
@@ -462,17 +462,17 @@ it('keeps full mobile information without group or quota section headings', asyn
     expect(screen.getByRole('button', { name: /剩余 80;/ })).toBeInTheDocument()
     expect(screen.getByText('80')).toBeInTheDocument()
     expect(screen.getByText('120')).toBeInTheDocument()
-    expect(screen.getByText(zh.translation['Created'])).toBeInTheDocument()
-    expect(screen.getByText(zh.translation['Last Used'])).toBeInTheDocument()
-    expect(screen.getByText(zh.translation['Expires'])).toBeInTheDocument()
+    expect(screen.getByText(ru.translation['Created'])).toBeInTheDocument()
+    expect(screen.getByText(ru.translation['Last Used'])).toBeInTheDocument()
+    expect(screen.getByText(ru.translation['Expires'])).toBeInTheDocument()
     expect(
-      screen.queryByText(zh.translation['Group'], { exact: true })
+      screen.queryByText(ru.translation['Group'], { exact: true })
     ).not.toBeInTheDocument()
     expect(screen.getByText('default')).toBeInTheDocument()
     expect(screen.getByText('1x')).toBeInTheDocument()
-    expect(screen.getByText(zh.translation['Models'])).toBeInTheDocument()
+    expect(screen.getByText(ru.translation['Models'])).toBeInTheDocument()
     expect(
-      screen.getByText(zh.translation['IP Restriction'])
+      screen.getByText(ru.translation['IP Restriction'])
     ).toBeInTheDocument()
   } finally {
     await i18n.changeLanguage('en')

@@ -53,7 +53,7 @@ func TestVLLMStatusPartialFailureAndCredentials(t *testing.T) {
 	assert.Empty(t, status.Metrics)
 	body, err := common.Marshal(status)
 	require.NoError(t, err)
-	assert.NotContains(t, string(body), channel.Key)
+	assert.NotContains(t, string(body), channel.Key.String())
 }
 
 func TestVLLMStatusRejectsInvalidTargetsAndRedirects(t *testing.T) {
@@ -144,7 +144,7 @@ func TestVLLMStatusLive(t *testing.T) {
 	}
 	service.InitHttpClient()
 	status, err := fetchInferenceStatus(context.Background(), &model.Channel{
-		Type: constant.ChannelTypeVLLM, BaseURL: &base, Key: os.Getenv("NEW_API_VLLM_TEST_KEY"),
+		Type: constant.ChannelTypeVLLM, BaseURL: &base, Key: common.SecretString(os.Getenv("NEW_API_VLLM_TEST_KEY")),
 	})
 	require.NoError(t, err)
 	for path, endpoint := range status.Endpoints {

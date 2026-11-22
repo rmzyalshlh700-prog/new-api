@@ -38,7 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu'
-import useDialogState from '@/shared/hooks/use-dialog'
+import { useDialogState } from '@/shared/hooks/use-dialog'
 import { useIsSidebarModuleVisible } from '@/shared/hooks/use-sidebar-config'
 import { useUserDisplay } from '@/shared/hooks/use-user-display'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/shared/lib/avatar'

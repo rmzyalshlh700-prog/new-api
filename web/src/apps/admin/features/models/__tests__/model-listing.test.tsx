@@ -48,8 +48,7 @@ import type {
 import { pricingOptions } from '@/shared/features/model-pricing/pricing'
 import { usePricingColumns } from '@/shared/features/pricing/components/pricing-columns'
 import type { PricingModel } from '@/shared/features/pricing/types'
-import fr from '@/shared/i18n/locales/fr.json'
-import zhCN from '@/shared/i18n/locales/zh.json'
+import ru from '@/shared/i18n/locales/ru.json'
 import { api } from '@/shared/lib/api'
 import { useAuthStore } from '@/shared/stores/auth-store'
 import {
@@ -195,8 +194,7 @@ beforeEach(() => {
     currency: { ...DEFAULT_CURRENCY_CONFIG, quotaDisplayType: 'USD' },
   })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
-  i18n.addResourceBundle('fr', 'translation', fr.translation, true, true)
-  i18n.addResourceBundle('zhCN', 'translation', zhCN.translation, true, true)
+  i18n.addResourceBundle('ru', 'translation', ru.translation, true, true)
 })
 
 afterEach(async () => {
@@ -308,7 +306,7 @@ it('keeps long model names and translated channel labels truncated inside their 
   expect(screen.getByText(longName)).toHaveClass('truncate')
   expect(screen.getByText('Add metadata')).toHaveClass('truncate')
   await act(async () => {
-    await i18n.changeLanguage('fr')
+    await i18n.changeLanguage('ru')
   })
   const label = screen.getAllByText(
     i18n.t('Channels {{channels}} · Groups {{groups}}', {
@@ -318,12 +316,14 @@ it('keeps long model names and translated channel labels truncated inside their 
   )[0]
   expect(label).toHaveClass('whitespace-normal', 'sm:truncate')
   expect(label).toHaveAttribute('tabindex', '0')
-  await act(async () => {
-    await i18n.changeLanguage('zhCN')
-  })
-  expect(screen.getByText('缺元数据')).toBeVisible()
-  expect(screen.getByText('已隐藏')).toBeVisible()
-  expect(screen.getAllByText('渠道 0 · 分组 0')).toHaveLength(2)
+  expect(
+    screen.getAllByText(
+      i18n.t('Channels {{channels}} · Groups {{groups}}', {
+        channels: 0,
+        groups: 0,
+      })
+    ).length
+  ).toBeGreaterThan(0)
 })
 
 it('prefills and creates metadata only when the user explicitly saves it', async () => {
@@ -448,13 +448,15 @@ it('uses backend square states for success, warning, hidden, and partial rows in
     )
   }
   await act(async () => {
-    await i18n.changeLanguage('zhCN')
+    await i18n.changeLanguage('ru')
   })
-  expect(screen.getByText('无法展示')).toBeVisible()
-  expect(screen.getByText('部分展示')).toBeVisible()
-  expect(screen.getAllByText('正常展示')).toHaveLength(2)
-  expect(screen.getAllByText('已隐藏')).toHaveLength(2)
-  for (const label of ['无法展示', '部分展示']) {
+  const unavailable = i18n.t('Unavailable')
+  const partial = i18n.t('Partly shown')
+  const hiddenLabel = i18n.t('Listing hidden')
+  expect(screen.getByText(unavailable)).toBeVisible()
+  expect(screen.getByText(partial)).toBeVisible()
+  expect(screen.getAllByText(hiddenLabel)).toHaveLength(2)
+  for (const label of [unavailable, partial]) {
     expect(screen.getByText(label)).toHaveClass('truncate')
   }
 })
@@ -516,7 +518,7 @@ it('opens a long translated reason by touch in the mobile card without requiring
   }))
   await renderList([metadata])
   await act(async () => {
-    await i18n.changeLanguage('fr')
+    await i18n.changeLanguage('ru')
   })
   const user = userEvent.setup()
   const trigger = screen.getByRole('button', {

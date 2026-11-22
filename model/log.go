@@ -927,3 +927,31 @@ func DeleteOldLogBatch(ctx context.Context, targetTimestamp int64, limit int) (i
 	}
 	return result.RowsAffected, nil
 }
+
+// DeleteLogsInWindow removes the usage logs recorded inside a time window,
+// optionally narrowed to one model or one username, and reports how many rows
+// it removed.
+//
+// The window is mandatory: clearing the record of what the gateway billed must
+// say exactly which period it clears. Only the usage log table is touched —
+// audit logs live in their own table and are never removed by this call.
+func DeleteLogsInWindow(startTimestamp int64, endTimestamp int64, modelName string, username string) (int64, error) {
+	if startTimestamp <= 0 || endTimestamp <= startTimestamp {
+		return 0, common.NewMessage("A valid time window is required")
+	}
+	if common.LogDatabaseType() == common.DatabaseTypeClickHouse {
+		return 0, common.NewMessage("this deployment keeps usage logs in ClickHouse; clear them from the log page")
+	}
+	tx := DB.Where("created_at >= ? AND created_at < ?", startTimestamp, endTimestamp)
+	if modelName != "" {
+		tx = tx.Where("model_name = ?", modelName)
+	}
+	if username != "" {
+		tx = tx.Where("username = ?", username)
+	}
+	result := tx.Delete(&Log{})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return result.RowsAffected, nil
+}
