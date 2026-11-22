@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
+  BookOpen,
   FileText,
   FlaskConical,
   Key,
@@ -24,13 +25,20 @@ import {
   LifeBuoy,
   ListTodo,
   MessageSquare,
+  Newspaper,
+  Plug,
   ShieldCheck,
   User,
   Wallet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import type { SidebarData } from '@/shared/components/layout/types'
+import type {
+  NavGroup,
+  NavItem,
+  SidebarData,
+} from '@/shared/components/layout/types'
+import { usePublicPageVisibility } from '@/shared/features/public-content/visibility'
 
 /**
  * Navigation for the client portal, ordered as:
@@ -42,6 +50,38 @@ import type { SidebarData } from '@/shared/components/layout/types'
  */
 export function useClientSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const visibility = usePublicPageVisibility()
+
+  // Public pages an administrator switched off disappear from this group too.
+  const exploreItems: NavItem[] = []
+  if (visibility.docs) {
+    exploreItems.push({
+      title: t('Documentation'),
+      url: '/docs',
+      icon: BookOpen,
+    })
+  }
+  if (visibility.integrations) {
+    exploreItems.push({
+      title: t('Integrations'),
+      url: '/integrations',
+      icon: Plug,
+    })
+  }
+  if (visibility.blog) {
+    exploreItems.push({ title: t('Blog'), url: '/blog', icon: Newspaper })
+  }
+
+  const exploreGroup: NavGroup[] =
+    exploreItems.length > 0
+      ? [
+          {
+            id: 'explore',
+            title: t('Explore'),
+            items: exploreItems,
+          },
+        ]
+      : []
 
   return {
     navGroups: [
@@ -118,6 +158,7 @@ export function useClientSidebarData(): SidebarData {
           },
         ],
       },
+      ...exploreGroup,
     ],
   }
 }

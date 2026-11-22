@@ -154,6 +154,9 @@ func GetStatus(c *gin.Context) {
 		"log_max_range_days":          operation_setting.GetLogSetting().MaxRangeDays,
 		"quota_remind_enabled":        common.QuotaRemindEnabled,
 		"quota_remind_threshold":      common.QuotaRemindThreshold,
+
+		// Public content suite visibility, managed in Content settings.
+		"public_pages": publicPagesStatus(),
 	}
 
 	// 根据启用状态注入可选内容

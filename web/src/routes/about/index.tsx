@@ -16,10 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { About } from '@/shared/features/about'
+import { getPublicPageVisibilityForGuard } from '@/shared/features/public-content/visibility'
 
 export const Route = createFileRoute('/about/')({
+  beforeLoad: async ({ context }) => {
+    const visibility = await getPublicPageVisibilityForGuard(
+      context.queryClient
+    )
+    if (!visibility.about) {
+      throw redirect({ to: '/', replace: true })
+    }
+  },
   component: About,
 })

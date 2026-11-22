@@ -423,6 +423,23 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorMsg(c, "invalid social icon size")
 			return
 		}
+	case "public_pages.blog_posts":
+		raw, ok := option.Value.(string)
+		if !ok {
+			common.ApiErrorMsg(c, "blog posts must be a JSON array")
+			return
+		}
+		posts := []PublicBlogPost{}
+		if err = common.UnmarshalJsonStr(raw, &posts); err != nil {
+			common.ApiErrorMsg(c, "blog posts must be a JSON array")
+			return
+		}
+		for _, post := range posts {
+			if strings.TrimSpace(post.ID) == "" || strings.TrimSpace(post.Slug) == "" {
+				common.ApiErrorMsg(c, "every blog post needs an id and a slug")
+				return
+			}
+		}
 	}
 	if model.IsPasskeyDomainOption(option.Key) {
 		change, updateErr := model.UpdatePasskeyDomainOptions(map[string]string{option.Key: option.Value.(string)}, false, "")

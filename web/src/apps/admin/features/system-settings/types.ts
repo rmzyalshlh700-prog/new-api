@@ -207,6 +207,11 @@ export type AuthSettings = {
 }
 
 export type ContentSettings = {
+  'public_pages.docs_enabled': boolean
+  'public_pages.integrations_enabled': boolean
+  'public_pages.about_enabled': boolean
+  'public_pages.blog_enabled': boolean
+  'public_pages.blog_posts': string
   'console_setting.api_info': string
   'console_setting.announcements': string
   'console_setting.faq': string

@@ -70,6 +70,7 @@ var accessTokenExemptRoutes = []string{
 	// Anonymous operational and callback routes: no dashboard authentication,
 	// so a personal access token has no rule to satisfy.
 	"GET /api/status/maintenance",
+	"GET /api/blog",
 	"GET /api/public/contact_links",
 	"POST /api/webhooks/nowpayments",
 

@@ -25,6 +25,7 @@ import { ContactLinksSection } from './contact-links-section'
 import { DashboardSection } from './dashboard-section'
 import { DrawingSettingsSection } from './drawing-settings-section'
 import { FAQSection } from './faq-section'
+import { PublicPagesSection } from './public-pages-section'
 import { UptimeKumaSection } from './uptime-kuma-section'
 
 /**
@@ -51,6 +52,19 @@ const CONTENT_SECTIONS = [
             settings.DataExportDefaultTime
           ),
         }}
+      />
+    ),
+  },
+  {
+    id: 'public-pages',
+    titleKey: 'Public Pages & Blog',
+    build: (settings: ContentSettings) => (
+      <PublicPagesSection
+        docsEnabled={settings['public_pages.docs_enabled']}
+        integrationsEnabled={settings['public_pages.integrations_enabled']}
+        aboutEnabled={settings['public_pages.about_enabled']}
+        blogEnabled={settings['public_pages.blog_enabled']}
+        posts={settings['public_pages.blog_posts']}
       />
     ),
   },

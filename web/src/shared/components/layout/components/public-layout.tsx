@@ -20,12 +20,12 @@ import type { TopNavLink } from '../types'
 import { PublicFooter } from './public-footer'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
 
-/** Same destinations on every public surface: landing, pricing, about, legal. */
-const PUBLIC_NAV_LINKS: TopNavLink[] = [
-  { title: 'Pricing', href: '/pricing' },
-  { title: 'Models', href: '/rankings' },
-  { title: 'About', href: '/about' },
-]
+/**
+ * The public header is a brand bar with zero navigation links. Pages are
+ * discovered from the unified footer, the docs sidebar and the client
+ * console's Explore group, which all respect the admin visibility switches.
+ */
+const PUBLIC_NAV_LINKS: TopNavLink[] = []
 
 type PublicLayoutProps = {
   children: React.ReactNode
@@ -39,6 +39,7 @@ type PublicLayoutProps = {
   showNotifications?: boolean
   logo?: React.ReactNode
   siteName?: string
+  hideNavLinks?: boolean
 }
 
 export function PublicLayout(props: PublicLayoutProps) {
@@ -46,6 +47,7 @@ export function PublicLayout(props: PublicLayoutProps) {
     <div className='bg-background text-foreground relative flex min-h-svh flex-col overflow-x-clip'>
       <PublicHeader
         navContent={props.navContent}
+        hideNavLinks={props.hideNavLinks ?? true}
         navLinks={props.navLinks ?? PUBLIC_NAV_LINKS}
         showThemeSwitch={props.showThemeSwitch}
         showAuthButtons={props.showAuthButtons}

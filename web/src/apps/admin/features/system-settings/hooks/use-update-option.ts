@@ -55,6 +55,11 @@ const STATUS_RELATED_KEYS = new Set([
   'maintenance_setting.enabled',
   'maintenance_setting.html',
   'maintenance_setting.whitelist',
+  'public_pages.docs_enabled',
+  'public_pages.integrations_enabled',
+  'public_pages.about_enabled',
+  'public_pages.blog_enabled',
+  'public_pages.blog_posts',
 ])
 
 export function useUpdateOption() {
