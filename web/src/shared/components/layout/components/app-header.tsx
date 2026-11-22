@@ -16,16 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ConfigDrawer } from '@/shared/components/config-drawer'
-import { HeaderContactLinks } from '@/shared/components/contact/contact-links'
 import { LanguageSwitcher } from '@/shared/components/language-switcher'
 import { NotificationPopover } from '@/shared/components/notification-popover'
-import { ProfileDropdown } from '@/shared/components/profile-dropdown'
-import { Search } from '@/shared/components/search'
+import { ThemeSwitch } from '@/shared/components/theme-switch'
 import { SystemUpdateAction } from '@/shared/features/system-update/system-update-action'
 import { useNotifications } from '@/shared/hooks/use-notifications'
 import { useTopNavLinks } from '@/shared/hooks/use-top-nav-links'
-import type { Portal } from '@/shared/lib/portal-url'
 
 import { defaultTopNavLinks } from '../config/top-nav.config'
 import type { TopNavLink } from '../types'
@@ -46,8 +42,8 @@ import { TopNav } from './top-nav'
  * <AppHeader navLinks={customLinks} />
  *
  * @example
- * // Hide navigation bar and search box
- * <AppHeader showTopNav={false} showSearch={false} />
+ * // Hide the navigation bar
+ * <AppHeader showTopNav={false} />
  *
  * @example
  * // Fully customize left and right content
@@ -71,11 +67,6 @@ type AppHeaderProps = {
    */
   leftContent?: React.ReactNode
   /**
-   * Whether to show search box
-   * @default true
-   */
-  showSearch?: boolean
-  /**
    * Custom right content, overrides default right content if provided
    */
   rightContent?: React.ReactNode
@@ -84,33 +75,14 @@ type AppHeaderProps = {
    * @default true
    */
   showNotifications?: boolean
-  /**
-   * Whether to show config drawer
-   * @default true
-   */
-  showConfigDrawer?: boolean
-  /**
-   * Whether to show profile dropdown
-   * @default true
-   */
-  showProfileDropdown?: boolean
-  /**
-   * Portal that owns the surrounding chrome, forwarded to the profile menu so
-   * admin chrome offers no client-account destinations.
-   */
-  portal?: Portal
 }
 
 export function AppHeader({
   navLinks = defaultTopNavLinks,
   showTopNav = true,
   leftContent,
-  showSearch = true,
   rightContent,
   showNotifications = true,
-  showConfigDrawer = true,
-  showProfileDropdown = true,
-  portal = 'client',
 }: AppHeaderProps) {
   // Prioritize dynamically generated links from backend
   const dynamicLinks = useTopNavLinks()
@@ -121,9 +93,13 @@ export function AppHeader({
 
   return (
     <Header>
-      <div className='@container/system-brand flex min-w-0 flex-1 items-center gap-1'>
+      {/* Start edge: sidebar toggle (in Header) + logo + Astramux wordmark.
+          The group never shrinks, so the wordmark can never be clipped away. */}
+      <div className='@container/system-brand flex shrink-0 items-center gap-2'>
         <SystemBrand variant='inline' />
-        <SystemUpdateAction presentation='version' />
+        <div className='hidden sm:flex'>
+          <SystemUpdateAction presentation='version' />
+        </div>
       </div>
 
       {leftContent ? (
@@ -136,9 +112,6 @@ export function AppHeader({
             <div className='me-1 hidden lg:block'>
               <TopNav links={links} />
             </div>
-          )}
-          {showSearch && (
-            <Search className='w-8 flex-none [&>span]:hidden sm:[&>span]:inline' />
           )}
           {showNotifications && (
             <NotificationPopover
@@ -157,10 +130,8 @@ export function AppHeader({
               onMarkInboxRead={notifications.markInboxRead}
             />
           )}
-          <HeaderContactLinks />
+          <ThemeSwitch />
           <LanguageSwitcher />
-          {showConfigDrawer && <ConfigDrawer />}
-          {showProfileDropdown && <ProfileDropdown portalContext={portal} />}
         </div>
       )}
     </Header>

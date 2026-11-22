@@ -19,3 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 
 /** Public support channel shown on the About page and in the footer. */
 export const ASTRAMUX_SUPPORT_URL = 'https://t.me/Astramux_Support'
+
+/** Wordmark rendered in the client portal header. */
+export const ASTRAMUX_BRAND_NAME = 'Astramux'

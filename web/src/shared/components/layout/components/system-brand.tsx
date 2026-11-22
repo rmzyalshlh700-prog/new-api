@@ -26,6 +26,7 @@ import {
 } from '@/shared/components/ui/sidebar'
 import { useStatus } from '@/shared/hooks/use-status'
 import { useSystemConfig } from '@/shared/hooks/use-system-config'
+import { ASTRAMUX_BRAND_NAME } from '@/shared/lib/astramux'
 import { cn } from '@/shared/lib/utils'
 
 type SystemBrandProps = {
@@ -56,23 +57,26 @@ export function SystemBrand(props: SystemBrandProps) {
     status?.version || props.defaultVersion || t('Unknown version')
 
   if (variant === 'inline') {
+    // The wordmark is always visible, at every breakpoint: the brand sits at
+    // the start edge of the client header and must never be truncating to
+    // zero width or hidden on phones.
     return (
       <Link
         to='/'
         aria-label={t('Go to home')}
         className={cn(
-          'text-foreground inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-sm font-medium transition-colors outline-none select-none',
+          'text-foreground inline-flex shrink-0 items-center gap-2 rounded-md px-1 text-[15px] font-semibold tracking-tight whitespace-nowrap transition-colors outline-none select-none sm:text-base',
           'hover:bg-accent focus-visible:ring-ring/40 focus-visible:ring-2'
         )}
       >
-        <div className='flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md'>
-          <img
-            src={logo}
-            alt={t('Logo')}
-            className='size-full rounded-md object-cover'
-          />
-        </div>
-        <span className='max-w-[12rem] truncate'>{name}</span>
+        <img
+          src={logo}
+          alt={t('Logo')}
+          className='size-6 shrink-0 rounded-md object-contain sm:size-7'
+        />
+        <span className='shrink-0 whitespace-nowrap'>
+          {ASTRAMUX_BRAND_NAME}
+        </span>
       </Link>
     )
   }
