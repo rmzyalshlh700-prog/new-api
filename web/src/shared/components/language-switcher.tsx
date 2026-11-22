@@ -63,7 +63,7 @@ export function LanguageSwitcher() {
         render={
           <Button
             variant='ghost'
-            className='text-muted-foreground h-9 gap-1 px-2'
+            className='text-muted-foreground size-9 gap-1 px-0'
             aria-label={t('Change language')}
             title={t('Change language')}
           />
@@ -71,12 +71,11 @@ export function LanguageSwitcher() {
       >
         <Globe className='size-[1.2rem]' />
         {/*
-          The code is hidden on the narrowest headers, where the row is already
-          tight; the globe carries the meaning on its own there.
+          The trigger is a fixed size-9 square so the header's utility row
+          stays uniform at every width; the active code is announced to
+          screen readers instead of widening the button.
         */}
-        <span className='hidden text-sm font-medium sm:inline'>
-          {currentShortLabel}
-        </span>
+        <span className='sr-only'>{currentShortLabel}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>
         {INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
